@@ -17,49 +17,74 @@ const colors = {
     border: '#d3d3d3',
 };
 
-const CalendarScreen = ( { navigation }) => {
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+const CalendarScreen = ({ navigation }) => {
+    const today = new Date().toISOString().split('T')[0];
+    const [selectedDate, setSelectedDate] = useState(today); // Start with today selected
+    const [showAccountSheet, setShowAccountSheet] = useState(false);
+    const [accounts, setAccounts] = useState([
+        { id: 1, name: 'Main Account', active: true },
+        { id: 2, name: 'Main Account 2', active: false },
+    ]);
+
     const transactions = [
-        { id: 1, name: 'Ameer Hamza Office', type: 'Borrow Money', amount: 'PKRs 30.00', date: '2025-05-29' },
+        { id: 1, name: 'Ameer Hamza Office', type: 'Borrow Money', amount: 30.00, date: '2025-05-29', color: colors.success },
+        { id: 2, name: 'Shop Loan', type: 'Lend Money', amount: 40.00, date: '2025-05-29', color: colors.error },
     ];
 
-    // Highlight only the current date (May 30, 2025) and show amount below dates with transactions
-    const markedDates = {};
-    transactions.forEach((t) => {
-        markedDates[t.date] = {
-            customStyles: {
-                container: { backgroundColor: colors.white },
-                text: { color: colors.gray },
-            },
-        };
-    });
-
-    // Highlight today's date (May 30, 2025)
-    markedDates['2025-05-30'] = {
-        selected: true,
-        selectedColor: colors.primary,
-        customStyles: {
-            container: { backgroundColor: colors.primary },
-            text: { color: colors.white },
-        },
+    const handleSwitchAccount = (id) => {
+        setAccounts(accounts.map(acc => ({
+            ...acc,
+            active: acc.id === id,
+        })));
+        setShowAccountSheet(false);
     };
 
-    // If the selected date is not today, ensure it doesn't override the today's highlight
-    if (selectedDate !== '2025-05-30') {
+    const activeAccount = accounts.find(acc => acc.active) || accounts[0];
+
+    const getDayOfWeek = (dateStr) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { weekday: 'long' });
+    };
+
+    const markedDates = {};
+    if (selectedDate) {
         markedDates[selectedDate] = {
-            ...markedDates[selectedDate],
-            selected: true,
-            selectedColor: colors.lightGray,
+            customStyles: {
+                container: { borderColor: colors.primary, borderWidth: 2, borderRadius: 12, padding: 4 },
+                text: { color: colors.gray, fontWeight: 'bold' },
+            },
         };
     }
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Calendar</Text>
-                    <View style={styles.placeholder} />
+                    <TouchableOpacity
+                        style={styles.menuButton}
+                        onPress={() => navigation.openDrawer()}
+                    >
+                        <Icon name="menu" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.accountSelector}
+                        onPress={() => setShowAccountSheet(true)}
+                    >
+                        <Text style={styles.accountTitle}>
+                            {activeAccount.name}
+                        </Text>
+                        <Icon name="arrow-drop-down" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.notificationButton}>
+                        <Icon name="notifications" size={24} color={colors.primary} />
+                        <View style={styles.notificationBadge}>
+                            <Text style={styles.badgeText}>2</Text>
+                        </View>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Calendar */}
@@ -69,9 +94,6 @@ const CalendarScreen = ( { navigation }) => {
                         backgroundColor: colors.background,
                         calendarBackground: colors.background,
                         textSectionTitleColor: colors.gray,
-                        selectedDayBackgroundColor: colors.primary,
-                        selectedDayTextColor: colors.white,
-                        todayTextColor: colors.gray,
                         dayTextColor: colors.gray,
                         textDisabledColor: colors.lightGray,
                         arrowColor: colors.gray,
@@ -87,29 +109,50 @@ const CalendarScreen = ( { navigation }) => {
                             <Icon name="chevron-right" size={20} color={colors.gray} />
                         )
                     }
-                    dayComponent={({ date, state, marking }) => {
-                        const hasTransaction = transactions.some((t) => t.date === date.dateString);
+                    dayComponent={({ date, state }) => {
+                        const hasTransactions = transactions.some((t) => t.date === date.dateString);
+                        const isSelected = date.dateString === selectedDate;
+                        const dateTransactions = transactions.filter((t) => t.date === date.dateString);
+
+                        let containerStyle = styles.dayContainer;
+                        let textStyle = styles.dayText;
+
+                        if (isSelected) {
+                            containerStyle = [styles.dayContainer, styles.selectedDay];
+                            textStyle = [styles.dayText, styles.selectedDayText];
+                        }
+
+                        if (state === 'disabled') {
+                            textStyle = [textStyle, styles.disabledDayText];
+                        }
+
                         return (
                             <TouchableOpacity
                                 onPress={() => setSelectedDate(date.dateString)}
-                                style={[
-                                    styles.dayContainer,
-                                    marking?.selected && styles.selectedDay,
-                                    date.dateString === '2025-05-30' && styles.todayDay,
-                                ]}
+                                style={containerStyle}
                             >
-                                <Text
-                                    style={[
-                                        styles.dayText,
-                                        state === 'disabled' && styles.disabledDayText,
-                                        marking?.selected && styles.selectedDayText,
-                                        date.dateString === '2025-05-30' && styles.todayDayText,
-                                    ]}
-                                >
-                                    {date.day}
-                                </Text>
-                                {hasTransaction && (
-                                    <Text style={styles.amountText}>30.00</Text>
+                                {dateTransactions.length === 1 ? (
+                                    <View style={styles.singleTransactionRow}>
+                                        <Text style={textStyle}>{date.day}</Text>
+                                        {hasTransactions && (
+                                            <Text style={[styles.amountText, { color: dateTransactions[0].color }]}>
+                                                {dateTransactions[0].amount.toFixed(2)}
+                                            </Text>
+                                        )}
+                                    </View>
+                                ) : (
+                                    <View style={styles.multipleTransactionColumn}>
+                                        <Text style={textStyle}>{date.day}</Text>
+                                        {hasTransactions &&
+                                            dateTransactions.map((t, index) => (
+                                                <Text
+                                                    key={index}
+                                                    style={[styles.amountText, { color: t.color }]}
+                                                >
+                                                    {t.amount.toFixed(2)}
+                                                </Text>
+                                            ))}
+                                    </View>
                                 )}
                             </TouchableOpacity>
                         );
@@ -134,7 +177,9 @@ const CalendarScreen = ( { navigation }) => {
 
                 {/* Transactions */}
                 <View style={styles.transactions}>
-                    <Text style={styles.transactionDate}>{selectedDate} - Thursday</Text>
+                    <Text style={styles.transactionDate}>
+                        {selectedDate} - {getDayOfWeek(selectedDate)}
+                    </Text>
                     <Text style={styles.transactionTotal}>PKRs 30.00</Text>
                     {transactions
                         .filter((t) => t.date === selectedDate)
@@ -147,22 +192,68 @@ const CalendarScreen = ( { navigation }) => {
                                     <Text style={styles.transactionName}>{transaction.name}</Text>
                                     <Text style={styles.transactionType}>{transaction.type}</Text>
                                 </View>
-                                <Text style={styles.transactionAmount}>{transaction.amount}</Text>
+                                <Text style={[styles.transactionAmount, { color: transaction.color }]}>
+                                    PKRs {transaction.amount.toFixed(2)}
+                                </Text>
                             </View>
                         ))}
                 </View>
             </ScrollView>
 
             {/* Floating Action Button */}
-            <TouchableOpacity style={styles.fab} onPress={()=>navigation.navigate(screens.NewRecord)}>
+            <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate(screens.NewRecord)}>
                 <Icon name="add" size={30} color={colors.white} />
             </TouchableOpacity>
+
+            {/* Bottom Sheet for Account Selection */}
+            <Modal
+                animationType="slide"
+                transparent
+                visible={showAccountSheet}
+                onRequestClose={() => setShowAccountSheet(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    onPress={() => setShowAccountSheet(false)}
+                    activeOpacity={1}
+                >
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Select Account</Text>
+                        {accounts.map(acc => (
+                            <TouchableOpacity
+                                key={acc.id}
+                                style={[
+                                    styles.modalOption,
+                                    acc.active && { backgroundColor: colors.lightGray }
+                                ]}
+                                disabled={acc.active}
+                                onPress={() => handleSwitchAccount(acc.id)}
+                            >
+                                <Icon
+                                    name={acc.active ? "radio-button-checked" : "radio-button-unchecked"}
+                                    size={22}
+                                    color={acc.active ? colors.primary : colors.gray}
+                                />
+                                <Text style={[
+                                    styles.modalOptionText,
+                                    acc.active && { color: colors.primary, fontWeight: 'bold' }
+                                ]}>
+                                    {acc.name} {acc.active ? "(Active)" : ""}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    scrollContent: {
+        paddingBottom: 100, // Extra padding for scroll space
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -171,26 +262,88 @@ const styles = StyleSheet.create({
         backgroundColor: colors.white,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
-        justifyContent: 'center',
+        justifyContent: 'space-between',
     },
-    headerTitle: {
-        fontSize: 18,
+    menuButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.lightGray,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    accountSelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.lightGray,
+        borderRadius: 16,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+    },
+    accountTitle: {
+        fontSize: 16,
         fontWeight: '700',
         color: colors.primary,
-        marginLeft: 16,
+        marginRight: 4,
     },
-    placeholder: {
+    notificationButton: {
         width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.lightGray,
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
     },
-    calendar: { marginBottom: 16 },
-    dayContainer: { alignItems: 'center', padding: 5 },
-    selectedDay: { backgroundColor: colors.lightGray, borderRadius: 12 },
-    todayDay: { backgroundColor: colors.primary, borderRadius: 12 },
+    notificationBadge: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: colors.error,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    badgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: colors.white,
+    },
+    calendar: {
+        marginBottom: 16,
+        maxHeight: 360, // Limit calendar height for more scroll space
+    },
+    dayContainer: {
+        alignItems: 'center',
+        padding: 4,
+        borderRadius: 12,
+        backgroundColor: 'transparent', // No background for unselected dates
+        width: 32,
+        height: 32,
+        justifyContent: 'center',
+    },
+    selectedDay: {
+        borderColor: colors.primary,
+        borderWidth: 2,
+        backgroundColor: 'transparent',
+    },
     dayText: { color: colors.gray, fontSize: 12 },
     disabledDayText: { color: colors.lightGray },
-    selectedDayText: { color: colors.gray },
-    todayDayText: { color: colors.white },
+    selectedDayText: { color: colors.gray, fontWeight: 'bold' },
     amountText: { color: colors.primary, fontSize: 10, fontWeight: 'bold' },
+    singleTransactionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+    },
+    multipleTransactionColumn: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     statsRow: {
         flexDirection: 'row',
         justifyContent: 'space-around',
@@ -210,7 +363,11 @@ const styles = StyleSheet.create({
     },
     statTitle: { color: colors.gray, fontSize: 12, marginBottom: 4 },
     statValue: { color: colors.primary, fontSize: 14, fontWeight: 'bold' },
-    transactions: { padding: 16, backgroundColor: colors.background },
+    transactions: {
+        padding: 16,
+        paddingBottom: 80, // Extra padding to avoid FAB overlap
+        backgroundColor: colors.background,
+    },
     transactionDate: { fontSize: 16, color: colors.gray, marginBottom: 4 },
     transactionTotal: { fontSize: 14, color: colors.success, fontWeight: 'bold', marginBottom: 8 },
     transactionItem: {
@@ -251,10 +408,26 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 3 },
     },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16 },
+    modalContent: {
+        backgroundColor: colors.white,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        padding: 16,
+    },
     modalTitle: { fontSize: 18, fontWeight: '700', color: colors.gray, marginBottom: 16 },
-    modalOption: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: colors.lightGray, borderRadius: 8 },
-    modalOptionText: { color: colors.primary, fontSize: 16, marginLeft: 12 },
+    modalOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 6,
+    },
+    modalOptionText: {
+        color: colors.primary,
+        fontSize: 16,
+        marginLeft: 12,
+        fontWeight: '500',
+    },
 });
 
 export default CalendarScreen;

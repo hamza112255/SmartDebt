@@ -35,10 +35,6 @@ const AccountNameInput = memo(({ accountName, setAccountName }) => {
         setAccountName(text);
     }, [setAccountName]);
 
-    useEffect(() => {
-        console.log('AccountNameInput re-rendered, accountName:', accountName);
-    }, [accountName]);
-
     return (
         <View style={styles.inputContainer}>
             <Text style={styles.settingTitle}>
@@ -58,10 +54,8 @@ const AccountNameInput = memo(({ accountName, setAccountName }) => {
                 autoCorrect={false}
                 keyboardType="default"
                 onFocus={() => {
-                    console.log('TextInput focused');
                     textInputRef.current?.focus();
                 }}
-                onBlur={() => console.log('TextInput blurred')}
             />
         </View>
     );

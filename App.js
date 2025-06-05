@@ -4,118 +4,164 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StatusBar } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons'; // You may need to install this
+import { StatusBar, View } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import LoginScreen from './src/screens/loginScreen';
 import SignupScreen from './src/screens/signupScreen';
 import DashboardScreen from './src/screens/dashboardScreen';
 import CalendarScreen from './src/screens/calendarScreen';
-import ProfileScreen from './src/screens/profileScreen'; // You'll need to create this
-
-import CustomDrawer from './src/components/customDrawer'; // UI only
+import ProfileScreen from './src/screens/profileScreen';
 import AddAccountScreen from './src/screens/addNewAccountScreen';
-import { screens } from './src/constant/screens';
 import NewContactScreen from './src/screens/addNewContactScreen';
 import NewRecordScreen from './src/screens/addNewRecordScreen';
 import ReportScreen from './src/screens/reportScreen';
 import SettingsScreen from './src/screens/settingsScreen';
+import AccountDetailScreen from './src/screens/accountDetailsScreen';
+import { screens } from './src/constant/screens';
 
 const Stack = createNativeStackNavigator();
-const Drawer = createDrawerNavigator();
 const Tab = createBottomTabNavigator();
 
-// Bottom Tab Navigator nested inside Drawer
 function MainTabs() {
   return (
     <Tab.Navigator
+      initialRouteName="Dashboard"
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
+          let iconSize = 24;
 
-          if (route.name === 'Home') {
-            iconName = 'home';
+          if (route.name === 'Reports') {
+            iconName = 'assessment';
           } else if (route.name === 'Calendar') {
-            iconName = 'calendar-today';
-          } else if (route.name === 'Profile') {
-            iconName = 'person';
+            iconName = 'event';
+          } else if (route.name === 'Dashboard') {
+            iconName = 'home';
+            iconSize = 28;
+          } else if (route.name === 'Notifications') {
+            iconName = 'notifications';
+          } else if (route.name === 'Settings') {
+            iconName = 'settings';
           }
 
-          return <Icon name={iconName} size={size} color={color} />;
+          if (route.name === 'Dashboard') {
+            return (
+              <View style={{
+                backgroundColor: focused ? '#2563eb' : '#f1f5f9',
+                borderRadius: 50,
+                width: 60,
+                height: 60,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginTop: -35,
+                elevation: focused ? 8 : 4,
+                shadowColor: '#2563eb',
+                shadowOpacity: focused ? 0.3 : 0.1,
+                shadowOffset: { width: 0, height: 4 },
+                shadowRadius: 8,
+                borderWidth: 3,
+                borderColor: '#ffffff',
+              }}>
+                <Icon
+                  name={iconName}
+                  size={iconSize}
+                  color={focused ? '#ffffff' : '#2563eb'}
+                />
+              </View>
+            );
+          }
+
+          return <Icon name={iconName} size={iconSize} color={color} />;
         },
         tabBarActiveTintColor: '#2563eb',
-        tabBarInactiveTintColor: 'gray',
+        tabBarInactiveTintColor: '#64748b',
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'white',
+          backgroundColor: '#ffffff',
           borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          borderTopColor: '#e2e8f0',
+          paddingBottom: 10,
+          paddingTop: 10,
+          height: 75,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOpacity: 0.1,
+          shadowOffset: { width: 0, height: -2 },
+          shadowRadius: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 4,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 8,
         },
       })}
     >
       <Tab.Screen
-        name="Home"
-        component={DashboardScreen}
-        options={{ tabBarLabel: 'Home' }}
+        name="Reports"
+        component={ReportScreen}
+        options={{
+          tabBarLabel: 'Reports',
+        }}
       />
       <Tab.Screen
         name="Calendar"
         component={CalendarScreen}
-        options={{ tabBarLabel: 'Calendar' }}
+        options={{
+          tabBarLabel: 'Calendar',
+        }}
       />
       <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ tabBarLabel: 'Profile' }}
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarLabelStyle: {
+            color: '#64748b',
+            fontSize: 11,
+            fontWeight: '700',
+            marginTop: 2,
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Notifications"
+        component={CalendarScreen}
+        options={{
+          tabBarLabel: 'Alerts',
+          tabBarBadge: 3,
+          tabBarBadgeStyle: {
+            backgroundColor: '#ef4444',
+            color: '#ffffff',
+            fontSize: 10,
+            fontWeight: 'bold',
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: 'Settings',
+        }}
       />
     </Tab.Navigator>
   );
 }
 
-// Drawer Navigator containing the Tab Navigator
-function AppDrawer() {
-  return (
-    <Drawer.Navigator
-      initialRouteName="MainTabs"
-      drawerContent={props => <CustomDrawer {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Drawer.Screen
-        name="MainTabs"
-        component={MainTabs}
-        options={{ drawerLabel: 'Home' }}
-      />
-      {/* You can add other drawer-only screens here if needed */}
-      <Drawer.Screen
-        name={screens.Reports}
-        component={ReportScreen}
-        options={{ drawerLabel: 'Reports' }}
-      />
-      <Drawer.Screen
-        name={screens.Settings}
-        component={SettingsScreen}
-        options={{ drawerLabel: 'Settings' }}
-      />
-    </Drawer.Navigator>
-  );
-}
-
 export default function App() {
-  // Simulated auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // You can add authentication check logic here
+    // Authentication check logic here
   }, []);
 
   const handleLogin = () => setIsLoggedIn(true);
@@ -161,9 +207,8 @@ export default function App() {
                   name={screens.Settings}
                   component={SettingsScreen}
                 />
-                <Stack.Screen name="AppDrawer" options={{ headerShown: false }}>
-                  {props => <AppDrawer {...props} onLogout={handleLogout} />}
-                </Stack.Screen>
+                <Stack.Screen name={screens.AccountDetails} component={AccountDetailScreen} />
+                <Stack.Screen name="MainTabs" component={MainTabs} />
               </Stack.Navigator>
             </NavigationContainer>
           </SafeAreaView>

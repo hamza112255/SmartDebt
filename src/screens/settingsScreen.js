@@ -26,7 +26,7 @@ const SettingsScreen = ({ navigation }) => {
                 >
                     <Icon name="arrow-back" size={24} color={colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Reports</Text>
+                <Text style={styles.headerTitle}>Settings</Text>
                 <View style={styles.placeholder} />
             </View>
         </View>

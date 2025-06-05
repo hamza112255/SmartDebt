@@ -10,4 +10,5 @@ export const screens = {
     Profile: "Profile",
     Reports: "Reports",
     NewRecord: "NewRecord",
+    AccountDetails: "AccountDetails",
 }

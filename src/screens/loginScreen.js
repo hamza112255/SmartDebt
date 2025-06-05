@@ -63,7 +63,7 @@ const LoginScreen = ({ navigation }) => {
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             // Navigate to Dashboard on success
-            navigation.replace("AppDrawer")
+            navigation.replace('MainTabs');
         } catch (error) {
             Alert.alert('Login Failed', 'Please check your credentials and try again.');
         } finally {

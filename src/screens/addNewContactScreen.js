@@ -35,10 +35,6 @@ const ContactNameInput = memo(({ contactName, setContactName }) => {
         setContactName(text);
     }, [setContactName]);
 
-    useEffect(() => {
-        console.log('ContactNameInput re-rendered, contactName:', contactName);
-    }, [contactName]);
-
     return (
         <View style={styles.inputContainer}>
             <Text style={styles.settingTitle}>
@@ -56,8 +52,6 @@ const ContactNameInput = memo(({ contactName, setContactName }) => {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="default"
-                onFocus={() => console.log('TextInput focused')}
-                onBlur={() => console.log('TextInput blurred')}
             />
         </View>
     );
@@ -84,8 +78,6 @@ const SettingRow = ({ title, value, onChangeText, isRequired = false }) => {
                         autoCorrect={false}
                         keyboardType={title === 'Contact No' ? 'phone-pad' : title === 'Email Address' ? 'email-address' : 'default'}
                         returnKeyType="done"
-                        onFocus={() => console.log(`${title} TextInput focused`)}
-                        onBlur={() => console.log(`${title} TextInput blurred`)}
                     />
                 </View>
             </View>
@@ -115,7 +107,6 @@ const NewContactScreen = ({ navigation }) => {
                 state,
                 country,
             };
-            console.log('Contact Data:', contactData);
             navigation.goBack();
         }
     };

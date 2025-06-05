@@ -91,7 +91,7 @@ const DrawerContent = (props) => {
                                 styles.menuItem,
                                 item.active && styles.menuItemActive,
                             ]}
-                            onPress={() => navigation.navigate(item.screen)}
+                            onPress={() => (item.screen !== 'Dashboard') && navigation.navigate(item.screen)}
                         >
                             <View style={styles.menuItemContent}>
                                 <Icon

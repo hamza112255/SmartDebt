@@ -162,7 +162,7 @@ export const UserCodeListElementSchema = {
 };
 
 // ---------------- Realm Instance ---------------- //
-export const realm = new Realm({
+let realm = new Realm({
   schema: [
     UserSchema,
     AccountSchema,
@@ -174,8 +174,32 @@ export const realm = new Realm({
   ],
   schemaVersion: 1,
 });
+export { realm };
 
 // ---------------- Generic CRUD Helpers ---------------- //
+export const initializeRealm = async () => {
+  try {
+    if (!realm || realm.isClosed) {
+      realm = await Realm.open({
+        schema: [
+          UserSchema,
+          AccountSchema,
+          ContactSchema,
+          TransactionSchema,
+          CodeListSchema,
+          CodeListElementSchema,
+          UserCodeListElementSchema,
+        ],
+        schemaVersion: 1,
+      });
+      console.log('Realm initialized successfully');
+    }
+    return realm;
+  } catch (error) {
+    console.error('Failed to initialize Realm:', error);
+    throw error;
+  }
+};
 export const createObject = (modelName, data) => {
   realm.write(() => {
     realm.create(modelName, data, Realm.UpdateMode.Modified);

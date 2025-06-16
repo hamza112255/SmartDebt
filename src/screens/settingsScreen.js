@@ -1,26 +1,25 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  Modal, 
-  Switch, 
-  TextInput, 
-  Dimensions,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  Alert 
+import {
+    StyleSheet,
+    Text,
+    View,
+    TouchableOpacity,
+    Modal,
+    Switch,
+    TextInput,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    Alert,
 } from 'react-native';
 import { heightPercentageToDP as hp, widthPercentageToDP as wp } from 'react-native-responsive-screen';
-import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
-import * as realmModule from '../realm';
-import { getAllObjects, updateObject, createObject } from '../realm';
+import { RFPercentage } from 'react-native-responsive-fontsize';
+import { getAllObjects, updateObject, createObject, initializeRealm, realm } from '../realm';
 import uuid from 'react-native-uuid';
 import LinearGradient from 'react-native-linear-gradient';
 import BiometricContext from '../../src/contexts/BiometricContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import PinModal from '../components/PinModal';
 
 const colors = {
     primary: '#2563eb',
@@ -45,19 +44,16 @@ const SettingsScreen = ({ navigation }) => {
         emailConfirmed: false,
         biometricEnabled: false,
         pinEnabled: false,
-        pinCode: ''
+        pinCode: '',
     });
     const [userId, setUserId] = useState(null);
     const [showBiometricConfirm, setShowBiometricConfirm] = useState(false);
-    const [showPinConfirm, setShowPinConfirm] = useState(false);
-    const { updateBiometricState } = useContext(BiometricContext);
+    const [showPinSetup, setShowPinSetup] = useState(false);
+    const { updateBiometricState, updatePinState } = useContext(BiometricContext);
 
     useEffect(() => {
         loadUserData();
-
-        const unsubscribe = navigation.addListener('focus', () => {
-            loadUserData();
-        });
+        const unsubscribe = navigation.addListener('focus', loadUserData);
         return unsubscribe;
     }, [navigation]);
 
@@ -69,7 +65,8 @@ const SettingsScreen = ({ navigation }) => {
                 console.log('Loaded user:', u);
                 console.log('Loaded user security settings:', {
                     biometric: u.biometricEnabled,
-                    pin: u.pinEnabled
+                    pin: u.pinEnabled,
+                    pinCode: u.pinCode,
                 });
                 setForm({
                     firstName: u.firstName ?? '',
@@ -85,43 +82,47 @@ const SettingsScreen = ({ navigation }) => {
             }
         } catch (error) {
             console.error('Error loading user data:', error);
+            Alert.alert('Error', 'Failed to load user data');
         }
     };
 
-    const updateField = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+    const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-    const section = (title) => (
-        <Text style={styles.sectionHeader}>{title}</Text>
-    );
+    const section = (title) => <Text style={styles.sectionHeader}>{title}</Text>;
 
     const handleSave = () => {
         const now = new Date();
-        if (userId) {
-            updateObject('User', userId, {
-                ...form,
-                updatedOn: now,
-                syncStatus: 'pending',
-                needsUpload: true,
-            });
-        } else {
-            const newId = uuid.v4();
-            createObject('User', {
-                id: newId,
-                ...form,
-                emailConfirmed: form.emailConfirmed,
-                biometricEnabled: form.biometricEnabled,
-                pinEnabled: form.pinEnabled,
-                userType: 'free',
-                isActive: true,
-                createdOn: now,
-                updatedOn: now,
-                syncStatus: 'pending',
-                lastSyncAt: null,
-                needsUpload: true,
-            });
-            setUserId(newId);
+        try {
+            if (userId) {
+                updateObject('User', userId, {
+                    ...form,
+                    updatedOn: now,
+                    syncStatus: 'pending',
+                    needsUpload: true,
+                });
+            } else {
+                const newId = uuid.v4();
+                createObject('User', {
+                    id: newId,
+                    ...form,
+                    emailConfirmed: form.emailConfirmed,
+                    biometricEnabled: form.biometricEnabled,
+                    pinEnabled: form.pinEnabled,
+                    userType: 'free',
+                    isActive: true,
+                    createdOn: now,
+                    updatedOn: now,
+                    syncStatus: 'pending',
+                    lastSyncAt: null,
+                    needsUpload: true,
+                });
+                setUserId(newId);
+            }
+            Alert.alert('Success', 'Profile saved successfully');
+        } catch (error) {
+            console.error('Error saving profile:', error);
+            Alert.alert('Error', 'Failed to save profile');
         }
-        Alert.alert('Success', 'Profile saved successfully');
     };
 
     const handleEditProfile = () => {
@@ -130,16 +131,17 @@ const SettingsScreen = ({ navigation }) => {
             initialValues: {
                 firstName: form.firstName,
                 lastName: form.lastName,
-                email: form.email
+                email: form.email,
             },
-            onSaveKey: 'settingsScreenRefresh'
+            onSaveKey: 'settingsScreenRefresh',
         });
     };
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
-            if (navigation.getState()?.routes) {
-                const currentRoute = navigation.getState().routes[navigation.getState().index];
+            const state = navigation.getState();
+            if (state?.routes) {
+                const currentRoute = state.routes[state.index];
                 if (currentRoute.params?.onSaveKey === 'settingsScreenRefresh') {
                     loadUserData();
                 }
@@ -148,75 +150,106 @@ const SettingsScreen = ({ navigation }) => {
         return unsubscribe;
     }, [navigation]);
 
-    const saveUserSettings = async (field, value) => {
+    const saveUserSettings = async (field, value, pinCode = null) => {
         try {
+            // Ensure Realm is initialized
+            await initializeRealm();
+            
             const users = getAllObjects('User');
-            if (users.length === 0) throw new Error('No user record found');
+            if (users.length === 0) {
+                console.error('No user record found');
+                throw new Error('No user record found');
+            }
+            
             const userBefore = users[0];
             console.log('Before update:', {
                 biometric: userBefore.biometricEnabled,
-                pin: userBefore.pinEnabled
+                pin: userBefore.pinEnabled,
+                pinCode: userBefore.pinCode,
             });
 
-            const realm = realmModule.default || realmModule;
-            if (realm?.write) {
-                realm.write(() => {
-                    if (field === 'biometricEnabled') {
-                        userBefore.biometricEnabled = value;
-                    } else if (field === 'pinEnabled') {
-                        userBefore.pinEnabled = value;
-                        if (!value) userBefore.pinCode = '';
-                    }
-                    userBefore.updatedOn = new Date();
-                });
-
-                const updatedUser = getAllObjects('User')[0];
-                console.log('After update:', {
-                    biometric: updatedUser.biometricEnabled,
-                    pin: updatedUser.pinEnabled
-                });
+            // Use the exported realm instance directly
+            realm.write(() => {
                 if (field === 'biometricEnabled') {
-                    updateBiometricState(value);
+                    userBefore.biometricEnabled = value;
+                } else if (field === 'pinEnabled') {
+                    userBefore.pinEnabled = value;
+                    userBefore.pinCode = pinCode ?? (value ? userBefore.pinCode : '');
                 }
-                return true;
-            }
+                userBefore.updatedOn = new Date();
+            });
 
-            const updateData = {
-                updatedOn: new Date(),
-                [field]: value,
-                ...(field === 'pinEnabled' && !value ? { pinCode: '' } : {})
-            };
-            await updateObject('User', userId, updateData);
-            console.log('Used updateObject fallback');
+            const updatedUser = getAllObjects('User')[0];
+            console.log('After update:', {
+                biometric: updatedUser.biometricEnabled,
+                pin: updatedUser.pinEnabled,
+                pinCode: updatedUser.pinCode,
+            });
+
             if (field === 'biometricEnabled') {
                 updateBiometricState(value);
+            } else if (field === 'pinEnabled') {
+                updatePinState(value, pinCode ?? updatedUser.pinCode);
             }
             return true;
-
         } catch (error) {
             console.error('Save failed:', {
                 field,
                 error: error.message,
-                stack: error.stack
+                stack: error.stack,
             });
+            Alert.alert('Error', `Failed to save ${field}: ${error.message}`);
             return false;
+        }
+    };
+
+    const handlePinToggle = async (value) => {
+        if (value) {
+            setShowPinSetup(true);
+        } else {
+            setForm((prev) => ({ ...prev, pinEnabled: false, pinCode: '' }));
+            const success = await saveUserSettings('pinEnabled', false);
+            if (!success) {
+                setForm((prev) => ({ ...prev, pinEnabled: true }));
+            }
+        }
+    };
+
+    const handleChangePin = () => {
+        setShowPinSetup(true);
+    };
+
+    const handlePinSetupComplete = async (pin) => {
+        try {
+            setShowPinSetup(false);
+            const success = await saveUserSettings('pinEnabled', true, pin);
+            if (success) {
+                setForm((prev) => ({
+                    ...prev,
+                    pinEnabled: true,
+                    pinCode: pin,
+                }));
+                Alert.alert('Success', 'PIN set successfully');
+            } else {
+                setForm((prev) => ({ ...prev, pinEnabled: false, pinCode: '' }));
+                Alert.alert('Error', 'Failed to save PIN');
+            }
+        } catch (error) {
+            console.error('PIN setup error:', error);
+            setForm((prev) => ({ ...prev, pinEnabled: false, pinCode: '' }));
+            setShowPinSetup(false);
+            Alert.alert('Error', `Failed to set PIN: ${error.message}`);
         }
     };
 
     const toggleBiometric = async (val) => {
         setShowBiometricConfirm(false);
         const prevValue = form.biometricEnabled;
-        updateField('biometricEnabled', val);
+        setForm((prev) => ({ ...prev, biometricEnabled: val }));
         const success = await saveUserSettings('biometricEnabled', val);
-        if (!success) updateField('biometricEnabled', prevValue);
-    };
-
-    const togglePin = async (val) => {
-        setShowPinConfirm(false);
-        const prevValue = form.pinEnabled;
-        updateField('pinEnabled', val);
-        const success = await saveUserSettings('pinEnabled', val);
-        if (!success) updateField('pinEnabled', prevValue);
+        if (!success) {
+            setForm((prev) => ({ ...prev, biometricEnabled: prevValue }));
+        }
     };
 
     return (
@@ -266,24 +299,37 @@ const SettingsScreen = ({ navigation }) => {
                     <Text style={styles.switchLabel}>Biometric Enabled</Text>
                     <Switch
                         value={form.biometricEnabled}
-                        onValueChange={(val) => setShowBiometricConfirm(true)}
-                        thumbColor={form.biometricEnabled ? colors.primary : colors.lightGray}
+                        onValueChange={() => setShowBiometricConfirm(true)}
+                        trackColor={{ false: colors.border, true: colors.primary }}
+                        thumbColor={colors.white}
                     />
                 </View>
                 <View style={styles.switchRow}>
                     <Text style={styles.switchLabel}>PIN Enabled</Text>
                     <Switch
                         value={form.pinEnabled}
-                        onValueChange={(val) => setShowPinConfirm(true)}
-                        thumbColor={form.pinEnabled ? colors.primary : colors.lightGray}
+                        onValueChange={handlePinToggle}
+                        trackColor={{ false: colors.border, true: colors.primary }}
+                        thumbColor={colors.white}
                     />
                 </View>
+                <TouchableOpacity
+                    style={[styles.changePinButton, !form.pinEnabled && styles.disabledButton]}
+                    onPress={handleChangePin}
+                    disabled={!form.pinEnabled}
+                >
+                    <Text style={[styles.changePinText, !form.pinEnabled && styles.disabledText]}>
+                        Change PIN
+                    </Text>
+                </TouchableOpacity>
 
                 <Modal visible={showBiometricConfirm} transparent={true}>
                     <View style={styles.modalContainer}>
                         <View style={styles.modalContent}>
                             <Text style={styles.modalTitle}>Confirm Change</Text>
-                            <Text style={styles.modalText}>Are you sure you want to {form.biometricEnabled ? 'disable' : 'enable'} biometric authentication?</Text>
+                            <Text style={styles.modalText}>
+                                Are you sure you want to {form.biometricEnabled ? 'disable' : 'enable'} biometric authentication?
+                            </Text>
                             <View style={styles.modalButtons}>
                                 <TouchableOpacity
                                     style={[styles.modalButton, { borderRightWidth: 1, borderColor: colors.border }]}
@@ -302,40 +348,27 @@ const SettingsScreen = ({ navigation }) => {
                     </View>
                 </Modal>
 
-                <Modal visible={showPinConfirm} transparent={true}>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalContent}>
-                            <Text style={styles.modalTitle}>Confirm Change</Text>
-                            <Text style={styles.modalText}>Are you sure you want to {form.pinEnabled ? 'disable' : 'enable'} PIN authentication?</Text>
-                            <View style={styles.modalButtons}>
-                                <TouchableOpacity
-                                    style={[styles.modalButton, { borderRightWidth: 1, borderColor: colors.border }]}
-                                    onPress={() => setShowPinConfirm(false)}
-                                >
-                                    <Text style={styles.modalButtonText}>Cancel</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.modalButton}
-                                    onPress={() => togglePin(!form.pinEnabled)}
-                                >
-                                    <Text style={[styles.modalButtonText, { color: colors.primary }]}>Confirm</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                </Modal>
+                <PinModal
+                    visible={showPinSetup}
+                    onAuthenticated={handlePinSetupComplete}
+                    onCancel={() => {
+                        setShowPinSetup(false);
+                        setForm((prev) => ({ ...prev, pinEnabled: false }));
+                    }}
+                    title={form.pinEnabled ? 'Change PIN' : 'Create a new PIN'}
+                />
 
                 {form.pinEnabled && (
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>PIN Code</Text>
                         <TextInput
                             style={[styles.input, { backgroundColor: colors.lightGray }]}
-                            placeholder="Enter 4-6 digit PIN"
+                            placeholder="Enter 4-digit PIN"
                             value={form.pinCode}
                             editable={false}
                             keyboardType="number-pad"
                             secureTextEntry
-                            maxLength={6}
+                            maxLength={4}
                             placeholderTextColor={colors.gray}
                         />
                     </View>
@@ -369,7 +402,7 @@ const styles = StyleSheet.create({
         marginBottom: hp(2),
     },
     label: {
-        fontSize: RFPercentage(2.0),
+        fontSize: RFPercentage(2),
         marginBottom: hp(0.8),
         color: colors.text,
         fontFamily: 'Sora-SemiBold',
@@ -449,6 +482,27 @@ const styles = StyleSheet.create({
     },
     modalButtonText: {
         fontSize: RFPercentage(2),
+    },
+    changePinButton: {
+        marginTop: hp(2),
+        padding: hp(1.5),
+        backgroundColor: colors.white,
+        borderRadius: wp(2),
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.primary,
+    },
+    disabledButton: {
+        borderColor: colors.lightGray,
+        backgroundColor: colors.lightGray,
+    },
+    changePinText: {
+        color: colors.primary,
+        fontSize: RFPercentage(2),
+        fontFamily: 'Sora-SemiBold',
+    },
+    disabledText: {
+        color: colors.gray,
     },
 });
 

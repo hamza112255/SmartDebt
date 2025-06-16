@@ -7,11 +7,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StatusBar, View, ActivityIndicator } from 'react-native';
+import { StatusBar, View, ActivityIndicator, Alert } from 'react-native';
 import * as Font from 'expo-font';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { realm, getAllObjects, initializeRealm } from './src/realm';
 
 import DashboardScreen from './src/screens/dashboardScreen';
 import CalendarScreen from './src/screens/calendarScreen';
@@ -26,13 +27,10 @@ import CreateProfileScreen from './src/screens/createProfile';
 import { screens } from './src/constant/screens';
 import LoginScreen from './src/screens/loginScreen';
 import SignupScreen from './src/screens/signupScreen';
-import { getAllObjects } from './src/realm';
 import ImportContactsScreen from './src/screens/ImportContactsScreen';
 import BiometricModal from './src/components/BiometricModal';
+import PinModal from './src/components/PinModal';
 import BiometricContext from './src/contexts/BiometricContext';
-
-// Create a context for biometric state updates
-// const BiometricContext = createContext();
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -183,8 +181,10 @@ export default function App() {
   const [hasUser, setHasUser] = useState(false);
   const [initialRoute, setInitialRoute] = useState(null);
   const navigationRef = useRef(null);
+  const [isPinEnabled, setIsPinEnabled] = useState(false);
+  const [needsPinAuth, setNeedsPinAuth] = useState(false);
+  const [storedPin, setStoredPin] = useState(null);
 
-  // Function to update biometric state
   const updateBiometricState = (enabled) => {
     console.log('Updating biometric state to:', enabled);
     setIsBiometricEnabled(enabled);
@@ -197,10 +197,93 @@ export default function App() {
     }
   };
 
+  const updatePinState = (enabled, pinCode = null) => {
+    console.log('Updating PIN state to:', enabled, 'with pinCode:', pinCode);
+    setIsPinEnabled(enabled);
+    setStoredPin(pinCode);
+    if (enabled && pinCode) {
+      console.log('Enabling PIN auth, setting needsPinAuth to true');
+      setNeedsPinAuth(true);
+    } else {
+      console.log('Disabling PIN auth, setting needsPinAuth to false');
+      setNeedsPinAuth(false);
+    }
+  };
+
+  const handlePinAuthenticated = (pin) => {
+    try {
+      console.log('PIN authentication attempted with:', pin);
+      if (isPinEnabled && storedPin) {
+        if (pin === storedPin) {
+          console.log('PIN verified successfully');
+          setNeedsPinAuth(false);
+          SecureStore.setItemAsync('lastAuthTime', Date.now().toString());
+        } else {
+          console.log('Incorrect PIN');
+          Alert.alert('Incorrect PIN', 'Please try again.');
+        }
+      } else {
+        console.log('Setting new PIN:', pin);
+        setStoredPin(pin);
+        setIsPinEnabled(true);
+        setNeedsPinAuth(false);
+
+        const users = getAllObjects('User');
+        if (users.length > 0) {
+          realm.write(() => {
+            users[0].pinEnabled = true;
+            users[0].pinCode = pin;
+            users[0].updatedOn = new Date();
+          });
+          console.log('Updated User in Realm: pinEnabled=true, pinCode=', pin);
+        } else {
+          throw new Error('No user found to update PIN');
+        }
+      }
+    } catch (error) {
+      console.error('Error in handlePinAuthenticated:', error);
+      Alert.alert('Error', `Failed to authenticate PIN: ${error.message}`);
+    }
+  };
+
+  const handleEmergencyReset = async () => {
+    Alert.alert(
+      'Emergency Reset',
+      'This will disable PIN protection. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            setIsPinEnabled(false);
+            setNeedsPinAuth(false);
+            setStoredPin(null);
+
+            const users = getAllObjects('User');
+            if (users.length > 0) {
+              realm.write(() => {
+                users[0].pinEnabled = false;
+                users[0].pinCode = '';
+              });
+              console.log('Disabled PIN in Realm');
+            }
+
+            Alert.alert('Success', 'PIN protection has been disabled');
+          },
+        },
+      ]
+    );
+  };
+
   useEffect(() => {
     async function initializeApp() {
       console.log('Initializing app...');
       try {
+        // Initialize Realm
+        await initializeRealm();
+
+        // Load fonts
         await Font.loadAsync({
           'Sora-Regular': require('./assets/fonts/Sora-Regular.ttf'),
           'Sora-Bold': require('./assets/fonts/Sora-Bold.ttf'),
@@ -211,11 +294,8 @@ export default function App() {
         });
         setFontsLoaded(true);
         console.log('Fonts loaded');
-      } catch (error) {
-        console.error('Error loading fonts:', error);
-      }
 
-      try {
+        // Check user and biometric settings
         const users = getAllObjects('User');
         setHasUser(users.length > 0);
         if (users.length > 0) {
@@ -223,6 +303,11 @@ export default function App() {
           const biometricEnabled = user.biometricEnabled ?? false;
           console.log('User found, biometricEnabled:', biometricEnabled);
           updateBiometricState(biometricEnabled);
+
+          const pinEnabled = user.pinEnabled ?? false;
+          const pinCode = user.pinCode ?? null;
+          console.log('User found, pinEnabled:', pinEnabled, 'pinCode:', pinCode);
+          updatePinState(pinEnabled, pinCode);
 
           const compatible = await LocalAuthentication.hasHardwareAsync();
           setIsBiometricSupported(compatible);
@@ -239,6 +324,7 @@ export default function App() {
         }
       } catch (error) {
         console.error('Error during initialization:', error);
+        Alert.alert('Error', 'Failed to initialize app');
       }
     }
 
@@ -247,8 +333,8 @@ export default function App() {
 
   useEffect(() => {
     async function checkAuthTimeout() {
-      if (!isBiometricEnrolled || !isBiometricEnabled) {
-        console.log('Skipping auth timeout check: biometric not enrolled or disabled');
+      if (!((isBiometricEnrolled && isBiometricEnabled) || (isPinEnabled && storedPin))) {
+        console.log('Skipping auth timeout check: no authentication method enabled');
         return;
       }
 
@@ -258,7 +344,12 @@ export default function App() {
 
       if (!lastAuthTime || currentTime - parseInt(lastAuthTime) > thirtySeconds) {
         console.log('Auth timeout exceeded, requiring re-authentication');
-        setNeedsAuth(true);
+        if (isBiometricEnrolled && isBiometricEnabled) {
+          setNeedsAuth(true);
+        }
+        if (isPinEnabled && storedPin) {
+          setNeedsPinAuth(true);
+        }
       } else {
         console.log('Auth still valid:', currentTime - parseInt(lastAuthTime), 'ms since last auth');
       }
@@ -266,7 +357,7 @@ export default function App() {
 
     const interval = setInterval(checkAuthTimeout, 5000);
     return () => clearInterval(interval);
-  }, [isBiometricEnrolled, isBiometricEnabled]);
+  }, [isBiometricEnrolled, isBiometricEnabled, isPinEnabled, storedPin]);
 
   useEffect(() => {
     if (hasUser && initialRoute !== 'MainTabs') {
@@ -280,8 +371,9 @@ export default function App() {
   }, [hasUser, initialRoute]);
 
   const handleAuthenticated = () => {
-    console.log('Authentication successful, resetting needsAuth');
+    console.log('Biometric authentication successful, resetting needsAuth');
     setNeedsAuth(false);
+    SecureStore.setItemAsync('lastAuthTime', Date.now().toString());
   };
 
   if (!fontsLoaded || !initialRoute) {
@@ -293,12 +385,12 @@ export default function App() {
     );
   }
 
-  console.log('Rendering app, needsAuth:', needsAuth, 'isBiometricSupported:', isBiometricSupported, 'isBiometricEnrolled:', isBiometricEnrolled);
+  console.log('Rendering app, needsAuth:', needsAuth, 'needsPinAuth:', needsPinAuth, 'isBiometricSupported:', isBiometricSupported, 'isBiometricEnrolled:', isBiometricEnrolled, 'isPinEnabled:', isPinEnabled);
 
   return (
-    <PaperProvider>
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PaperProvider>
+        <SafeAreaProvider>
           <SafeAreaView style={{ flex: 1 }}>
             <StatusBar
               barStyle="light-content"
@@ -306,7 +398,7 @@ export default function App() {
               hidden={false}
               translucent={true}
             />
-            <BiometricContext.Provider value={{ updateBiometricState }}>
+            <BiometricContext.Provider value={{ updateBiometricState, updatePinState }}>
               <NavigationContainer ref={navigationRef}>
                 <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
                   <Stack.Screen name={screens.Login} component={LoginScreen} />
@@ -351,12 +443,20 @@ export default function App() {
                 </Stack.Navigator>
               </NavigationContainer>
               <BiometricModal visible={needsAuth} onAuthenticated={handleAuthenticated} />
+              <PinModal
+                visible={needsPinAuth}
+                onAuthenticated={handlePinAuthenticated}
+                onCancel={() => {
+                  if (!isPinEnabled) setNeedsPinAuth(false);
+                }}
+                title={isPinEnabled ? 'Enter your PIN' : 'Create a new PIN'}
+                showCancel={!isPinEnabled}
+                onEmergencyReset={isPinEnabled ? handleEmergencyReset : null}
+              />
             </BiometricContext.Provider>
           </SafeAreaView>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    </PaperProvider>
+        </SafeAreaProvider>
+      </PaperProvider>
+    </GestureHandlerRootView>
   );
 }
-
-export { BiometricContext };

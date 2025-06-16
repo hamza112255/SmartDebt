@@ -1,12 +1,26 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Switch, ScrollView, SafeAreaView, StatusBar, Alert, Modal } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import React, { useEffect, useState, useContext } from 'react';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TouchableOpacity, 
+  Modal, 
+  Switch, 
+  TextInput, 
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Alert 
+} from 'react-native';
+import { heightPercentageToDP as hp, widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import * as realmModule from '../realm';
 import { getAllObjects, updateObject, createObject } from '../realm';
-import { useEffect, useState } from 'react';
 import uuid from 'react-native-uuid';
 import LinearGradient from 'react-native-linear-gradient';
+import BiometricContext from '../../src/contexts/BiometricContext';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const colors = {
     primary: '#2563eb',
@@ -36,6 +50,7 @@ const SettingsScreen = ({ navigation }) => {
     const [userId, setUserId] = useState(null);
     const [showBiometricConfirm, setShowBiometricConfirm] = useState(false);
     const [showPinConfirm, setShowPinConfirm] = useState(false);
+    const { updateBiometricState } = useContext(BiometricContext);
 
     useEffect(() => {
         loadUserData();
@@ -160,6 +175,9 @@ const SettingsScreen = ({ navigation }) => {
                     biometric: updatedUser.biometricEnabled,
                     pin: updatedUser.pinEnabled
                 });
+                if (field === 'biometricEnabled') {
+                    updateBiometricState(value);
+                }
                 return true;
             }
 
@@ -170,6 +188,9 @@ const SettingsScreen = ({ navigation }) => {
             };
             await updateObject('User', userId, updateData);
             console.log('Used updateObject fallback');
+            if (field === 'biometricEnabled') {
+                updateBiometricState(value);
+            }
             return true;
 
         } catch (error) {

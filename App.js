@@ -29,6 +29,10 @@ import SignupScreen from './src/screens/signupScreen';
 import { getAllObjects } from './src/realm';
 import ImportContactsScreen from './src/screens/ImportContactsScreen';
 import BiometricModal from './src/components/BiometricModal';
+import BiometricContext from './src/contexts/BiometricContext';
+
+// Create a context for biometric state updates
+// const BiometricContext = createContext();
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -180,6 +184,19 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
   const navigationRef = useRef(null);
 
+  // Function to update biometric state
+  const updateBiometricState = (enabled) => {
+    console.log('Updating biometric state to:', enabled);
+    setIsBiometricEnabled(enabled);
+    if (enabled && isBiometricEnrolled) {
+      console.log('Enabling biometric auth, setting needsAuth to true');
+      setNeedsAuth(true);
+    } else {
+      console.log('Disabling biometric auth, setting needsAuth to false');
+      setNeedsAuth(false);
+    }
+  };
+
   useEffect(() => {
     async function initializeApp() {
       console.log('Initializing app...');
@@ -205,7 +222,7 @@ export default function App() {
           const user = users[0];
           const biometricEnabled = user.biometricEnabled ?? false;
           console.log('User found, biometricEnabled:', biometricEnabled);
-          setIsBiometricEnabled(biometricEnabled);
+          updateBiometricState(biometricEnabled);
 
           const compatible = await LocalAuthentication.hasHardwareAsync();
           setIsBiometricSupported(compatible);
@@ -215,11 +232,6 @@ export default function App() {
             const enrolled = await LocalAuthentication.isEnrolledAsync();
             setIsBiometricEnrolled(enrolled);
             console.log('Biometric enrolled:', enrolled);
-
-            if (biometricEnabled && enrolled) {
-              console.log('Setting needsAuth to true due to biometricEnabled and enrolled');
-              setNeedsAuth(true);
-            }
           }
         } else {
           console.log('No user found, setting initial route to CreateProfile');
@@ -294,53 +306,57 @@ export default function App() {
               hidden={false}
               translucent={true}
             />
-            <NavigationContainer ref={navigationRef}>
-              <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
-                <Stack.Screen name={screens.Login} component={LoginScreen} />
-                <Stack.Screen name={screens.Signup} component={SignupScreen} />
-                <Stack.Screen name="MainTabs" component={MainTabs} />
-                <Stack.Screen name={screens.CreateProfile} component={CreateProfileScreen} />
-                <Stack.Screen
-                  name={screens.NewAccount}
-                  component={AddAccountScreen}
-                  options={{ presentation: 'modal' }}
-                />
-                <Stack.Screen
-                  name={screens.ImportContacts}
-                  component={ImportContactsScreen}
-                  options={{ presentation: 'modal' }}
-                />
-                <Stack.Screen
-                  name={screens.NewContact}
-                  component={NewContactScreen}
-                  options={{ presentation: 'modal' }}
-                />
-                <Stack.Screen
-                  name={screens.NewRecord}
-                  component={NewRecordScreen}
-                  options={{ presentation: 'modal' }}
-                />
-                <Stack.Screen
-                  name={screens.Reports}
-                  component={ReportScreen}
-                />
-                <Stack.Screen
-                  name={screens.Settings}
-                  component={SettingsScreen}
-                />
-                <Stack.Screen 
-                  name={screens.AccountDetails} 
-                  component={AccountDetailScreen} 
-                  options={({ route }) => ({
-                    headerTitle: route.params?.accountName || 'Account Details'
-                  })}
-                />
-              </Stack.Navigator>
-            </NavigationContainer>
-            <BiometricModal visible={needsAuth} onAuthenticated={handleAuthenticated} />
+            <BiometricContext.Provider value={{ updateBiometricState }}>
+              <NavigationContainer ref={navigationRef}>
+                <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
+                  <Stack.Screen name={screens.Login} component={LoginScreen} />
+                  <Stack.Screen name={screens.Signup} component={SignupScreen} />
+                  <Stack.Screen name="MainTabs" component={MainTabs} />
+                  <Stack.Screen name={screens.CreateProfile} component={CreateProfileScreen} />
+                  <Stack.Screen
+                    name={screens.NewAccount}
+                    component={AddAccountScreen}
+                    options={{ presentation: 'modal' }}
+                  />
+                  <Stack.Screen
+                    name={screens.ImportContacts}
+                    component={ImportContactsScreen}
+                    options={{ presentation: 'modal' }}
+                  />
+                  <Stack.Screen
+                    name={screens.NewContact}
+                    component={NewContactScreen}
+                    options={{ presentation: 'modal' }}
+                  />
+                  <Stack.Screen
+                    name={screens.NewRecord}
+                    component={NewRecordScreen}
+                    options={{ presentation: 'modal' }}
+                  />
+                  <Stack.Screen
+                    name={screens.Reports}
+                    component={ReportScreen}
+                  />
+                  <Stack.Screen
+                    name={screens.Settings}
+                    component={SettingsScreen}
+                  />
+                  <Stack.Screen
+                    name={screens.AccountDetails}
+                    component={AccountDetailScreen}
+                    options={({ route }) => ({
+                      headerTitle: route.params?.accountName || 'Account Details'
+                    })}
+                  />
+                </Stack.Navigator>
+              </NavigationContainer>
+              <BiometricModal visible={needsAuth} onAuthenticated={handleAuthenticated} />
+            </BiometricContext.Provider>
           </SafeAreaView>
         </GestureHandlerRootView>
       </SafeAreaProvider>
     </PaperProvider>
   );
 }
+
+export { BiometricContext };

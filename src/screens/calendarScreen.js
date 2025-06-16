@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         position: 'absolute',
-        bottom: hp(-1),
+        bottom: hp(-0.005),
     },
     transactionDot: {
         width: wp(1.25),

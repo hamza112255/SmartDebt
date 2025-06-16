@@ -20,6 +20,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import BiometricContext from '../../src/contexts/BiometricContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PinModal from '../components/PinModal';
+import * as SecureStore from 'expo-secure-store';
 
 const colors = {
     primary: '#2563eb',
@@ -57,17 +58,11 @@ const SettingsScreen = ({ navigation }) => {
         return unsubscribe;
     }, [navigation]);
 
-    const loadUserData = () => {
+    const loadUserData = async () => {
         try {
             const users = getAllObjects('User');
             if (users.length > 0) {
                 const u = users[0];
-                console.log('Loaded user:', u);
-                console.log('Loaded user security settings:', {
-                    biometric: u.biometricEnabled,
-                    pin: u.pinEnabled,
-                    pinCode: u.pinCode,
-                });
                 setForm({
                     firstName: u.firstName ?? '',
                     lastName: u.lastName ?? '',
@@ -81,7 +76,6 @@ const SettingsScreen = ({ navigation }) => {
                 setUserId(u.id);
             }
         } catch (error) {
-            console.error('Error loading user data:', error);
             Alert.alert('Error', 'Failed to load user data');
         }
     };
@@ -120,7 +114,6 @@ const SettingsScreen = ({ navigation }) => {
             }
             Alert.alert('Success', 'Profile saved successfully');
         } catch (error) {
-            console.error('Error saving profile:', error);
             Alert.alert('Error', 'Failed to save profile');
         }
     };
@@ -152,66 +145,51 @@ const SettingsScreen = ({ navigation }) => {
 
     const saveUserSettings = async (field, value, pinCode = null) => {
         try {
-            // Ensure Realm is initialized
             await initializeRealm();
-            
             const users = getAllObjects('User');
             if (users.length === 0) {
-                console.error('No user record found');
                 throw new Error('No user record found');
             }
-            
-            const userBefore = users[0];
-            console.log('Before update:', {
-                biometric: userBefore.biometricEnabled,
-                pin: userBefore.pinEnabled,
-                pinCode: userBefore.pinCode,
-            });
 
-            // Use the exported realm instance directly
             realm.write(() => {
                 if (field === 'biometricEnabled') {
-                    userBefore.biometricEnabled = value;
+                    users[0].biometricEnabled = value;
                 } else if (field === 'pinEnabled') {
-                    userBefore.pinEnabled = value;
-                    userBefore.pinCode = pinCode ?? (value ? userBefore.pinCode : '');
+                    users[0].pinEnabled = value;
+                    if (pinCode) {
+                        users[0].pinCode = pinCode;
+                    }
                 }
-                userBefore.updatedOn = new Date();
-            });
-
-            const updatedUser = getAllObjects('User')[0];
-            console.log('After update:', {
-                biometric: updatedUser.biometricEnabled,
-                pin: updatedUser.pinEnabled,
-                pinCode: updatedUser.pinCode,
+                users[0].updatedOn = new Date();
             });
 
             if (field === 'biometricEnabled') {
+                await SecureStore.setItemAsync('biometricEnabled', value.toString());
                 updateBiometricState(value);
             } else if (field === 'pinEnabled') {
-                updatePinState(value, pinCode ?? updatedUser.pinCode);
+                await SecureStore.setItemAsync('pinEnabled', value.toString());
+                if (pinCode) {
+                    await SecureStore.setItemAsync('pinCode', pinCode);
+                }
+                updatePinState(value, pinCode ?? users[0].pinCode);
             }
             return true;
         } catch (error) {
-            console.error('Save failed:', {
-                field,
-                error: error.message,
-                stack: error.stack,
-            });
             Alert.alert('Error', `Failed to save ${field}: ${error.message}`);
             return false;
         }
     };
 
     const handlePinToggle = async (value) => {
+        updateField('pinEnabled', value);
         if (value) {
-            setShowPinSetup(true);
-        } else {
-            setForm((prev) => ({ ...prev, pinEnabled: false, pinCode: '' }));
-            const success = await saveUserSettings('pinEnabled', false);
-            if (!success) {
-                setForm((prev) => ({ ...prev, pinEnabled: true }));
+            if (form.pinCode) {
+                await saveUserSettings('pinEnabled', true);
+            } else {
+                setShowPinSetup(true);
             }
+        } else {
+            await saveUserSettings('pinEnabled', false);
         }
     };
 
@@ -221,24 +199,27 @@ const SettingsScreen = ({ navigation }) => {
 
     const handlePinSetupComplete = async (pin) => {
         try {
+            const now = new Date();
+            updateField('pinEnabled', true);
+            updateField('pinCode', pin);
+
+            await SecureStore.setItemAsync('pinCode', pin);
+            await SecureStore.setItemAsync('pinEnabled', 'true');
+
+            updatePinState(true, pin);
             setShowPinSetup(false);
-            const success = await saveUserSettings('pinEnabled', true, pin);
-            if (success) {
-                setForm((prev) => ({
-                    ...prev,
+
+            if (userId) {
+                updateObject('User', userId, {
                     pinEnabled: true,
                     pinCode: pin,
-                }));
-                Alert.alert('Success', 'PIN set successfully');
-            } else {
-                setForm((prev) => ({ ...prev, pinEnabled: false, pinCode: '' }));
-                Alert.alert('Error', 'Failed to save PIN');
+                    updatedOn: now,
+                    syncStatus: 'pending',
+                    needsUpload: true,
+                });
             }
         } catch (error) {
-            console.error('PIN setup error:', error);
-            setForm((prev) => ({ ...prev, pinEnabled: false, pinCode: '' }));
-            setShowPinSetup(false);
-            Alert.alert('Error', `Failed to set PIN: ${error.message}`);
+            Alert.alert('Error', 'Failed to save PIN');
         }
     };
 
@@ -355,7 +336,8 @@ const SettingsScreen = ({ navigation }) => {
                         setShowPinSetup(false);
                         setForm((prev) => ({ ...prev, pinEnabled: false }));
                     }}
-                    title={form.pinEnabled ? 'Change PIN' : 'Create a new PIN'}
+                    title="Create a new PIN"
+                    isPinCreationFlow={true}
                 />
 
                 {form.pinEnabled && (

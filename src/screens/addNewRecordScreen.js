@@ -101,7 +101,7 @@ const NewRecordScreen = ({ navigation, route }) => {
     const [isDateFocused, setIsDateFocused] = useState(false);
     const [purpose, setPurpose] = useState('');
     const [amount, setAmount] = useState('');
-    const [currency, setCurrency] = useState('PKR');
+    const [currency, setCurrency] = useState(realm.objectForPrimaryKey('Account', accountId)?.currency || 'PKR');
     const [remarks, setRemarks] = useState('');
     const [imageUri, setImageUri] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -862,8 +862,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     colors={[colors.primary, colors.primaryDark]}
                                     style={styles.currencyButton}
                                 >
-                                    <Text style={styles.currencyText}>🇵🇰 {currency}</Text>
-                                    <Icon name="keyboard-arrow-down" size={RFValue(20)} color={colors.white} />
+                                    <Text style={styles.currencyText}>{currency}</Text>
                                 </LinearGradient>
                             </View>
                         </View>

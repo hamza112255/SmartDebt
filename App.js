@@ -184,50 +184,40 @@ export default function App() {
   const [isPinEnabled, setIsPinEnabled] = useState(false);
   const [needsPinAuth, setNeedsPinAuth] = useState(false);
   const [storedPin, setStoredPin] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const updateBiometricState = (enabled) => {
-    console.log('Updating biometric state to:', enabled);
     setIsBiometricEnabled(enabled);
     if (enabled && isBiometricEnrolled) {
-      console.log('Enabling biometric auth, setting needsAuth to true');
       setNeedsAuth(true);
     } else {
-      console.log('Disabling biometric auth, setting needsAuth to false');
       setNeedsAuth(false);
     }
   };
 
   const updatePinState = (enabled, pinCode = null) => {
-    console.log('Updating PIN state to:', enabled, 'with pinCode:', pinCode);
     setIsPinEnabled(enabled);
-    setStoredPin(pinCode);
-    if (enabled && pinCode) {
-      console.log('Enabling PIN auth, setting needsPinAuth to true');
-      setNeedsPinAuth(true);
+    if (pinCode) {
+      setStoredPin(pinCode);
+    }
+    if (enabled && (pinCode || storedPin)) {
+      setNeedsPinAuth(!isAuthenticated);
     } else {
-      console.log('Disabling PIN auth, setting needsPinAuth to false');
       setNeedsPinAuth(false);
     }
   };
 
   const handlePinAuthenticated = (pin) => {
     try {
-      console.log('PIN authentication attempted with:', pin);
       if (isPinEnabled && storedPin) {
         if (pin === storedPin) {
-          console.log('PIN verified successfully');
           setNeedsPinAuth(false);
+          setIsAuthenticated(true);
           SecureStore.setItemAsync('lastAuthTime', Date.now().toString());
         } else {
-          console.log('Incorrect PIN');
           Alert.alert('Incorrect PIN', 'Please try again.');
         }
       } else {
-        console.log('Setting new PIN:', pin);
-        setStoredPin(pin);
-        setIsPinEnabled(true);
-        setNeedsPinAuth(false);
-
         const users = getAllObjects('User');
         if (users.length > 0) {
           realm.write(() => {
@@ -235,13 +225,16 @@ export default function App() {
             users[0].pinCode = pin;
             users[0].updatedOn = new Date();
           });
-          console.log('Updated User in Realm: pinEnabled=true, pinCode=', pin);
+          setStoredPin(pin);
+          setIsPinEnabled(true);
+          setNeedsPinAuth(false);
+          setIsAuthenticated(true);
+          SecureStore.setItemAsync('lastAuthTime', Date.now().toString());
         } else {
           throw new Error('No user found to update PIN');
         }
       }
     } catch (error) {
-      console.error('Error in handlePinAuthenticated:', error);
       Alert.alert('Error', `Failed to authenticate PIN: ${error.message}`);
     }
   };
@@ -249,7 +242,7 @@ export default function App() {
   const handleEmergencyReset = async () => {
     Alert.alert(
       'Emergency Reset',
-      'This will disable PIN protection. Continue?',
+      'This will disable PIN protection and clear the PIN. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -259,16 +252,19 @@ export default function App() {
             setIsPinEnabled(false);
             setNeedsPinAuth(false);
             setStoredPin(null);
+            setIsAuthenticated(false);
 
             const users = getAllObjects('User');
             if (users.length > 0) {
               realm.write(() => {
                 users[0].pinEnabled = false;
                 users[0].pinCode = '';
+                users[0].updatedOn = new Date();
               });
-              console.log('Disabled PIN in Realm');
             }
 
+            await SecureStore.deleteItemAsync('pinEnabled');
+            await SecureStore.deleteItemAsync('pinCode');
             Alert.alert('Success', 'PIN protection has been disabled');
           },
         },
@@ -278,53 +274,51 @@ export default function App() {
 
   useEffect(() => {
     async function initializeApp() {
-      console.log('Initializing app...');
       try {
-        // Initialize Realm
-        await initializeRealm();
-
-        // Load fonts
-        await Font.loadAsync({
+        const fontLoadPromise = Font.loadAsync({
           'Sora-Regular': require('./assets/fonts/Sora-Regular.ttf'),
-          'Sora-Bold': require('./assets/fonts/Sora-Bold.ttf'),
           'Sora-SemiBold': require('./assets/fonts/Sora-SemiBold.ttf'),
-          'Sora-ExtraBold': require('./assets/fonts/Sora-ExtraBold.ttf'),
-          'Sora-Light': require('./assets/fonts/Sora-Light.ttf'),
-          'Sora-ExtraLight': require('./assets/fonts/Sora-ExtraLight.ttf'),
+          'Sora-Bold': require('./assets/fonts/Sora-Bold.ttf'),
         });
+
+        const realmInitPromise = initializeRealm();
+        await Promise.all([fontLoadPromise, realmInitPromise]);
         setFontsLoaded(true);
-        console.log('Fonts loaded');
 
-        // Check user and biometric settings
         const users = getAllObjects('User');
-        setHasUser(users.length > 0);
-        if (users.length > 0) {
-          const user = users[0];
-          const biometricEnabled = user.biometricEnabled ?? false;
-          console.log('User found, biometricEnabled:', biometricEnabled);
-          updateBiometricState(biometricEnabled);
+        const hasUser = users.length > 0;
+        setHasUser(hasUser);
 
-          const pinEnabled = user.pinEnabled ?? false;
-          const pinCode = user.pinCode ?? null;
-          console.log('User found, pinEnabled:', pinEnabled, 'pinCode:', pinCode);
-          updatePinState(pinEnabled, pinCode);
+        const [
+          pinEnabled,
+          pinCode,
+          biometricSupported,
+          biometricEnrolled,
+          biometricEnabled
+        ] = await Promise.all([
+          SecureStore.getItemAsync('pinEnabled'),
+          SecureStore.getItemAsync('pinCode'),
+          LocalAuthentication.hasHardwareAsync(),
+          LocalAuthentication.isEnrolledAsync(),
+          SecureStore.getItemAsync('biometricEnabled')
+        ]);
 
-          const compatible = await LocalAuthentication.hasHardwareAsync();
-          setIsBiometricSupported(compatible);
-          console.log('Biometric hardware available:', compatible);
+        setIsPinEnabled(pinEnabled === 'true');
+        setStoredPin(pinCode);
+        setNeedsPinAuth(pinEnabled === 'true' && !isAuthenticated);
 
-          if (compatible) {
-            const enrolled = await LocalAuthentication.isEnrolledAsync();
-            setIsBiometricEnrolled(enrolled);
-            console.log('Biometric enrolled:', enrolled);
-          }
-        } else {
-          console.log('No user found, setting initial route to CreateProfile');
-          setInitialRoute(screens.CreateProfile);
+        setIsBiometricSupported(biometricSupported);
+        setIsBiometricEnrolled(biometricEnrolled);
+        setIsBiometricEnabled(biometricEnabled === 'true');
+
+        if (biometricSupported && biometricEnrolled && biometricEnabled === 'true') {
+          setNeedsAuth(true);
         }
+
+        setInitialRoute(hasUser ? 'MainTabs' : screens.CreateProfile);
       } catch (error) {
-        console.error('Error during initialization:', error);
-        Alert.alert('Error', 'Failed to initialize app');
+        setInitialRoute('MainTabs');
+        setFontsLoaded(true);
       }
     }
 
@@ -334,7 +328,6 @@ export default function App() {
   useEffect(() => {
     async function checkAuthTimeout() {
       if (!((isBiometricEnrolled && isBiometricEnabled) || (isPinEnabled && storedPin))) {
-        console.log('Skipping auth timeout check: no authentication method enabled');
         return;
       }
 
@@ -343,25 +336,21 @@ export default function App() {
       const thirtySeconds = 30 * 1000;
 
       if (!lastAuthTime || currentTime - parseInt(lastAuthTime) > thirtySeconds) {
-        console.log('Auth timeout exceeded, requiring re-authentication');
         if (isBiometricEnrolled && isBiometricEnabled) {
           setNeedsAuth(true);
         }
-        if (isPinEnabled && storedPin) {
+        if (isPinEnabled && storedPin && !isAuthenticated) {
           setNeedsPinAuth(true);
         }
-      } else {
-        console.log('Auth still valid:', currentTime - parseInt(lastAuthTime), 'ms since last auth');
       }
     }
 
     const interval = setInterval(checkAuthTimeout, 5000);
     return () => clearInterval(interval);
-  }, [isBiometricEnrolled, isBiometricEnabled, isPinEnabled, storedPin]);
+  }, [isBiometricEnrolled, isBiometricEnabled, isPinEnabled, storedPin, isAuthenticated]);
 
   useEffect(() => {
     if (hasUser && initialRoute !== 'MainTabs') {
-      console.log('Setting initial route to MainTabs');
       setInitialRoute('MainTabs');
       navigationRef.current?.reset({
         index: 0,
@@ -371,21 +360,18 @@ export default function App() {
   }, [hasUser, initialRoute]);
 
   const handleAuthenticated = () => {
-    console.log('Biometric authentication successful, resetting needsAuth');
     setNeedsAuth(false);
+    setIsAuthenticated(true);
     SecureStore.setItemAsync('lastAuthTime', Date.now().toString());
   };
 
   if (!fontsLoaded || !initialRoute) {
-    console.log('Waiting for fonts or initial route...');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
       </View>
     );
   }
-
-  console.log('Rendering app, needsAuth:', needsAuth, 'needsPinAuth:', needsPinAuth, 'isBiometricSupported:', isBiometricSupported, 'isBiometricEnrolled:', isBiometricEnrolled, 'isPinEnabled:', isPinEnabled);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -447,11 +433,14 @@ export default function App() {
                 visible={needsPinAuth}
                 onAuthenticated={handlePinAuthenticated}
                 onCancel={() => {
-                  if (!isPinEnabled) setNeedsPinAuth(false);
+                  if (!isPinEnabled) {
+                    setNeedsPinAuth(false);
+                  }
                 }}
-                title={isPinEnabled ? 'Enter your PIN' : 'Create a new PIN'}
-                showCancel={!isPinEnabled}
-                onEmergencyReset={isPinEnabled ? handleEmergencyReset : null}
+                title={isPinEnabled && storedPin ? 'Enter your PIN' : 'Create a new PIN'}
+                showCancel={!isPinEnabled || !storedPin}
+                onEmergencyReset={isPinEnabled && storedPin ? handleEmergencyReset : null}
+                isPinCreationFlow={!isPinEnabled || !storedPin}
               />
             </BiometricContext.Provider>
           </SafeAreaView>

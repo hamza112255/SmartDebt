@@ -7,6 +7,7 @@ import {
   Dimensions,
   Modal,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -35,10 +36,11 @@ const PinModal = ({
   showCancel = true,
   maxAttempts = MAX_ATTEMPTS,
   onEmergencyReset,
+  isPinCreationFlow = false,
 }) => {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [mode, setMode] = useState('create'); // 'create' or 'verify'
+  const [mode, setMode] = useState(isPinCreationFlow ? 'create' : 'verify');
   const [attempts, setAttempts] = useState(0);
   const [error, setError] = useState('');
   const translateY = useSharedValue(SCREEN_HEIGHT);
@@ -47,7 +49,7 @@ const PinModal = ({
     if (visible) {
       setPin('');
       setConfirmPin('');
-      setMode('create');
+      setMode(isPinCreationFlow ? 'create' : 'verify');
       setError('');
       setAttempts(0);
       translateY.value = withTiming(0, {
@@ -60,17 +62,19 @@ const PinModal = ({
         easing: Easing.in(Easing.cubic),
       });
     }
-  }, [visible]);
+  }, [visible, isPinCreationFlow]);
 
   const handleNumberPress = (num) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    let currentPin = mode === 'create' ? pin : confirmPin;
+    let currentPin = mode === 'create' ? pin : mode === 'confirm' ? confirmPin : pin;
     if (currentPin.length < 4) {
       currentPin = currentPin + num;
       if (mode === 'create') {
         setPin(currentPin);
-      } else {
+      } else if (mode === 'confirm') {
         setConfirmPin(currentPin);
+      } else {
+        setPin(currentPin);
       }
 
       if (currentPin.length === 4) {
@@ -79,7 +83,7 @@ const PinModal = ({
           setConfirmPin('');
         } else if (mode === 'confirm') {
           if (currentPin === pin) {
-            onAuthenticated(currentPin);
+            onAuthenticated(pin);
             setPin('');
             setConfirmPin('');
             setMode('create');
@@ -94,6 +98,9 @@ const PinModal = ({
               onEmergencyReset();
             }
           }
+        } else if (mode === 'verify') {
+          onAuthenticated(currentPin);
+          setPin('');
         }
       }
     }
@@ -112,7 +119,7 @@ const PinModal = ({
     if (showCancel) {
       setPin('');
       setConfirmPin('');
-      setMode('create');
+      setMode(isPinCreationFlow ? 'create' : 'verify');
       setError('');
       setAttempts(0);
       onCancel();
@@ -120,13 +127,6 @@ const PinModal = ({
   };
 
   const panGesture = Gesture.Pan()
-    .onBegin(() => {
-      try {
-        if (!translateY) return;
-      } catch (error) {
-        console.error('Gesture error:', error);
-      }
-    })
     .onChange((event) => {
       if (event.translationY > 0) {
         translateY.value = event.translationY;
@@ -160,10 +160,12 @@ const PinModal = ({
           <Animated.View style={[styles.bottomSheet, animatedStyle]}>
             <View style={styles.dragIndicator} />
             <Text style={styles.title}>
-              {mode === 'create' ? title : 'Confirm PIN'}
+              {mode === 'create' ? title : mode === 'confirm' ? 'Confirm PIN' : 'Enter PIN'}
             </Text>
             <Text style={styles.subtitle}>
-              {mode === 'create' ? 'Enter a 4-digit PIN' : 'Re-enter your PIN to confirm'}
+              {mode === 'create' ? 'Enter a 4-digit PIN' :
+                mode === 'confirm' ? 'Re-enter your PIN to confirm' :
+                  'Enter your 4-digit PIN'}
             </Text>
             <View style={styles.pinContainer}>
               {[...Array(4)].map((_, i) => (
@@ -171,7 +173,7 @@ const PinModal = ({
                   key={i}
                   style={[
                     styles.pinDot,
-                    (mode === 'create' && i < pin.length) ||
+                    ((mode === 'create' || mode === 'verify') && i < pin.length) ||
                       (mode === 'confirm' && i < confirmPin.length)
                       ? styles.pinDotFilled
                       : null,
@@ -208,7 +210,7 @@ const PinModal = ({
                   <Text style={styles.cancelText}>Cancel</Text>
                 </TouchableOpacity>
               )}
-              {onEmergencyReset && attempts > 0 && (
+              {onEmergencyReset && mode === 'verify' && (
                 <TouchableOpacity onPress={onEmergencyReset}>
                   <Text style={styles.emergencyText}>Forgot PIN? Reset</Text>
                 </TouchableOpacity>

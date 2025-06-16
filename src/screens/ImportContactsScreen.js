@@ -1,0 +1,288 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  ActivityIndicator,
+  TextInput
+} from 'react-native';
+import * as Contacts from 'expo-contacts';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import Realm from 'realm';
+import { realm } from '../realm';
+
+const colors = {
+  primary: '#2563eb',
+  background: '#f8fafc',
+  white: '#ffffff',
+  gray: '#6b7280',
+  text: '#1e293b',
+  border: '#e5e7eb',
+};
+
+const ImportContactsScreen = ({ navigation, route }) => {
+  const { userId, onGoBack } = route.params;
+  const [contacts, setContacts] = useState([]);
+  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [permissionStatus, setPermissionStatus] = useState(null);
+
+  useEffect(() => {
+    const getContacts = async () => {
+      try {
+        const { status } = await Contacts.requestPermissionsAsync();
+        setPermissionStatus(status);
+        
+        if (status === 'granted') {
+          const { data } = await Contacts.getContactsAsync({
+            fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+          });
+          setContacts(data.filter(c => c.firstName));
+        }
+      } catch (error) {
+        console.error('Error fetching contacts:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getContacts();
+  }, []);
+
+  const toggleContactSelection = (contactId) => {
+    setSelectedContacts(prev => 
+      prev.includes(contactId) 
+        ? prev.filter(id => id !== contactId) 
+        : [...prev, contactId]
+    );
+  };
+
+  const saveSelectedContacts = () => {
+    if (!selectedContacts.length || !userId) return;
+
+    try {
+      const savedContacts = [];
+      realm.write(() => {
+        selectedContacts.forEach(contactId => {
+          const contact = contacts.find(c => c.id === contactId);
+          if (contact) {
+            const newContact = realm.create('Contact', {
+              id: new Realm.BSON.UUID().toString(),
+              name: `${contact.firstName} ${contact.lastName || ''}`.trim(),
+              phone: contact.phoneNumbers?.[0]?.number || '',
+              email: contact.emails?.[0]?.email || '',
+              photoUrl: '',
+              userId,
+              totalOwed: 0,
+              totalOwing: 0,
+              isActive: true,
+              createdOn: new Date(),
+              updatedOn: new Date(),
+              syncStatus: 'pending',
+              lastSyncAt: null,
+              needsUpload: true,
+            });
+            savedContacts.push(newContact);
+          }
+        });
+      });
+      
+      if (onGoBack) {
+        onGoBack(savedContacts);
+      }
+      navigation.goBack();
+    } catch (err) {
+      console.error('Error saving contacts:', err);
+    }
+  };
+
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery) return contacts;
+    return contacts.filter(contact => {
+      const name = `${contact.firstName || ''} ${contact.lastName || ''}`.toLowerCase();
+      const phone = contact.phoneNumbers?.[0]?.number?.toLowerCase() || '';
+      const email = contact.emails?.[0]?.email?.toLowerCase() || '';
+      return (
+        name.includes(searchQuery.toLowerCase()) ||
+        phone.includes(searchQuery) ||
+        email.includes(searchQuery)
+      );
+    });
+  }, [contacts, searchQuery]);
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity 
+      style={[
+        styles.contactItem,
+        selectedContacts.includes(item.id) && styles.selectedContact
+      ]}
+      onPress={() => toggleContactSelection(item.id)}
+    >
+      <View style={styles.contactInfo}>
+        <Text style={styles.contactName}>{`${item.firstName} ${item.lastName || ''}`.trim()}</Text>
+        {item.phoneNumbers?.[0]?.number && (
+          <Text style={styles.contactDetail}>{item.phoneNumbers[0].number}</Text>
+        )}
+      </View>
+      {selectedContacts.includes(item.id) ? (
+        <Icon name="check-box" size={RFValue(24)} color={colors.primary} />
+      ) : (
+        <Icon name="check-box-outline-blank" size={RFValue(24)} color={colors.gray} />
+      )}
+    </TouchableOpacity>
+  );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (permissionStatus !== 'granted') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.permissionText}>Contacts permission required to import contacts</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Icon name="arrow-back" size={RFValue(24)} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Import Contacts</Text>
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={saveSelectedContacts}
+          disabled={!selectedContacts.length}
+        >
+          <Text style={styles.saveButtonText}>Save ({selectedContacts.length})</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search contacts..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        <Icon name="search" size={24} color={colors.gray} />
+      </View>
+
+      <FlatList
+        data={filteredContacts}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={() => (
+          <Text style={styles.emptyText}>No contacts found</Text>
+        )}
+      />
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: hp(2),
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    marginRight: wp(4),
+  },
+  headerTitle: {
+    fontSize: RFPercentage(2.5),
+    fontFamily: 'Sora-SemiBold',
+    color: colors.text,
+    flex: 1,
+  },
+  saveButton: {
+    paddingHorizontal: wp(4),
+    paddingVertical: hp(1),
+    backgroundColor: colors.primary,
+    borderRadius: wp(2),
+  },
+  saveButtonText: {
+    color: colors.white,
+    fontSize: RFPercentage(2),
+    fontFamily: 'Sora-SemiBold',
+  },
+  listContent: {
+    paddingBottom: hp(4),
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: hp(2),
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  selectedContact: {
+    backgroundColor: '#f0f7ff',
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: RFPercentage(2.2),
+    fontFamily: 'Sora-SemiBold',
+    color: colors.text,
+    marginBottom: hp(0.5),
+  },
+  contactDetail: {
+    fontSize: RFPercentage(1.8),
+    fontFamily: 'Sora-Regular',
+    color: colors.gray,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: hp(4),
+    fontSize: RFPercentage(2),
+    color: colors.gray,
+  },
+  permissionText: {
+    textAlign: 'center',
+    margin: hp(4),
+    fontSize: RFPercentage(2.2),
+    color: colors.text,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 8,
+    fontSize: 16,
+  },
+});
+
+export default ImportContactsScreen;

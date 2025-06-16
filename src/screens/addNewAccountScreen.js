@@ -15,7 +15,11 @@ import {
     Keyboard,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
+import { createObject, updateObject, getAllObjects } from '../realm';
+import uuid from 'react-native-uuid';
+import { screens } from '../constant/screens';
 
 const colors = {
     primary: '#2563eb',
@@ -24,8 +28,9 @@ const colors = {
     background: '#f8fafc',
     white: '#ffffff',
     gray: '#6b7280',
-    lightGray: '#f3f4f6',
+    lightGray: '#e0e0e0',
     border: '#e5e7eb',
+    text: '#1e293b',
 };
 
 const AccountNameInput = memo(({ accountName, setAccountName }) => {
@@ -37,12 +42,12 @@ const AccountNameInput = memo(({ accountName, setAccountName }) => {
 
     return (
         <View style={styles.inputContainer}>
-            <Text style={styles.settingTitle}>
+            <Text style={styles.label}>
                 Account Name <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
                 ref={textInputRef}
-                style={styles.textInput}
+                style={styles.input}
                 value={accountName}
                 onChangeText={handleTextChange}
                 placeholder="Enter account name"
@@ -50,25 +55,34 @@ const AccountNameInput = memo(({ accountName, setAccountName }) => {
                 autoFocus={false}
                 returnKeyType="default"
                 blurOnSubmit={false}
-                autoCapitalize="none"
+                autoCapitalize="words"
                 autoCorrect={false}
                 keyboardType="default"
-                onFocus={() => {
-                    textInputRef.current?.focus();
-                }}
             />
         </View>
     );
 });
 
-const AddAccountScreen = ({ navigation }) => {
+const AddAccountScreen = ({ navigation, route }) => {
     const [accountName, setAccountName] = useState('');
     const [language, setLanguage] = useState('English');
-    const [currency, setCurrency] = useState(currencies?.[0] ?? { code: 'USD', flag: '🇺🇸' });
+    const [currency, setCurrency] = useState({ code: 'USD', flag: '🇺🇸', name: 'US Dollar', country: 'United States' });
     const [terms, setTerms] = useState('Cash In - Cash Out');
     const [showLanguageSheet, setShowLanguageSheet] = useState(false);
     const [showCurrencySheet, setShowCurrencySheet] = useState(false);
     const [showTermsSheet, setShowTermsSheet] = useState(false);
+
+    const existingAccount = route?.params?.account ?? null;
+
+    useEffect(() => {
+        if (existingAccount) {
+            setAccountName(existingAccount.name);
+            setLanguage(existingAccount.language);
+            const foundCurrency = currencies.find(c => c.code === existingAccount.currency);
+            if (foundCurrency) setCurrency(foundCurrency);
+            setTerms(existingAccount.type);
+        }
+    }, [existingAccount]);
 
     const languages = [
         'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
@@ -99,9 +113,72 @@ const AddAccountScreen = ({ navigation }) => {
     ];
 
     const handleAddAccount = () => {
-        if (accountName.trim()) {
-            navigation.goBack();
+        if (!accountName.trim()) return;
+
+        const now = new Date();
+        // Determine current user id (create default user if none)
+        const users = getAllObjects('User');
+        let currentUserId = users.length > 0 ? users[0].id : 'localUser';
+
+        const data = {
+            id: existingAccount ? existingAccount.id : uuid.v4(),
+            name: accountName.trim(),
+            currency: currency.code,
+            type: terms,
+            language,
+            userId: currentUserId,
+            isPrimary: existingAccount ? existingAccount.isPrimary : false,
+            currentBalance: existingAccount ? existingAccount.currentBalance : 0,
+            // Initialize all type-based amounts to 0
+            cashIn: existingAccount ? existingAccount.cashIn : 0,
+            cashOut: existingAccount ? existingAccount.cashOut : 0,
+            debit: existingAccount ? existingAccount.debit : 0,
+            credit: existingAccount ? existingAccount.credit : 0,
+            receive: existingAccount ? existingAccount.receive : 0,
+            sendOut: existingAccount ? existingAccount.sendOut : 0,
+            borrow: existingAccount ? existingAccount.borrow : 0,
+            lend: existingAccount ? existingAccount.lend : 0,
+            isActive: true,
+            createdOn: existingAccount ? existingAccount.createdOn : now,
+            updatedOn: now,
+            syncStatus: 'pending',
+            needsUpload: true,
+        };
+
+        // Ensure a local user profile exists when working offline
+        if (users.length === 0) {
+            const userData = {
+                id: currentUserId,
+                firstName: null,
+                lastName: null,
+                email: null,
+                emailConfirmed: false,
+                biometricEnabled: false,
+                pinEnabled: false,
+                pinCode: null,
+                passwordHash: null,
+                userType: 'free',
+                profilePictureUrl: null,
+                language,
+                timezone: null,
+                isActive: true,
+                lastLoginAt: null,
+                createdOn: now,
+                updatedOn: now,
+                syncStatus: 'pending',
+                lastSyncAt: null,
+                needsUpload: true,
+            };
+            createObject('User', userData);
         }
+
+        if (existingAccount) {
+            updateObject('Account', data.id, data);
+        } else {
+            createObject('Account', data);
+        }
+
+        navigation.goBack();
     };
 
     const BottomSheet = ({ visible, onClose, title, children }) => (
@@ -141,16 +218,16 @@ const AddAccountScreen = ({ navigation }) => {
                 <Text style={styles.currencyName}>{item.name}</Text>
             </View>
             {currency.code === item.code && (
-                <Icon name="check" size={22} color={colors.primary} />
+                <Icon name="check" size={RFValue(22)} color={colors.primary} />
             )}
         </TouchableOpacity>
     );
 
     const SettingRow = ({ title, value, onPress, isRequired = false, icon }) => (
-        <TouchableOpacity style={styles.settingRow} onPress={onPress}>
+        <TouchableOpacity style={styles.settingRow} onPress={onPress} activeOpacity={0.85}>
             <View style={styles.settingContent}>
                 <View style={styles.settingLeft}>
-                    <Text style={styles.settingTitle}>
+                    <Text style={styles.label}>
                         {title} {isRequired && <Text style={styles.required}>*</Text>}
                     </Text>
                     <View style={styles.settingValue}>
@@ -158,7 +235,7 @@ const AddAccountScreen = ({ navigation }) => {
                         <Text style={styles.sheetOptionText}>{value}</Text>
                     </View>
                 </View>
-                <Icon name="chevron-right" size={24} color={colors.gray} />
+                <Icon name="chevron-right" size={RFValue(24)} color={colors.gray} />
             </View>
         </TouchableOpacity>
     );
@@ -170,62 +247,70 @@ const AddAccountScreen = ({ navigation }) => {
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
-                style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : hp(2.5)} // ~20px
             >
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <View style={styles.flex}>
-                        <View style={styles.header}>
+                        <View style={[styles.header, { paddingHorizontal: wp(4.5) }]}>
                             <TouchableOpacity
                                 style={styles.backButton}
                                 onPress={() => navigation.goBack()}
                             >
-                                <Icon name="arrow-back" size={24} color={colors.primary} />
+                                <Icon name="arrow-back" size={RFValue(24)} color={colors.primary} />
                             </TouchableOpacity>
                             <Text style={styles.headerTitle}>Add New Account</Text>
                             <View style={styles.placeholder} />
                         </View>
-                        <AccountNameInput
-                            accountName={accountName}
-                            setAccountName={setAccountName}
-                        />
                         <ScrollView
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"
+                            contentContainerStyle={{
+                                alignItems: 'center',
+                                paddingBottom: hp(15), // ~120px
+                                marginTop: hp(2.25) // ~18px
+                            }}
                         >
-                            <View style={styles.settingsContainer}>
-                                <SettingRow
-                                    title="Language"
-                                    value={language}
-                                    onPress={() => setShowLanguageSheet(true)}
-                                    isRequired={true}
+                            <View style={[styles.formWrapper, { maxWidth: wp(90), width: '100%' }]}>
+                                <AccountNameInput
+                                    accountName={accountName}
+                                    setAccountName={setAccountName}
                                 />
-                                <SettingRow
-                                    title="Currency"
-                                    value={currency.code}
-                                    onPress={() => setShowCurrencySheet(true)}
-                                    isRequired={true}
-                                    icon={<CurrencyIcon />}
-                                />
-                                <SettingRow
-                                    title="Terms"
-                                    value={terms}
-                                    onPress={() => setShowTermsSheet(true)}
-                                    isRequired={true}
-                                />
-                            </View>
-                            <View style={styles.buttonContainer}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.getStartedButton,
-                                        !accountName.trim() && styles.disabledButton
-                                    ]}
-                                    onPress={handleAddAccount}
-                                    disabled={!accountName.trim()}
-                                >
-                                    <Text style={styles.buttonText}>Add Account</Text>
-                                </TouchableOpacity>
+                                <View style={styles.settingsContainer}>
+                                    <SettingRow
+                                        title="Language"
+                                        value={language}
+                                        onPress={() => setShowLanguageSheet(true)}
+                                        isRequired={true}
+                                    />
+                                    <SettingRow
+                                        title="Currency"
+                                        value={currency.code}
+                                        onPress={() => setShowCurrencySheet(true)}
+                                        isRequired={true}
+                                        icon={<CurrencyIcon />}
+                                    />
+                                    <SettingRow
+                                        title="Terms"
+                                        value={terms}
+                                        onPress={() => setShowTermsSheet(true)}
+                                        isRequired={true}
+                                    />
+                                </View>
+                                <View style={styles.buttonContainer}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.saveButton,
+                                            !accountName.trim() && styles.disabledButton
+                                        ]}
+                                        onPress={handleAddAccount}
+                                        disabled={!accountName.trim()}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text style={styles.buttonText}>{existingAccount ? 'Update Account' : 'Add Account'}</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </ScrollView>
                     </View>
@@ -253,12 +338,12 @@ const AddAccountScreen = ({ navigation }) => {
                             >
                                 <Text style={[
                                     styles.sheetOptionText,
-                                    language === item && { color: colors.primary, fontWeight: 'bold' }
+                                    language === item && { color: colors.primary, fontFamily: 'Sora-Bold' }
                                 ]}>
                                     {item}
                                 </Text>
                                 {language === item && (
-                                    <Icon name="check" size={22} color={colors.primary} />
+                                    <Icon name="check" size={RFValue(22)} color={colors.primary} />
                                 )}
                             </TouchableOpacity>
                         )}
@@ -286,12 +371,12 @@ const AddAccountScreen = ({ navigation }) => {
                         >
                             <Text style={[
                                 styles.sheetOptionText,
-                                terms === option && { color: colors.primary, fontWeight: 'bold' }
+                                terms === option && { color: colors.primary, fontFamily: 'Sora-Bold' }
                             ]}>
                                 {option}
                             </Text>
                             {terms === option && (
-                                <Icon name="check" size={22} color={colors.primary} />
+                                <Icon name="check" size={RFValue(22)} color={colors.primary} />
                             )}
                         </TouchableOpacity>
                     ))}
@@ -326,56 +411,87 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 18,
+        paddingVertical: hp(2), // ~16px
         backgroundColor: colors.white,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
-        justifyContent: 'space-between',
+        width: '100%',
     },
     backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: wp(10), // ~40px
+        height: wp(10), // ~40px
+        borderRadius: wp(5), // ~20px
         backgroundColor: colors.lightGray,
         justifyContent: 'center',
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: RFPercentage(2.8), // ~20px
+        fontFamily: 'Sora-Bold',
         color: colors.primary,
+        marginLeft: wp(3), // ~12px
+        flex: 1,
+        textAlign: 'center',
     },
     placeholder: {
-        width: 40,
+        width: wp(10), // ~40px
+    },
+    formWrapper: {
+        width: '100%',
+        paddingHorizontal: wp(4.5), // ~18px
+        alignSelf: 'center',
     },
     inputContainer: {
         backgroundColor: colors.white,
-        borderRadius: 14,
-        paddingVertical: 20,
-        paddingHorizontal: 18,
-        marginBottom: 12,
-        marginHorizontal: 18,
-        marginTop: 24,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(4), // ~16px
+        marginBottom: hp(1.75), // ~14px
         elevation: 2,
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    label: {
+        fontSize: RFPercentage(2), // ~14px
+        fontFamily: 'Sora-SemiBold',
+        color: colors.gray,
+        marginBottom: hp(0.75), // ~6px
+    },
+    required: {
+        color: colors.error,
+        fontFamily: 'Sora-Bold',
+        fontSize: RFPercentage(2), // ~14px
+    },
+    input: {
+        backgroundColor: colors.white,
+        borderRadius: wp(2), // ~8px
+        paddingVertical: hp(1.25), // ~10px
+        paddingHorizontal: wp(2.5), // ~10px
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
+        borderWidth: 1,
+        borderColor: colors.border,
+        color: colors.text,
     },
     settingsContainer: {
-        paddingHorizontal: 18,
         paddingTop: 0,
+        marginBottom: hp(1.25), // ~10px
     },
     settingRow: {
         backgroundColor: colors.white,
-        borderRadius: 14,
-        paddingVertical: 20,
-        paddingHorizontal: 18,
-        marginBottom: 12,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(4), // ~16px
+        marginBottom: hp(1.75), // ~14px
         elevation: 2,
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     settingContent: {
         flexDirection: 'row',
@@ -385,48 +501,34 @@ const styles = StyleSheet.create({
     settingLeft: {
         flex: 1,
     },
-    settingTitle: {
-        fontSize: 13,
-        color: colors.gray,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    required: {
-        color: colors.error,
-    },
     settingValue: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     iconContainer: {
-        marginRight: 12,
+        marginRight: wp(3), // ~12px
     },
     sheetOptionText: {
-        fontSize: 16,
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
         color: colors.primary,
-        fontWeight: '500',
-    },
-    textInput: {
-        fontSize: 16,
-        color: colors.primary,
-        fontWeight: '600',
-        paddingVertical: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
     },
     buttonContainer: {
-        paddingHorizontal: 18,
-        paddingVertical: 32,
-    },
-    getStartedButton: {
-        backgroundColor: colors.primary,
-        paddingVertical: 18,
-        borderRadius: 16,
+        marginTop: hp(2), // ~16px
+        marginBottom: hp(3), // ~24px
         alignItems: 'center',
-        elevation: 6,
+    },
+    saveButton: {
+        backgroundColor: colors.primary,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(8), // ~32px
+        alignItems: 'center',
+        width: '100%',
+        elevation: 3,
         shadowColor: '#000',
         shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: 3 },
+        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
     },
     disabledButton: {
         backgroundColor: colors.gray,
@@ -434,8 +536,9 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         color: colors.white,
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Bold',
+        textAlign: 'center',
     },
     bottomSheetOverlay: {
         flex: 1,
@@ -444,38 +547,40 @@ const styles = StyleSheet.create({
     },
     bottomSheet: {
         backgroundColor: colors.white,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingHorizontal: 24,
-        paddingVertical: 24,
-        minHeight: 180,
+        borderTopLeftRadius: wp(5), // ~20px
+        borderTopRightRadius: wp(5), // ~20px
+        paddingHorizontal: wp(6), // ~24px
+        paddingVertical: hp(3), // ~24px
+        minHeight: hp(22.5), // ~180px
         elevation: 12,
     },
     sheetTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: RFPercentage(2.5), // ~18px
+        fontFamily: 'Sora-Bold',
         color: colors.gray,
-        marginBottom: 18,
+        marginBottom: hp(2.25), // ~18px
+        textAlign: 'center',
     },
     sheetOption: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 8,
-        borderRadius: 10,
-        marginBottom: 6,
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(2), // ~8px
+        borderRadius: wp(2.5), // ~10px
+        marginBottom: hp(0.75), // ~6px
     },
     currencyFlag: {
-        fontSize: 24,
-        marginRight: 12,
+        fontSize: RFPercentage(3.3), // ~24px
+        marginRight: wp(3), // ~12px
     },
     currencyInfo: {
         flex: 1,
     },
     currencyName: {
-        fontSize: 14,
+        fontSize: RFPercentage(2), // ~14px
         color: colors.gray,
-        marginTop: 2,
+        marginTop: hp(0.25), // ~2px
+        fontFamily: 'Sora-Regular',
     },
 });
 

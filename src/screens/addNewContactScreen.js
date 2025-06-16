@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, memo, useEffect } from 'react';
+import React, { useState, useRef, useCallback, memo } from 'react';
 import {
     View,
     Text,
@@ -8,13 +8,16 @@ import {
     StatusBar,
     TextInput,
     ScrollView,
-    Dimensions,
     KeyboardAvoidingView,
     Platform,
+    Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-
-const { width } = Dimensions.get('window');
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
+import Realm from 'realm';
+import { realm } from '../realm';
 
 const colors = {
     primary: '#2563eb',
@@ -23,9 +26,9 @@ const colors = {
     background: '#f8fafc',
     white: '#ffffff',
     gray: '#6b7280',
-    lightGray: '#f3f4f6',
+    lightGray: '#e0e0e0',
     border: '#e5e7eb',
-    text: '#374151',
+    text: '#1e293b',
 };
 
 const ContactNameInput = memo(({ contactName, setContactName }) => {
@@ -37,19 +40,19 @@ const ContactNameInput = memo(({ contactName, setContactName }) => {
 
     return (
         <View style={styles.inputContainer}>
-            <Text style={styles.settingTitle}>
+            <Text style={styles.label}>
                 Name <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
                 ref={textInputRef}
-                style={styles.textInput}
+                style={styles.input}
                 value={contactName}
                 onChangeText={handleTextChange}
                 placeholder="Name"
                 placeholderTextColor={colors.gray}
                 autoFocus={false}
                 returnKeyType="done"
-                autoCapitalize="none"
+                autoCapitalize="words"
                 autoCorrect={false}
                 keyboardType="default"
             />
@@ -57,35 +60,40 @@ const ContactNameInput = memo(({ contactName, setContactName }) => {
     );
 });
 
-const SettingRow = ({ title, value, onChangeText, isRequired = false }) => {
+const SettingRow = ({ title, value, onChangeText, isRequired = false, style }) => {
     const textInputRef = useRef(null);
 
+    const keyboardType =
+        title === 'Contact No'
+            ? 'phone-pad'
+            : title === 'Email Address'
+                ? 'email-address'
+                : 'default';
+
     return (
-        <View style={styles.settingRow}>
-            <View style={styles.settingContent}>
-                <View style={styles.settingLeft}>
-                    <Text style={styles.settingTitle}>
-                        {title} {isRequired && <Text style={styles.required}>*</Text>}
-                    </Text>
-                    <TextInput
-                        ref={textInputRef}
-                        style={styles.inputValue}
-                        value={value}
-                        onChangeText={onChangeText}
-                        placeholder={title}
-                        placeholderTextColor={colors.gray}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        keyboardType={title === 'Contact No' ? 'phone-pad' : title === 'Email Address' ? 'email-address' : 'default'}
-                        returnKeyType="done"
-                    />
-                </View>
-            </View>
+        <View style={[styles.inputContainer, style]}>
+            <Text style={styles.label}>
+                {title} {isRequired && <Text style={styles.required}>*</Text>}
+            </Text>
+            <TextInput
+                ref={textInputRef}
+                style={styles.input}
+                value={value}
+                onChangeText={onChangeText}
+                placeholder={title}
+                placeholderTextColor={colors.gray}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType={keyboardType}
+                returnKeyType="done"
+            />
         </View>
     );
-}
+};
 
-const NewContactScreen = ({ navigation }) => {
+const NewContactScreen = ({ navigation, route }) => {
+    const { userId } = route.params || {};
+
     const [contactName, setContactName] = useState('');
     const [contactNo, setContactNo] = useState('');
     const [email, setEmail] = useState('');
@@ -94,107 +102,121 @@ const NewContactScreen = ({ navigation }) => {
     const [city, setCity] = useState('');
     const [state, setState] = useState('');
     const [country, setCountry] = useState('');
+    const [imageUri, setImageUri] = useState(null);
+
+    const handlePickImage = async () => {
+        try {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (perm.status !== 'granted') {
+                alert('Photo library permission is required');
+                return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.All,
+                quality: 0.7,
+                allowsEditing: true,
+                aspect: [1, 1],
+            });
+            if (!result.canceled) {
+                setImageUri(result.assets[0].uri);
+            }
+        } catch (e) {
+            console.warn('Image pick error', e);
+        }
+    };
 
     const handleAddContact = () => {
-        if (contactName.trim()) {
-            const contactData = {
-                name: contactName,
-                contactNo,
-                email,
-                homeAddress,
-                postalCode,
-                city,
-                state,
-                country,
-            };
+        if (!contactName.trim() || !userId) {
+            alert('Name is required');
+            return;
+        }
+
+        try {
+            realm.write(() => {
+                realm.create('Contact', {
+                    id: new Realm.BSON.UUID().toString(),
+                    name: contactName,
+                    phone: contactNo,
+                    email: email,
+                    photoUrl: imageUri || '',
+                    userId,
+                    totalOwed: 0,
+                    totalOwing: 0,
+                    isActive: true,
+                    createdOn: new Date(),
+                    updatedOn: new Date(),
+                    syncStatus: 'pending',
+                    lastSyncAt: null,
+                    needsUpload: true,
+                });
+            });
             navigation.goBack();
+        } catch (err) {
+            console.error('Save contact error', err);
+            alert('Failed to save contact');
         }
     };
 
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingHorizontal: wp(4.5) }]}>
                 <TouchableOpacity
                     style={styles.backButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Icon name="arrow-back" size={24} color={colors.primary} />
+                    <Icon name="arrow-back" size={RFValue(24)} color={colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>New Contact</Text>
+                <Text style={styles.headerTitle}>Add Contact</Text>
                 <View style={styles.placeholder} />
             </View>
-
             <KeyboardAvoidingView
-                style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? '0' : hp(2.5)} // ~20px
             >
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{
+                        alignItems: 'center',
+                        paddingBottom: hp(15) // ~120px
+                    }}
                 >
-                    <View style={styles.scrollContent}>
+                    <View style={[styles.formWrapper, { maxWidth: wp(90), width: '100%' }]}>
                         {/* Image Placeholder Section */}
                         <View style={styles.imageContainer}>
-                            <TouchableOpacity style={styles.imagePlaceholder}>
-                                <Icon name="camera-alt" size={24} color={colors.gray} />
+                            <TouchableOpacity style={styles.imagePlaceholder} onPress={handlePickImage}>
+                                {imageUri ? (
+                                    <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                                ) : (
+                                    <Icon name="camera-alt" size={RFValue(32)} color={colors.gray} />
+                                )}
                             </TouchableOpacity>
                         </View>
-
-                        <View style={styles.settingsContainer}>
-                            <ContactNameInput
-                                contactName={contactName}
-                                setContactName={setContactName}
-                            />
-                            <SettingRow
-                                title="Contact No"
-                                value={contactNo}
-                                onChangeText={setContactNo}
-                            />
-                            <SettingRow
-                                title="Email Address"
-                                value={email}
-                                onChangeText={setEmail}
-                            />
-                            <SettingRow
-                                title="Home Address"
-                                value={homeAddress}
-                                onChangeText={setHomeAddress}
-                            />
-                            <View style={styles.row}>
-                                <SettingRow
-                                    title="Postal Code"
-                                    value={postalCode}
-                                    onChangeText={setPostalCode}
-                                />
-                                <SettingRow
-                                    title="City"
-                                    value={city}
-                                    onChangeText={setCity}
-                                />
-                            </View>
-                            <View style={styles.row}>
-                                <SettingRow
-                                    title="State"
-                                    value={state}
-                                    onChangeText={setState}
-                                />
-                                <SettingRow
-                                    title="Country"
-                                    value={country}
-                                    onChangeText={setCountry}
-                                />
-                            </View>
-                        </View>
+                        <ContactNameInput
+                            contactName={contactName}
+                            setContactName={setContactName}
+                        />
+                        <SettingRow
+                            title="Contact No"
+                            value={contactNo}
+                            onChangeText={setContactNo}
+                        />
+                        <SettingRow
+                            title="Email Address"
+                            value={email}
+                            onChangeText={setEmail}
+                        />
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity
                                 style={[
-                                    styles.getStartedButton,
+                                    styles.saveButton,
                                     !contactName.trim() && styles.disabledButton
                                 ]}
                                 onPress={handleAddContact}
                                 disabled={!contactName.trim()}
+                                activeOpacity={0.85}
                             >
                                 <Text style={styles.buttonText}>Add Contact</Text>
                             </TouchableOpacity>
@@ -211,111 +233,120 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
-    flex: {
-        flex: 1,
-    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 18,
+        paddingVertical: hp(2), // ~16px
         backgroundColor: colors.white,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        borderColor: colors.border,
+        width: '100%',
     },
     backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: wp(10), // ~40px
+        height: wp(10), // ~40px
+        borderRadius: wp(5), // ~20px
         backgroundColor: colors.lightGray,
         justifyContent: 'center',
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: RFPercentage(2.8), // ~20px
+        fontFamily: 'Sora-Bold',
         color: colors.primary,
-        marginLeft: 16,
+        marginLeft: wp(3), // ~12px
+        flex: 1,
+        textAlign: 'center',
     },
     placeholder: {
-        width: 40,
+        width: wp(10) // ~40px
     },
-    scrollContent: {
-        flexGrow: 1,
+    formWrapper: {
+        width: wp(90), // 90% of screen width
+        paddingHorizontal: wp(4.5), // ~4px
+        alignSelf: 'center',
+        marginTop: hp(2), // ~16px
     },
-    settingsContainer: {
-        paddingHorizontal: 18,
-        paddingTop: 0,
+    imageContainer: {
+        alignItems: 'center',
+        paddingVertical: hp(2.5), // ~20px
+        backgroundColor: colors.white,
+        borderRadius: wp(3.5), // ~14px
+        marginBottom: hp(2), // ~16px
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowOffset: { width: wp(0), height: wp(0.25) }, // ~2px
+    },
+    imagePlaceholder: {
+        width: wp(20), // ~80px
+        height: wp(20), // ~80px
+        borderRadius: wp(5), // ~20px
+        backgroundColor: colors.lightGray,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    imagePreview: {
+        width: wp(20), // ~80px
+        height: wp(20), // ~80px
+        borderRadius: wp(5), // ~20px
     },
     inputContainer: {
         backgroundColor: colors.white,
-        borderRadius: 14,
-        paddingVertical: 20,
-        paddingHorizontal: 18,
-        marginBottom: 12,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(4), // ~16px
+        marginBottom: hp(1.75), // ~14px
         elevation: 2,
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowOffset: { width: wp(0), height: wp(0.25) }, // ~2px
+        borderWidth: 1,
+        borderColor: colors.border,
     },
-    settingRow: {
-        backgroundColor: colors.white,
-        borderRadius: 14,
-        paddingVertical: 12,
-        paddingHorizontal: 18,
-        marginBottom: 12,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
-        flex: 1,
-    },
-    settingContent: {
-        flexDirection: 'column',
-    },
-    settingLeft: {
-        flex: 1,
-    },
-    settingTitle: {
-        fontSize: 13,
-        color: colors.text,
-        fontWeight: '600',
-        marginBottom: 8,
+    label: {
+        fontSize: RFPercentage(2), // ~14px
+        fontFamily: 'Sora-SemiBold',
+        color: colors.gray,
+        marginBottom: hp(0.75), // ~6px
     },
     required: {
         color: colors.error,
+        fontFamily: 'Sora',
+        fontSize: RFPercentage(2), // ~14px
     },
-    inputValue: {
-        fontSize: 16,
+    input: {
+        backgroundColor: colors.white,
+        borderRadius: wp(2), // ~8px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(2.5), // ~10px
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
+        borderWidth: 1,
+        borderColor: colors.border,
         color: colors.text,
-        paddingVertical: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    textInput: {
-        fontSize: 16,
-        color: colors.text,
-        paddingVertical: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
     },
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        marginBottom: 0,
     },
     buttonContainer: {
-        paddingHorizontal: 18,
-        paddingVertical: 32,
-    },
-    getStartedButton: {
-        backgroundColor: colors.primary,
-        paddingVertical: 18,
-        borderRadius: 16,
+        marginTop: hp(2), // ~16px
+        marginBottom: hp(3), // ~24px
         alignItems: 'center',
-        elevation: 6,
+    },
+    saveButton: {
+        backgroundColor: colors.primary,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(8), // ~32px
+        alignItems: 'center',
+        width: '100%',
+        elevation: 4,
         shadowColor: '#000',
         shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: 3 },
+        shadowOffset: { width: wp(0), height: wp(0.25) }, // ~2px
     },
     disabledButton: {
         backgroundColor: colors.gray,
@@ -323,28 +354,9 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         color: colors.white,
-        fontSize: 18,
-        fontWeight: '700',
-    },
-    imageContainer: {
-        alignItems: 'center',
-        paddingVertical: 20,
-        backgroundColor: colors.white,
-        marginHorizontal: 18,
-        borderRadius: 14,
-        marginBottom: 12,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
-    },
-    imagePlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: colors.lightGray,
-        justifyContent: 'center',
-        alignItems: 'center',
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Bold',
+        textAlign: 'center',
     },
 });
 

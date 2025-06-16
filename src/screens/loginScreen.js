@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import GoogleIcon from 'react-native-vector-icons/AntDesign';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 
 const colors = {
     primary: '#2563eb',
@@ -97,7 +99,7 @@ const LoginScreen = ({ navigation }) => {
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.logoContainer}>
-                            <Icon name="account-balance-wallet" size={48} color={colors.primary} />
+                            <Icon name="account-balance-wallet" size={RFValue(48)} color={colors.primary} />
                         </View>
                         <Text style={styles.title}>Welcome to SmartDebt</Text>
                         <Text style={styles.subtitle}>Sign in to manage your debts smartly</Text>
@@ -109,7 +111,7 @@ const LoginScreen = ({ navigation }) => {
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Email Address</Text>
                             <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
-                                <Icon name="email" size={20} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Enter your email"
@@ -133,7 +135,7 @@ const LoginScreen = ({ navigation }) => {
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Password</Text>
                             <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-                                <Icon name="lock" size={20} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Enter your password"
@@ -154,7 +156,7 @@ const LoginScreen = ({ navigation }) => {
                                 >
                                     <Icon
                                         name={showPassword ? 'visibility' : 'visibility-off'}
-                                        size={20}
+                                        size={RFValue(20)}
                                         color={colors.gray}
                                     />
                                 </TouchableOpacity>
@@ -193,7 +195,7 @@ const LoginScreen = ({ navigation }) => {
                             onPress={handleGoogleSignIn}
                             disabled={isLoading}
                         >
-                            <GoogleIcon name="google" size={20} color={colors.text} />
+                            <GoogleIcon name="google" size={RFValue(20)} color={colors.text} />
                             <Text style={styles.googleButtonText}>Continue with Google</Text>
                         </TouchableOpacity>
 
@@ -218,124 +220,124 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
-        paddingHorizontal: 24,
-        paddingVertical: 32,
+        paddingHorizontal: wp(6), // 6% of screen width
+        paddingVertical: hp(4), // 4% of screen height
     },
     header: {
         alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: hp(5),
     },
     logoContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: wp(20),
+        height: wp(20),
+        borderRadius: wp(10),
         backgroundColor: colors.white,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: hp(3),
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: hp(0.25),
         },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: wp(2),
         elevation: 4,
     },
     title: {
-        fontSize: 28,
+        fontSize: RFPercentage(3.8),
         fontWeight: 'bold',
         color: colors.text,
-        marginBottom: 8,
+        marginBottom: hp(1),
         textAlign: 'center',
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: RFPercentage(2.2),
         color: colors.gray,
         textAlign: 'center',
-        lineHeight: 24,
+        lineHeight: hp(3),
     },
     formContainer: {
         backgroundColor: colors.white,
-        borderRadius: 16,
-        padding: 24,
+        borderRadius: wp(4),
+        padding: wp(6),
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: hp(0.25),
         },
         shadowOpacity: 0.1,
-        shadowRadius: 16,
+        shadowRadius: wp(4),
         elevation: 8,
     },
     inputContainer: {
-        marginBottom: 20,
+        marginBottom: hp(2.5),
     },
     label: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         fontWeight: '600',
         color: colors.text,
-        marginBottom: 8,
+        marginBottom: hp(1),
     },
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.lightGray,
-        borderRadius: 12,
+        borderRadius: wp(3),
         borderWidth: 1,
         borderColor: colors.border,
-        paddingHorizontal: 16,
-        height: 52,
+        paddingHorizontal: wp(4),
+        height: hp(6.5),
     },
     inputError: {
         borderColor: colors.error,
     },
     inputIcon: {
-        marginRight: 12,
+        marginRight: wp(3),
     },
     input: {
         flex: 1,
-        fontSize: 16,
+        fontSize: RFPercentage(2.2),
         color: colors.text,
         height: '100%',
     },
     eyeIcon: {
-        padding: 4,
+        padding: wp(1),
     },
     errorText: {
-        fontSize: 12,
+        fontSize: RFPercentage(1.7),
         color: colors.error,
-        marginTop: 4,
+        marginTop: hp(0.5),
     },
     forgotPassword: {
         alignSelf: 'flex-end',
-        marginBottom: 24,
+        marginBottom: hp(3),
     },
     forgotPasswordText: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         color: colors.primary,
         fontWeight: '600',
     },
     signInButton: {
         backgroundColor: colors.primary,
-        borderRadius: 12,
-        height: 52,
+        borderRadius: wp(3),
+        height: hp(6.5),
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: hp(3),
     },
     buttonDisabled: {
         opacity: 0.7,
     },
     buttonText: {
-        fontSize: 16,
+        fontSize: RFPercentage(2.2),
         fontWeight: '600',
         color: colors.white,
     },
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: hp(3),
     },
     dividerLine: {
         flex: 1,
@@ -343,26 +345,26 @@ const styles = StyleSheet.create({
         backgroundColor: colors.border,
     },
     dividerText: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         color: colors.gray,
-        marginHorizontal: 16,
+        marginHorizontal: wp(4),
     },
     googleButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.white,
-        borderRadius: 12,
-        height: 52,
+        borderRadius: wp(3),
+        height: hp(6.5),
         borderWidth: 1,
         borderColor: colors.border,
-        marginBottom: 24,
+        marginBottom: hp(3),
     },
     googleButtonText: {
-        fontSize: 16,
+        fontSize: RFPercentage(2.2),
         fontWeight: '600',
         color: colors.text,
-        marginLeft: 8,
+        marginLeft: wp(2),
     },
     signUpContainer: {
         flexDirection: 'row',
@@ -370,11 +372,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     signUpText: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         color: colors.gray,
     },
     signUpLink: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         color: colors.primary,
         fontWeight: '600',
     },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     View,
     Text,
@@ -12,6 +12,8 @@ import {
     Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 
 const colors = {
     primary: '#2563eb',
@@ -41,7 +43,6 @@ const SignupScreen = ({ navigation }) => {
 
     const updateFormData = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        // Clear error when user starts typing
         if (errors[field]) {
             setErrors(prev => ({ ...prev, [field]: null }));
         }
@@ -85,9 +86,7 @@ const SignupScreen = ({ navigation }) => {
 
         setIsLoading(true);
         try {
-            // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 2000));
-
             Alert.alert(
                 'Account Created Successfully!',
                 'Welcome to SmartDebt. You can now sign in with your credentials.',
@@ -115,29 +114,25 @@ const SignupScreen = ({ navigation }) => {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Header */}
                     <View style={styles.header}>
                         <TouchableOpacity
                             style={styles.backButton}
                             onPress={() => navigation.goBack()}
                         >
-                            <Icon name="arrow-back" size={24} color={colors.text} />
+                            <Icon name="arrow-back" size={RFValue(24)} color={colors.text} />
                         </TouchableOpacity>
 
                         <View style={styles.logoContainer}>
-                            <Icon name="account-balance-wallet" size={48} color={colors.primary} />
+                            <Icon name="account-balance-wallet" size={RFValue(48)} color={colors.primary} />
                         </View>
                         <Text style={styles.title}>Create Account</Text>
                         <Text style={styles.subtitle}>Join SmartDebt and take control of your finances</Text>
                     </View>
-
-                    {/* Form */}
                     <View style={styles.formContainer}>
-                        {/* Name Input */}
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Full Name</Text>
                             <View style={[styles.inputWrapper, errors.name && styles.inputError]}>
-                                <Icon name="person" size={20} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="person" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Enter your full name"
@@ -150,12 +145,10 @@ const SignupScreen = ({ navigation }) => {
                             </View>
                             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
                         </View>
-
-                        {/* Email Input */}
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Email Address</Text>
                             <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
-                                <Icon name="email" size={20} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Enter your email"
@@ -169,12 +162,10 @@ const SignupScreen = ({ navigation }) => {
                             </View>
                             {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
                         </View>
-
-                        {/* Password Input */}
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Password</Text>
                             <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-                                <Icon name="lock" size={20} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Create a strong password"
@@ -190,19 +181,17 @@ const SignupScreen = ({ navigation }) => {
                                 >
                                     <Icon
                                         name={showPassword ? 'visibility' : 'visibility-off'}
-                                        size={20}
+                                        size={RFValue(20)}
                                         color={colors.gray}
                                     />
                                 </TouchableOpacity>
                             </View>
                             {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
                         </View>
-
-                        {/* Confirm Password Input */}
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Confirm Password</Text>
                             <View style={[styles.inputWrapper, errors.confirmPassword && styles.inputError]}>
-                                <Icon name="lock" size={20} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Confirm your password"
@@ -218,15 +207,13 @@ const SignupScreen = ({ navigation }) => {
                                 >
                                     <Icon
                                         name={showConfirmPassword ? 'visibility' : 'visibility-off'}
-                                        size={20}
+                                        size={RFValue(20)}
                                         color={colors.gray}
                                     />
                                 </TouchableOpacity>
                             </View>
                             {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
                         </View>
-
-                        {/* Password Requirements */}
                         <View style={styles.passwordRequirements}>
                             <Text style={styles.requirementsTitle}>Password must contain:</Text>
                             <Text style={styles.requirementItem}>• At least 8 characters</Text>
@@ -234,8 +221,6 @@ const SignupScreen = ({ navigation }) => {
                             <Text style={styles.requirementItem}>• One lowercase letter</Text>
                             <Text style={styles.requirementItem}>• One number</Text>
                         </View>
-
-                        {/* Terms and Conditions */}
                         <View style={styles.termsContainer}>
                             <Text style={styles.termsText}>
                                 By creating an account, you agree to our{' '}
@@ -244,8 +229,6 @@ const SignupScreen = ({ navigation }) => {
                                 <Text style={styles.termsLink}>Privacy Policy</Text>
                             </Text>
                         </View>
-
-                        {/* Sign Up Button */}
                         <TouchableOpacity
                             style={[styles.signUpButton, isLoading && styles.buttonDisabled]}
                             onPress={handleSignup}
@@ -257,8 +240,6 @@ const SignupScreen = ({ navigation }) => {
                                 <Text style={styles.buttonText}>Create Account</Text>
                             )}
                         </TouchableOpacity>
-
-                        {/* Sign In Link */}
                         <View style={styles.signInContainer}>
                             <Text style={styles.signInText}>Already have an account? </Text>
                             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
@@ -282,141 +263,142 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingVertical: 20,
+        paddingHorizontal: wp(6), // 6% of screen width
+        paddingVertical: hp(2.5), // 2.5% of screen height
     },
     header: {
-        alignItems: 'center',
-        marginBottom: 32,
+        alignItemslaught: 'center',
+        marginBottom: hp(4),
         position: 'relative',
     },
     backButton: {
         position: 'absolute',
         left: 0,
         top: 0,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: wp(10),
+        height: wp(10),
+        borderRadius: wp(5),
         backgroundColor: colors.white,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: hp(0.25),
         },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: wp(1),
         elevation: 2,
     },
     logoContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: wp(20),
+        height: wp(20),
+        borderRadius: wp(10),
         backgroundColor: colors.white,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
-        marginTop: 20,
+        alignSelf: 'center',
+        marginBottom: hp(3),
+        marginTop: hp(2.5),
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: hp(0.25),
         },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: wp(2),
         elevation: 4,
     },
     title: {
-        fontSize: 28,
+        fontSize: RFPercentage(3.8),
         fontWeight: 'bold',
         color: colors.text,
-        marginBottom: 8,
+        marginBottom: hp(1),
         textAlign: 'center',
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: RFPercentage(2.2),
         color: colors.gray,
         textAlign: 'center',
-        lineHeight: 24,
+        lineHeight: hp(3),
     },
     formContainer: {
         backgroundColor: colors.white,
-        borderRadius: 16,
-        padding: 24,
+        borderRadius: wp(4),
+        padding: wp(6),
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: hp(0.25),
         },
         shadowOpacity: 0.1,
-        shadowRadius: 16,
+        shadowRadius: wp(4),
         elevation: 8,
     },
     inputContainer: {
-        marginBottom: 20,
+        marginBottom: hp(2.5),
     },
     label: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         fontWeight: '600',
         color: colors.text,
-        marginBottom: 8,
+        marginBottom: hp(1),
     },
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.lightGray,
-        borderRadius: 12,
+        borderRadius: wp(3),
         borderWidth: 1,
         borderColor: colors.border,
-        paddingHorizontal: 16,
-        height: 52,
+        paddingHorizontal: wp(4),
+        height: hp(6.5),
     },
     inputError: {
         borderColor: colors.error,
     },
     inputIcon: {
-        marginRight: 12,
+        marginRight: wp(3),
     },
     input: {
         flex: 1,
-        fontSize: 16,
+        fontSize: RFPercentage(2.2),
         color: colors.text,
         height: '100%',
     },
     eyeIcon: {
-        padding: 4,
+        padding: wp(1),
     },
     errorText: {
-        fontSize: 12,
+        fontSize: RFPercentage(1.7),
         color: colors.error,
-        marginTop: 4,
+        marginTop: hp(0.5),
     },
     passwordRequirements: {
         backgroundColor: colors.lightGray,
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 20,
+        borderRadius: wp(2),
+        padding: wp(3),
+        marginBottom: hp(2.5),
     },
     requirementsTitle: {
-        fontSize: 12,
+        fontSize: RFPercentage(1.7),
         fontWeight: '600',
         color: colors.text,
-        marginBottom: 4,
+        marginBottom: hp(0.5),
     },
     requirementItem: {
-        fontSize: 12,
+        fontSize: RFPercentage(1.7),
         color: colors.gray,
-        lineHeight: 16,
+        lineHeight: hp(2),
     },
     termsContainer: {
-        marginBottom: 24,
+        marginBottom: hp(3),
     },
     termsText: {
-        fontSize: 12,
+        fontSize: RFPercentage(1.7),
         color: colors.gray,
         textAlign: 'center',
-        lineHeight: 18,
+        lineHeight: hp(2.5),
     },
     termsLink: {
         color: colors.primary,
@@ -424,17 +406,17 @@ const styles = StyleSheet.create({
     },
     signUpButton: {
         backgroundColor: colors.primary,
-        borderRadius: 12,
-        height: 52,
+        borderRadius: wp(3),
+        height: hp(6.5),
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: hp(3),
     },
     buttonDisabled: {
         opacity: 0.7,
     },
     buttonText: {
-        fontSize: 16,
+        fontSize: RFPercentage(2.2),
         fontWeight: '600',
         color: colors.white,
     },
@@ -444,11 +426,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     signInText: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         color: colors.gray,
     },
     signInLink: {
-        fontSize: 14,
+        fontSize: RFPercentage(2),
         color: colors.primary,
         fontWeight: '600',
     },

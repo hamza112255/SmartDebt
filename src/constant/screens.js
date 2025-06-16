@@ -1,13 +1,14 @@
-
 export const screens = {
     Login: "Login",
     Signup: "Signup",
     Dashboard: "Dashboard",
     NewAccount: "NewAccount",
     NewContact: "NewContact",
+    ImportContacts: "ImportContacts",
     Calendar: "Calendar",
     Settings: "Settings",
     Profile: "Profile",
+    CreateProfile: "CreateProfile",
     Reports: "Reports",
     NewRecord: "NewRecord",
     AccountDetails: "AccountDetails",

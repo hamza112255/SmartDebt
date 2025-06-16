@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { screens } from '../constant/screens';
-
-const { width } = Dimensions.get('window');
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
+import { getAllObjects, realm } from '../realm';
+import { useFocusEffect } from '@react-navigation/native';
+import moment from 'moment';
 
 const colors = {
     primary: '#1e90ff',
@@ -14,47 +17,330 @@ const colors = {
     white: '#ffffff',
     gray: '#666666',
     lightGray: '#e0e0e0',
-    border: '#d3d3d3',
+    border: '#1e90ff',
 };
 
-const CalendarScreen = ({ navigation }) => {
-    const today = new Date().toISOString().split('T')[0];
-    const [selectedDate, setSelectedDate] = useState(today); // Start with today selected
-    const [showAccountSheet, setShowAccountSheet] = useState(false);
-    const [accounts, setAccounts] = useState([
-        { id: 1, name: 'Main Account', active: true },
-        { id: 2, name: 'Main Account 2', active: false },
-    ]);
-
-    const transactions = [
-        { id: 1, name: 'Ameer Hamza Office', type: 'Borrow Money', amount: 30.00, date: '2025-05-29', color: colors.success },
-        { id: 2, name: 'Shop Loan', type: 'Lend Money', amount: 40.00, date: '2025-05-29', color: colors.error },
-    ];
-
-    const handleSwitchAccount = (id) => {
-        setAccounts(accounts.map(acc => ({
-            ...acc,
-            active: acc.id === id,
-        })));
-        setShowAccountSheet(false);
-    };
-
-    const activeAccount = accounts.find(acc => acc.active) || accounts[0];
-
-    const getDayOfWeek = (dateStr) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { weekday: 'long' });
-    };
-
-    const markedDates = {};
-    if (selectedDate) {
-        markedDates[selectedDate] = {
-            customStyles: {
-                container: { borderColor: colors.primary, borderWidth: 2, borderRadius: 12, padding: 4 },
-                text: { color: colors.gray, fontWeight: 'bold' },
-            },
-        };
+const safeGet = (obj, path, defaultValue = null) => {
+    if (!obj || typeof obj !== 'object') return defaultValue;
+    const keys = path.split('.');
+    let result = obj;
+    for (const key of keys) {
+        result = result?.[key];
+        if (result === undefined) return defaultValue;
     }
+    return result ?? defaultValue;
+};
+
+const CalendarScreen = ({ navigation, route }) => {
+    const today = moment().format('YYYY-MM-DD');
+    const [selectedDate, setSelectedDate] = useState(today);
+    const [showAccountSheet, setShowAccountSheet] = useState(false);
+    const [accounts, setAccounts] = useState([]);
+    const [transactions, setTransactions] = useState({});
+    const [markedDates, setMarkedDates] = useState({
+        [today]: { selected: true, selectedColor: colors.primary },
+    });
+    const [selectedAccount, setSelectedAccount] = useState(null);
+    const [accountMap, setAccountMap] = useState({});
+    const [stats, setStats] = useState({
+        debit: 0, credit: 0, balance: 0, cashIn: 0, cashOut: 0,
+        receive: 0, sendOut: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+    });
+
+    // Helper: update the accountMap from realm (to always have latest balances)
+    const syncAccountMap = useCallback(() => {
+        const realmAccounts = getAllObjects('Account');
+        const mapping = {};
+        (realmAccounts || []).forEach(acc => {
+            mapping[acc.id] = {
+                id: acc.id,
+                name: acc.name,
+                currency: acc.currency,
+                type: acc.type,
+                currentBalance: acc.currentBalance || 0,
+                userId: acc.userId,
+                cashIn: acc.cashIn || 0,
+                cashOut: acc.cashOut || 0,
+                receive: acc.receive || 0,
+                sendOut: acc.sendOut || 0,
+                borrow: acc.borrow || 0,
+                lend: acc.lend || 0,
+                debit: acc.debit || 0,
+                credit: acc.credit || 0,
+            };
+        });
+        setAccountMap(mapping);
+        return mapping;
+    }, []);
+
+    // Update accounts and accountMap when focus
+    const loadAccounts = useCallback(() => {
+        const realmAccounts = getAllObjects('Account');
+        if (realmAccounts && realmAccounts?.length > 0) {
+            const accountsList = realmAccounts.map(acc => ({
+                id: acc.id,
+                name: acc.name,
+                currency: acc.currency,
+                type: acc.type,
+                currentBalance: acc.currentBalance || 0,
+                userId: acc.userId,
+                cashIn: acc.cashIn || 0,
+                cashOut: acc.cashOut || 0,
+                receive: acc.receive || 0,
+                sendOut: acc.sendOut || 0,
+                borrow: acc.borrow || 0,
+                lend: acc.lend || 0,
+                debit: acc.debit || 0,
+                credit: acc.credit || 0,
+            }));
+            setAccounts(accountsList);
+            const mapping = {};
+            accountsList.forEach(acc => (mapping[acc.id] = acc));
+            setAccountMap(mapping);
+
+            if (!selectedAccount || !accountsList.some(a => a.id === selectedAccount.id)) {
+                setSelectedAccount(accountsList[0]);
+            }
+        } else {
+            setAccounts([]);
+            setSelectedAccount(null);
+            setTransactions({});
+            setAccountMap({});
+            setMarkedDates({ [selectedDate]: { selected: true, selectedColor: colors.primary } });
+        }
+    }, [selectedAccount, selectedDate]);
+
+    // Always update stats & transactions when selectedAccount, selectedDate, or accountMap changes
+    const loadTransactions = useCallback((accountId) => {
+        if (!accountId) {
+            setTransactions({});
+            setStats({
+                debit: 0, credit: 0, balance: 0, cashIn: 0, cashOut: 0,
+                receive: 0, sendOut: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+            });
+            return;
+        }
+
+        try {
+            const realmTransactions = getAllObjects('Transaction')
+                ?.filtered('accountId == $0', accountId)
+                ?.sorted('transactionDate', true) || [];
+
+            const transactionsByDate = {};
+            const newMarkedDates = { [selectedDate]: { selected: true, selectedColor: colors.primary } };
+
+            realmTransactions.forEach(tx => {
+                const date = tx.transactionDate ? moment(tx.transactionDate).format('YYYY-MM-DD') : today;
+                if (!transactionsByDate[date]) {
+                    transactionsByDate[date] = [];
+                }
+
+                // Get contact name from Realm
+                const contact = tx.contactId ? realm.objectForPrimaryKey('Contact', tx.contactId) : null;
+                const contactName = contact?.name || '';
+
+                const transaction = {
+                    id: tx.id,
+                    name: tx.purpose || 'No description',
+                    type: tx.type,
+                    amount: tx.amount || 0,
+                    date,
+                    color: ['cashIn', 'receive', 'borrow', 'credit'].includes(tx.type) ? colors.success : colors.error,
+                    contactName: contactName,
+                    contactId: tx.contactId || '',
+                };
+
+                transactionsByDate[date].push(transaction);
+
+                if (!newMarkedDates[date]) {
+                    newMarkedDates[date] = { marked: true, dotColor: transaction.color };
+                }
+            });
+
+            setTransactions(transactionsByDate);
+            setMarkedDates(newMarkedDates);
+
+            // Don't setSelectedAccount here! Use the latest account info from accountMap for displays.
+            const latestAcc = accountMap[accountId] || selectedAccount;
+            setStats(calculateStats(transactionsByDate[selectedDate] || [], latestAcc));
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+        }
+    }, [selectedDate, accountMap, selectedAccount]);
+
+    // Marked date with transparent bg and blue border for selected date
+    const handleDayPress = useCallback((day) => {
+        const newDate = day.dateString;
+        setSelectedDate(newDate);
+
+        setMarkedDates(prev => ({
+            ...prev,
+            [newDate]: {
+                ...prev[newDate],
+                selected: true,
+                selectedColor: 'transparent',
+                customStyles: {
+                    container: {
+                        borderWidth: 2,
+                        borderColor: colors.primary,
+                        backgroundColor: 'transparent',
+                        borderRadius: 8
+                    },
+                    text: {
+                        color: colors.primary,
+                        fontWeight: 'bold'
+                    }
+                }
+            },
+            ...(Object.keys(prev).reduce((acc, date) => {
+                if (date !== newDate && prev[date].selected) {
+                    acc[date] = { ...prev[date], selected: false, selectedColor: undefined, customStyles: undefined };
+                } else {
+                    acc[date] = prev[date];
+                }
+                return acc;
+            }, {})),
+        }));
+    }, []);
+
+    const handleSwitchAccount = (accountId) => {
+        const account = accounts.find(a => a.id === accountId);
+        if (!account) return;
+
+        setSelectedAccount(account);
+    };
+
+    const activeAccount = selectedAccount || accounts[0] || { id: null, name: 'Select Account' };
+
+    const getDayOfWeek = (dateStr) => moment(dateStr).format('dddd');
+
+    const safeGetTransactions = (date) => {
+        try {
+            if (!transactions || typeof transactions !== 'object' || !date || typeof date !== 'string') return [];
+            return Array.isArray(transactions[date]) ? transactions[date] : [];
+        } catch (error) {
+            console.error('Error getting transactions:', error);
+            return [];
+        }
+    };
+
+    // Reload accounts and accountMap, always update transactions/stats when focus
+    useFocusEffect(
+        useCallback(() => {
+            loadAccounts();
+            syncAccountMap();
+
+            const transactionListener = (transactions, changes) => {
+                if (changes.insertions?.length > 0 || changes.modifications?.length > 0 || changes.deletions?.length > 0) {
+                    loadAccounts();
+                    syncAccountMap();
+                }
+            };
+
+            const transactions = realm.objects('Transaction');
+            transactions.addListener(transactionListener);
+
+            return () => transactions.removeListener(transactionListener);
+        }, [loadAccounts, syncAccountMap])
+    );
+
+    // Whenever selectedAccount, selectedDate, or accountMap changes, reload transactions/stats
+    useEffect(() => {
+        if (selectedAccount) {
+            loadTransactions(selectedAccount.id);
+        }
+    }, [selectedDate, selectedAccount, accountMap, loadTransactions]);
+
+    const renderTransactionType = (transaction, account) => {
+        if (account?.type === 'Cash In - Cash Out') {
+            return transaction.type === 'cashIn' ? 'Cash In' : 'Cash Out';
+        } else if (account?.type === 'Receive - Send Out') {
+            return transaction.type === 'receive' ? 'Receive' : 'Send Out';
+        } else if (account?.type === 'Borrow - Lend') {
+            return transaction.type === 'borrow' ? 'Borrow' : 'Lend';
+        }
+        // fallback for normal
+        switch (transaction.type) {
+            case 'cashIn': return 'Cash In';
+            case 'cashOut': return 'Cash Out';
+            case 'receive': return 'Receive';
+            case 'sendOut': return 'Send Out';
+            case 'borrow': return 'Borrow';
+            case 'lend': return 'Lend';
+            case 'credit': return 'Credit';
+            case 'debit': return 'Debit';
+            default: return transaction.type;
+        }
+    };
+
+    const calculateStats = (transArr = [], account) => {
+        const baseBalance = account?.currentBalance || 0;
+        const transactionStats = transArr.reduce((acc, transaction) => {
+            const amount = parseFloat(transaction.amount) || 0;
+            if (['cashIn', 'receive', 'borrow', 'credit'].includes(transaction.type)) {
+                acc.credit += amount;
+            } else if (['cashOut', 'sendOut', 'lend', 'debit'].includes(transaction.type)) {
+                acc.debit += amount;
+            }
+            if (transaction.type === 'cashIn') acc.cashIn += amount;
+            else if (transaction.type === 'cashOut') acc.cashOut += amount;
+            else if (transaction.type === 'receive') acc.receive += amount;
+            else if (transaction.type === 'sendOut') acc.sendOut += amount;
+            else if (transaction.type === 'borrow') acc.borrow += amount;
+            else if (transaction.type === 'lend') acc.lend += amount;
+            else if (transaction.type === 'credit') acc.creditType += amount;
+            else if (transaction.type === 'debit') acc.debitType += amount;
+            return acc;
+        }, {
+            credit: 0,
+            debit: 0,
+            cashIn: 0,
+            cashOut: 0,
+            receive: 0,
+            sendOut: 0,
+            borrow: 0,
+            lend: 0,
+            creditType: 0,
+            debitType: 0,
+        });
+        return {
+            ...transactionStats,
+            balance: baseBalance
+        };
+    };
+
+    const getStatLabel = (side, account) => {
+        if (account?.type === 'Cash In - Cash Out') {
+            return side === 'left' ? 'Cash Out' : 'Cash In';
+        }
+        if (account?.type === 'Receive - Send Out') {
+            return side === 'left' ? 'Send Out' : 'Receive';
+        }
+        if (account?.type === 'Borrow - Lend') {
+            return side === 'left' ? 'Lend' : 'Borrow';
+        }
+        return side === 'left' ? 'Debit' : 'Credit';
+    };
+
+    const getStatValue = (side, account, stats) => {
+        if (account?.type === 'Cash In - Cash Out') {
+            return side === 'left' ? stats.cashOut : stats.cashIn;
+        }
+        if (account?.type === 'Receive - Send Out') {
+            return side === 'left' ? stats.sendOut : stats.receive;
+        }
+        if (account?.type === 'Borrow - Lend') {
+            return side === 'left' ? stats.lend : stats.borrow;
+        }
+        return side === 'left' ? stats.debit : stats.credit;
+    };
+
+    const currency = safeGet(selectedAccount, 'currency', 'PKR');
+    const currentBalance = selectedAccount?.id && accountMap[selectedAccount.id]?.currentBalance !== undefined
+        ? Number(accountMap[selectedAccount.id]?.currentBalance)
+        : 0;
+
+    const statForDate = currentBalance;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -62,96 +348,91 @@ const CalendarScreen = ({ navigation }) => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.menuButton}
-                        onPress={() => navigation.openDrawer()}
-                    >
-                        <Icon name="menu" size={24} color={colors.primary} />
-                    </TouchableOpacity>
+                {/* Account Selector */}
+                <View style={styles.accountSelectorContainer}>
                     <TouchableOpacity
                         style={styles.accountSelector}
                         onPress={() => setShowAccountSheet(true)}
                     >
                         <Text style={styles.accountTitle}>
-                            {activeAccount.name}
+                            {safeGet(activeAccount, 'name', 'Select Account')}
                         </Text>
-                        <Icon name="arrow-drop-down" size={24} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.notificationButton}>
-                        <Icon name="notifications" size={24} color={colors.primary} />
-                        <View style={styles.notificationBadge}>
-                            <Text style={styles.badgeText}>2</Text>
-                        </View>
+                        <Icon name="arrow-drop-down" size={RFValue(26)} color={colors.primary} style={styles.dropdownIcon} />
                     </TouchableOpacity>
                 </View>
 
                 {/* Calendar */}
                 <Calendar
+                    onDayPress={handleDayPress}
+                    markedDates={markedDates}
+                    markingType={'custom'}
                     style={styles.calendar}
                     theme={{
-                        backgroundColor: colors.background,
-                        calendarBackground: colors.background,
-                        textSectionTitleColor: colors.gray,
+                        selectedDayBackgroundColor: colors.primary,
+                        selectedDayTextColor: colors.white,
+                        todayTextColor: colors.primary,
                         dayTextColor: colors.gray,
                         textDisabledColor: colors.lightGray,
-                        arrowColor: colors.gray,
                         monthTextColor: colors.gray,
+                        textDayFontFamily: 'Sora-Regular',
+                        textMonthFontFamily: 'Sora-Bold',
+                        textDayHeaderFontFamily: 'Sora-Regular',
+                        textDayFontSize: RFPercentage(1.7),
+                        textMonthFontSize: RFPercentage(2.2),
+                        textDayHeaderFontSize: RFPercentage(1.7),
+                        weekVerticalMargin: 0,
                     }}
-                    markedDates={markedDates}
-                    onDayPress={(day) => setSelectedDate(day.dateString)}
-                    hideArrows={false}
-                    renderArrow={(direction) =>
-                        direction === 'left' ? (
-                            <Icon name="chevron-left" size={20} color={colors.gray} />
-                        ) : (
-                            <Icon name="chevron-right" size={20} color={colors.gray} />
-                        )
-                    }
                     dayComponent={({ date, state }) => {
-                        const hasTransactions = transactions.some((t) => t.date === date.dateString);
                         const isSelected = date.dateString === selectedDate;
-                        const dateTransactions = transactions.filter((t) => t.date === date.dateString);
-
-                        let containerStyle = styles.dayContainer;
-                        let textStyle = styles.dayText;
-
-                        if (isSelected) {
-                            containerStyle = [styles.dayContainer, styles.selectedDay];
-                            textStyle = [styles.dayText, styles.selectedDayText];
-                        }
-
-                        if (state === 'disabled') {
-                            textStyle = [textStyle, styles.disabledDayText];
-                        }
+                        const hasTransactions = safeGetTransactions(date.dateString).length > 0;
+                        const styleOverride = isSelected
+                            ? {
+                                borderWidth: 2,
+                                borderColor: colors.primary,
+                                backgroundColor: 'transparent',
+                                borderRadius: 8,
+                            }
+                            : {};
 
                         return (
                             <TouchableOpacity
-                                onPress={() => setSelectedDate(date.dateString)}
-                                style={containerStyle}
+                                onPress={() => handleDayPress({ dateString: date.dateString })}
+                                style={[
+                                    styles.dayContainer,
+                                    isSelected && styleOverride,
+                                ]}
                             >
-                                {dateTransactions.length === 1 ? (
-                                    <View style={styles.singleTransactionRow}>
-                                        <Text style={textStyle}>{date.day}</Text>
-                                        {hasTransactions && (
-                                            <Text style={[styles.amountText, { color: dateTransactions[0].color }]}>
-                                                {dateTransactions[0].amount.toFixed(2)}
-                                            </Text>
-                                        )}
-                                    </View>
-                                ) : (
-                                    <View style={styles.multipleTransactionColumn}>
-                                        <Text style={textStyle}>{date.day}</Text>
-                                        {hasTransactions &&
-                                            dateTransactions.map((t, index) => (
-                                                <Text
-                                                    key={index}
-                                                    style={[styles.amountText, { color: t.color }]}
-                                                >
-                                                    {t.amount.toFixed(2)}
-                                                </Text>
-                                            ))}
+                                <Text
+                                    style={[
+                                        styles.dayText,
+                                        isSelected && { color: colors.primary, fontWeight: 'bold' },
+                                        state === 'disabled' && styles.disabledDayText,
+                                    ]}
+                                >
+                                    {date.day}
+                                </Text>
+                                {hasTransactions && (
+                                    <View style={styles.dotContainer}>
+                                        {(() => {
+                                            const transactions = safeGetTransactions(date.dateString);
+                                            const hasReceive = transactions.some(t => 
+                                                ['cashIn', 'receive', 'borrow', 'credit'].includes(t.type)
+                                            );
+                                            const hasSend = transactions.some(t => 
+                                                ['cashOut', 'sendOut', 'lend', 'debit'].includes(t.type)
+                                            );
+                                            
+                                            return (
+                                                <>
+                                                    {hasReceive && (
+                                                        <View style={[styles.transactionDot, { backgroundColor: colors.success }]} />
+                                                    )}
+                                                    {hasSend && (
+                                                        <View style={[styles.transactionDot, { backgroundColor: colors.error }]} />
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </View>
                                 )}
                             </TouchableOpacity>
@@ -161,272 +442,395 @@ const CalendarScreen = ({ navigation }) => {
 
                 {/* Stats */}
                 <View style={styles.statsRow}>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statTitle}>Debit</Text>
-                        <Text style={styles.statValue}>PKRs 30.00</Text>
+                    <View style={[styles.statCard, { backgroundColor: colors.error }]}>
+                        <Text style={[styles.statLabel, { color: colors.white }]}>
+                            {getStatLabel('left', selectedAccount)}
+                        </Text>
+                        <Text style={[styles.statValue, { color: colors.white }]}>
+                            {currency} {getStatValue('left', selectedAccount, stats).toFixed(2)}
+                        </Text>
                     </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statTitle}>Credit</Text>
-                        <Text style={styles.statValue}>PKRs 0.00</Text>
+                    <View style={[styles.statCard, { backgroundColor: colors.success }]}>
+                        <Text style={[styles.statLabel, { color: colors.white }]}>
+                            {getStatLabel('right', selectedAccount)}
+                        </Text>
+                        <Text style={[styles.statValue, { color: colors.white }]}>
+                            {currency} {getStatValue('right', selectedAccount, stats).toFixed(2)}
+                        </Text>
                     </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statTitle}>Balance</Text>
-                        <Text style={styles.statValue}>PKRs 30.00</Text>
+                    <View style={[styles.statCard, { backgroundColor: colors.primary }]}>
+                        <Text style={[styles.statLabel, { color: colors.white }]}>Balance</Text>
+                        <Text style={[styles.statValue, { color: colors.white }]}> 
+                            {currency}{currentBalance < 0 && ' -'}{Math.abs(currentBalance).toFixed(2)}
+                        </Text>
                     </View>
                 </View>
 
                 {/* Transactions */}
                 <View style={styles.transactions}>
-                    <Text style={styles.transactionDate}>
-                        {selectedDate} - {getDayOfWeek(selectedDate)}
-                    </Text>
-                    <Text style={styles.transactionTotal}>PKRs 30.00</Text>
-                    {transactions
-                        .filter((t) => t.date === selectedDate)
-                        .map((transaction) => (
-                            <View key={transaction.id} style={styles.transactionItem}>
-                                <View style={styles.transactionIcon}>
-                                    <Text style={styles.transactionInitial}>{transaction.name[0]}</Text>
+                    <View style={styles.transactionHeader}>
+                        <Text style={styles.transactionDate}>
+                            {moment(selectedDate).format('MMMM D, YYYY')} • {getDayOfWeek(selectedDate)}
+                        </Text>
+                        {selectedAccount && (
+                            <Text style={styles.transactionTotal}>
+                                {currency}{statForDate < 0 && ' -'}{Math.abs(statForDate).toFixed(2)}
+                            </Text>
+                        )}
+                    </View>
+
+                    {safeGetTransactions(selectedDate)?.length === 0 ? (
+                        <View style={styles.noTransactions}>
+                            <Icon name="receipt" size={RFValue(40)} color={colors.lightGray} />
+                            <Text style={styles.noTransactionsText}>No transactions for this day</Text>
+                        </View>
+                    ) : (
+                        safeGetTransactions(selectedDate).map(transaction => (
+                            <TouchableOpacity
+                                key={safeGet(transaction, 'id', Math.random().toString())}
+                                style={styles.transactionItem}
+                                onPress={() => navigation.navigate(
+                                    screens.NewRecord,
+                                    {
+                                        transactionId: safeGet(transaction, 'id'),
+                                        accountId: selectedAccount.id,
+                                        userId: selectedAccount.userId,
+                                        onSave: () => {
+                                            loadAccounts();
+                                            syncAccountMap();
+                                        },
+                                        sourceScreen: 'calendar'
+                                    }
+                                )}
+                            >
+                                <View style={[
+                                    styles.transactionIcon,
+                                    { backgroundColor: safeGet(transaction, 'color', colors.lightGray) + '20' }
+                                ]}>
+                                    <Icon
+                                        name={['cashIn', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? "arrow-downward" : "arrow-upward"}
+                                        size={RFValue(16)}
+                                        color={safeGet(transaction, 'color', colors.lightGray)}
+                                    />
                                 </View>
                                 <View style={styles.transactionDetails}>
-                                    <Text style={styles.transactionName}>{transaction.name}</Text>
-                                    <Text style={styles.transactionType}>{transaction.type}</Text>
+                                    <Text style={styles.transactionName} numberOfLines={1}>
+                                        {safeGet(transaction, 'name', 'No description')}
+                                    </Text>
+                                    <Text style={styles.transactionType}>
+                                        {renderTransactionType(transaction, selectedAccount)} • {safeGet(transaction, 'contactName', 'No contact')}
+                                    </Text>
                                 </View>
-                                <Text style={[styles.transactionAmount, { color: transaction.color }]}>
-                                    PKRs {transaction.amount.toFixed(2)}
+                                <Text
+                                    style={[
+                                        styles.transactionAmount,
+                                        { color: safeGet(transaction, 'color', colors.lightGray) }
+                                    ]}
+                                >
+                                    {['cashIn', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? '+' : '-'}
+                                    {currency} {Number(safeGet(transaction, 'amount', 0)).toFixed(2)}
                                 </Text>
-                            </View>
-                        ))}
+                            </TouchableOpacity>
+                        ))
+                    )}
                 </View>
             </ScrollView>
 
-            {/* Floating Action Button */}
-            <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate(screens.NewRecord)}>
-                <Icon name="add" size={30} color={colors.white} />
-            </TouchableOpacity>
+            {selectedAccount && (
+                <TouchableOpacity
+                    style={styles.fab}
+                    onPress={() => {
+                        if (!selectedAccount?.id) {
+                            setShowAccountSheet(true);
+                        } else {
+                            navigation.navigate(screens.NewRecord, {
+                                accountId: selectedAccount.id,
+                                userId: selectedAccount.userId,
+                                onSave: () => {
+                                    loadAccounts();
+                                    syncAccountMap();
+                                },
+                                sourceScreen: 'calendar'
+                            });
+                        }
+                    }}
+                >
+                    <Icon name="add" size={RFValue(24)} color={colors.white} />
+                </TouchableOpacity>
+            )}
 
             {/* Bottom Sheet for Account Selection */}
             <Modal
-                animationType="slide"
-                transparent
                 visible={showAccountSheet}
                 onRequestClose={() => setShowAccountSheet(false)}
+                transparent={true}
+                animationType="slide"
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    onPress={() => setShowAccountSheet(false)}
-                    activeOpacity={1}
-                >
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Select Account</Text>
-                        {accounts.map(acc => (
+                <View style={styles.modalContainer}>
+                    <View style={styles.accountSheet}>
+                        <Text style={styles.sheetTitle}>Select Account</Text>
+                        {accounts.map(account => (
                             <TouchableOpacity
-                                key={acc.id}
-                                style={[
-                                    styles.modalOption,
-                                    acc.active && { backgroundColor: colors.lightGray }
-                                ]}
-                                disabled={acc.active}
-                                onPress={() => handleSwitchAccount(acc.id)}
+                                key={account.id}
+                                style={styles.accountOption}
+                                onPress={() => {
+                                    handleSwitchAccount(account.id);
+                                    setShowAccountSheet(false);
+                                }}
                             >
-                                <Icon
-                                    name={acc.active ? "radio-button-checked" : "radio-button-unchecked"}
-                                    size={22}
-                                    color={acc.active ? colors.primary : colors.gray}
-                                />
-                                <Text style={[
-                                    styles.modalOptionText,
-                                    acc.active && { color: colors.primary, fontWeight: 'bold' }
-                                ]}>
-                                    {acc.name} {acc.active ? "(Active)" : ""}
-                                </Text>
+                                <Text style={styles.accountName}>{account.name}</Text>
                             </TouchableOpacity>
                         ))}
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => setShowAccountSheet(false)}
+                        >
+                            <Text style={styles.closeButtonText}>Cancel</Text>
+                        </TouchableOpacity>
                     </View>
-                </TouchableOpacity>
+                </View>
             </Modal>
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    scrollContent: {
-        paddingBottom: 100, // Extra padding for scroll space
+    container: {
+        flex: 1,
+        backgroundColor: colors.background,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 18,
+    scrollContent: {
+        paddingBottom: hp(15),
+    },
+    accountSelectorContainer: {
+        paddingVertical: hp(1.25),
+        paddingHorizontal: wp(4),
         backgroundColor: colors.white,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
-        justifyContent: 'space-between',
-    },
-    menuButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.lightGray,
-        justifyContent: 'center',
-        alignItems: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: hp(0.25) },
+        shadowRadius: wp(1.5),
     },
     accountSelector: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.lightGray,
-        borderRadius: 16,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
+        backgroundColor: '#f1f5ff',
+        borderRadius: wp(2.5),
+        borderWidth: 1,
+        borderColor: colors.primary,
+        paddingHorizontal: wp(4),
+        paddingVertical: hp(1.25),
+        alignSelf: 'flex-start',
     },
     accountTitle: {
-        fontSize: 16,
-        fontWeight: '700',
+        fontSize: RFPercentage(2.4),
+        fontFamily: 'Sora-Bold',
         color: colors.primary,
-        marginRight: 4,
+        marginRight: wp(2),
     },
-    notificationButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.lightGray,
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'relative',
-    },
-    notificationBadge: {
-        position: 'absolute',
-        top: -2,
-        right: -2,
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: colors.error,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    badgeText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: colors.white,
+    dropdownIcon: {
+        transform: [{ translateY: hp(0.25) }],
     },
     calendar: {
-        marginBottom: 16,
-        maxHeight: 360, // Limit calendar height for more scroll space
+        marginBottom: hp(2),
+        maxHeight: hp(40),
     },
     dayContainer: {
         alignItems: 'center',
-        padding: 4,
-        borderRadius: 12,
-        backgroundColor: 'transparent', // No background for unselected dates
-        width: 32,
-        height: 32,
         justifyContent: 'center',
+        width: wp(7),
+        height: hp(4),
+        borderRadius: wp(2.5),
     },
     selectedDay: {
-        borderColor: colors.primary,
-        borderWidth: 2,
-        backgroundColor: 'transparent',
+        backgroundColor: colors.primary,
     },
-    dayText: { color: colors.gray, fontSize: 12 },
-    disabledDayText: { color: colors.lightGray },
-    selectedDayText: { color: colors.gray, fontWeight: 'bold' },
-    amountText: { color: colors.primary, fontSize: 10, fontWeight: 'bold' },
-    singleTransactionRow: {
+    dayText: {
+        color: colors.gray,
+        fontSize: RFPercentage(1.7),
+        fontFamily: 'Sora-Regular',
+        textAlign: 'center',
+    },
+    selectedDayText: {
+        color: colors.white,
+        fontFamily: 'Sora-Bold',
+    },
+    disabledDayText: {
+        color: colors.lightGray,
+    },
+    dotContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
+        position: 'absolute',
+        bottom: hp(-1),
     },
-    multipleTransactionColumn: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+    transactionDot: {
+        width: wp(1.25),
+        height: wp(1.25),
+        borderRadius: wp(0.625),
+        marginHorizontal: wp(0.25),
     },
     statsRow: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        padding: 16,
+        padding: wp(4),
         backgroundColor: colors.background,
     },
     statCard: {
         backgroundColor: colors.white,
-        borderRadius: 12,
-        padding: 12,
+        borderRadius: wp(3),
+        padding: wp(2.5),
         alignItems: 'center',
-        width: '30%',
+        width: wp(28),
         elevation: 2,
         shadowColor: '#000',
         shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: hp(0.25) },
     },
-    statTitle: { color: colors.gray, fontSize: 12, marginBottom: 4 },
-    statValue: { color: colors.primary, fontSize: 14, fontWeight: 'bold' },
+    statLabel: {
+        fontFamily: 'Sora-Regular',
+        fontSize: RFPercentage(1.5),
+        color: colors.gray,
+        textAlign: 'center',
+        marginBottom: hp(0.5),
+    },
+    statValue: {
+        fontFamily: 'Sora-Bold',
+        fontSize: RFPercentage(1.5),
+        color: colors.primary,
+        textAlign: 'center',
+    },
     transactions: {
-        padding: 16,
-        paddingBottom: 80, // Extra padding to avoid FAB overlap
+        padding: wp(4),
+        paddingBottom: hp(10),
         backgroundColor: colors.background,
     },
-    transactionDate: { fontSize: 16, color: colors.gray, marginBottom: 4 },
-    transactionTotal: { fontSize: 14, color: colors.success, fontWeight: 'bold', marginBottom: 8 },
+    transactionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: hp(2),
+    },
+    transactionDate: {
+        fontSize: RFPercentage(2.2),
+        color: colors.gray,
+        fontFamily: 'Sora-Bold',
+    },
+    transactionTotal: {
+        fontSize: RFPercentage(2),
+        color: colors.success,
+        fontFamily: 'Sora-Bold',
+    },
     transactionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
         backgroundColor: colors.white,
-        borderRadius: 8,
-        marginBottom: 8,
+        borderRadius: wp(2.5),
+        padding: wp(3.5),
+        marginBottom: hp(1),
         elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
     },
     transactionIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.lightGray,
+        width: wp(10),
+        height: wp(10),
+        borderRadius: wp(5),
         justifyContent: 'center',
         alignItems: 'center',
+        marginRight: wp(3),
     },
-    transactionInitial: { color: colors.primary, fontSize: 16, fontWeight: 'bold' },
-    transactionDetails: { flex: 1, marginLeft: 12 },
-    transactionName: { color: colors.gray, fontSize: 14 },
-    transactionType: { color: colors.primary, fontSize: 12 },
-    transactionAmount: { color: colors.success, fontSize: 14, fontWeight: 'bold' },
+    transactionDetails: {
+        flex: 1,
+        marginRight: wp(2),
+    },
+    transactionName: {
+        fontSize: RFValue(14),
+        fontFamily: 'Sora-SemiBold',
+        color: colors.gray,
+        marginBottom: hp(0.25),
+    },
+    transactionType: {
+        fontSize: RFValue(12),
+        fontFamily: 'Sora-Regular',
+        color: colors.lightGray,
+    },
+    transactionAmount: {
+        fontSize: RFValue(14),
+        fontFamily: 'Sora-SemiBold',
+    },
     fab: {
         position: 'absolute',
-        right: 16,
-        bottom: 16,
+        right: wp(4),
+        bottom: hp(2),
         backgroundColor: colors.primary,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: wp(14),
+        height: wp(14),
+        borderRadius: wp(7),
         alignItems: 'center',
         justifyContent: 'center',
         elevation: 6,
         shadowColor: '#000',
         shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: 3 },
+        shadowOffset: { width: 0, height: hp(0.375) },
     },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'flex-end' },
-    modalContent: {
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.2)',
+    },
+    accountSheet: {
         backgroundColor: colors.white,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        padding: 16,
+        borderTopLeftRadius: wp(4),
+        borderTopRightRadius: wp(4),
+        padding: wp(4),
     },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.gray, marginBottom: 16 },
-    modalOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 6,
+    sheetTitle: {
+        fontSize: RFPercentage(2.5),
+        fontFamily: 'Sora-Bold',
+        color: colors.gray,
+        marginBottom: hp(2),
     },
-    modalOptionText: {
+    accountOption: {
+        padding: wp(3),
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    accountName: {
+        fontSize: RFPercentage(2.2),
+        fontFamily: 'Sora-Regular',
         color: colors.primary,
-        fontSize: 16,
-        marginLeft: 12,
-        fontWeight: '500',
+    },
+    closeButton: {
+        padding: wp(3),
+        backgroundColor: colors.error,
+        borderRadius: wp(2),
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: hp(2),
+    },
+    closeButtonText: {
+        fontSize: RFPercentage(2),
+        fontFamily: 'Sora-Bold',
+        color: colors.white,
+    },
+    noTransactions: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: hp(5),
+        paddingHorizontal: wp(10),
+    },
+    noTransactionsText: {
+        fontSize: RFValue(16),
+        fontFamily: 'Sora-SemiBold',
+        color: colors.gray,
+        marginTop: hp(2),
+        textAlign: 'center',
     },
 });
 

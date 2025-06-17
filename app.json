@@ -20,9 +20,7 @@
       "permissions": [
         "READ_CONTACTS",
         "WRITE_CONTACTS",
-        "CAMERA",
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS"
+        "CAMERA"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.hamza125.SmartDebt"
@@ -39,11 +37,6 @@
           "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts."
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "f430190a-5223-4235-b69b-0eecf4d87807"
-      }
-    }
+    ]
   }
 }

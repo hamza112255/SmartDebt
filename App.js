@@ -1,5 +1,8 @@
 import 'react-native-get-random-values';
 import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+import Realm from 'realm';
+Realm.flags.THROW_ON_GLOBAL_REALM = true;
 import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';

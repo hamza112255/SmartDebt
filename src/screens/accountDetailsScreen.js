@@ -516,6 +516,14 @@ const AccountDetailScreen = ({ navigation, route }) => {
         );
     }, [account?.type, accountData?.currency, dynamicStyles]);
 
+    // Add this function before the return statement
+    const handleTransactionSave = useCallback(() => {
+        loadTransactions();
+        if (accountData?.id) {
+            updateAccountBalance(accountData.id);
+        }
+    }, [loadTransactions, updateAccountBalance, accountData?.id]);
+
     return (
         <SafeAreaView style={dynamicStyles.container}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={dynamicStyles.scrollContent}>
@@ -579,18 +587,12 @@ const AccountDetailScreen = ({ navigation, route }) => {
             <TouchableOpacity
                 style={[dynamicStyles.fab, { backgroundColor: accountColor }]}
                 onPress={() => {
-                    navigation.navigate(
-                        screens.NewRecord, 
-                        {
-                            accountId: account.id,
-                            userId: account.userId,
-                            onSave: () => {
-                                loadTransactions();
-                                updateAccountBalance(account.id);
-                            },
-                            sourceScreen: 'account'
-                        }
-                    );
+                    navigation.navigate(screens.NewRecord, {
+                        accountId: accountData.id,
+                        userId: accountData.userId,
+                        sourceScreen: 'AccountDetail',
+                        onTransactionSaved: handleTransactionSave
+                    });
                 }}
             >
                 <Icon name="add" size={RFValue(30)} color={colors.white} />

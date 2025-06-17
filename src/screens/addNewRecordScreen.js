@@ -308,7 +308,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 }
 
                 const transactionData = {
-                    id: isEditing && transactionId ? transactionId : new Realm.BSON.UUID().toString(),
+                    id: isEditing && transactionId ? transactionId : new Date().toISOString(),
                     type: type,
                     amount: transactionAmount,
                     transactionDate: transactionDate,
@@ -343,16 +343,27 @@ const NewRecordScreen = ({ navigation, route }) => {
                 } else {
                     realm.create('Transaction', transactionData);
                 }
-
-                safeAlert('Success', `Transaction saved. New balance: ${account.currentBalance.toFixed(2)}`);
+                
+                // Remove the alert from here
             });
 
+            // Call onSave first
             onSave?.();
-            if (sourceScreen === 'account') {
-                navigation.navigate(screens.AccountDetails, { accountId });
-            } else if (sourceScreen === 'calendar') {
-                navigation.goBack();
-            }
+            Alert.alert(
+                'Success',
+                'Transaction saved successfully',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            setTimeout(() => {
+                                navigation.goBack();
+                            }, 100);
+                        }
+                    }
+                ]
+            );
+
         } catch (error) {
             safeAlert('Error', 'Failed to save transaction: ' + error.message);
         } finally {
@@ -521,7 +532,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 const contacts = await Contacts.getAll();
                 realm.write(() => {
                     contacts.forEach((c) => {
-                        const id = new Realm.BSON.UUID().toString();
+                        const id = new Date().toISOString();
                         realm.create('Contact', {
                             id,
                             name: c.displayName || '',

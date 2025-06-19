@@ -582,7 +582,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
                         </TouchableOpacity>
                         <View style={dynamicStyles.headerTitleContainer}>
                             <Text style={dynamicStyles.accountName}>{accountData.name || t('common.account')}</Text>
-                            {accountData.type && <Text style={dynamicStyles.accountType}>{t(`terms.${accountData.type.replace(/ - /g, '')}`)}</Text>}
+                            {accountData.type && <Text style={dynamicStyles.accountType}>{t(`${accountData.type}`)}</Text>}
                         </View>
                     </View>
 

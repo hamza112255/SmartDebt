@@ -359,5 +359,27 @@
     "debitCredit": "مدين - دائن",
     "receiveSendOut": "استلام - إرسال",
     "borrowLend": "اقتراض - إقراض"
+  },
+  "accountDetailsScreen": {
+    "title": "تفاصيل الحساب",
+    "transactionsHeader": "المعاملات الحديثة",
+    "viewAll": "عرض الكل",
+    "noTransactions": "لا توجد معاملات حتى الآن",
+    "accountOptions": "خيارات الحساب",
+    "makePrimary": "جعل الحساب الأساسي",
+    "deleteAccount": "حذف الحساب",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذا الحساب؟",
+    "balance": "الرصيد الحالي",
+    "currentBalance": "الرصيد الحالي"
+  },
+  "terms": {
+    "cashIn": "إيداع نقدي",
+    "cashOut": "سحب نقدي",
+    "debit": "مدين",
+    "credit": "دائن",
+    "receive": "استلام",
+    "sendOut": "إرسال",
+    "borrow": "اقتراض",
+    "lend": "إقراض"
   }
 }

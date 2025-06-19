@@ -364,5 +364,27 @@
     "debitCredit": "Débito - Crédito",
     "receiveSendOut": "Recibir - Enviar",
     "borrowLend": "Tomar prestado - Prestar"
+  },
+  "accountDetailsScreen": {
+    "title": "Detalles de la cuenta",
+    "transactionsHeader": "Transacciones recientes",
+    "viewAll": "Ver todas",
+    "noTransactions": "Aún no hay transacciones",
+    "accountOptions": "Opciones de cuenta",
+    "makePrimary": "Hacer cuenta principal",
+    "deleteAccount": "Eliminar cuenta",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar esta cuenta?",
+    "balance": "Saldo actual",
+    "currentBalance": "Saldo actual"
+  },
+  "terms": {
+    "cashIn": "Entrada de efectivo",
+    "cashOut": "Salida de efectivo",
+    "debit": "Débito",
+    "credit": "Crédito",
+    "receive": "Recibir",
+    "sendOut": "Enviar",
+    "borrow": "Tomar prestado",
+    "lend": "Prestar"
   }
 }

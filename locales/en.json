@@ -328,5 +328,27 @@
     "debitCredit": "Debit - Credit",
     "receiveSendOut": "Receive - Send Out",
     "borrowLend": "Borrow - Lend"
+  },
+  "accountDetailsScreen": {
+    "title": "Account Details",
+    "transactionsHeader": "Recent Transactions",
+    "viewAll": "View All",
+    "noTransactions": "No transactions yet",
+    "accountOptions": "Account Options",
+    "makePrimary": "Make Primary Account",
+    "deleteAccount": "Delete Account",
+    "deleteConfirm": "Are you sure you want to delete this account?",
+    "balance": "Current Balance",
+    "currentBalance": "Current Balance"
+  },
+  "terms": {
+    "cashIn": "Cash In",
+    "cashOut": "Cash Out",
+    "debit": "Debit",
+    "credit": "Credit",
+    "receive": "Receive",
+    "sendOut": "Send Out",
+    "borrow": "Borrow",
+    "lend": "Lend"
   }
 }

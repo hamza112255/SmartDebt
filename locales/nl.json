@@ -336,5 +336,26 @@
     "debitCredit": "Debet - Credit",
     "receiveSendOut": "Ontvangen - Verzenden",
     "borrowLend": "Lenen - Uitlenen"
+  },
+  "accountDetailsScreen": {
+    "title": "Détails du compte",
+    "transactionsHeader": "Transactions récentes",
+    "viewAll": "Voir tout",
+    "noTransactions": "Aucune transaction pour l'instant",
+    "accountOptions": "Options de compte",
+    "makePrimary": "Définir comme compte principal",
+    "deleteAccount": "Supprimer le compte",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce compte?",
+    "balance": "Solde actuel"
+  },
+  "terms": {
+    "cashIn": "Geld ontvangen",
+    "cashOut": "Geld uitgeven",
+    "debit": "Debet",
+    "credit": "Credit",
+    "receive": "Ontvangen",
+    "sendOut": "Verzenden",
+    "borrow": "Lenen",
+    "lend": "Uitlenen"
   }
 }

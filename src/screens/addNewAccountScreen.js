@@ -13,6 +13,7 @@ import {
     Platform,
     TouchableWithoutFeedback,
     Keyboard,
+    Alert
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';

@@ -90,6 +90,51 @@
     "cancel": "Cancelar",
     "createANewPin": "Crear un nuevo PIN"
   },
+  "reportScreen": {
+    "title": "Reportes",
+    "transactionReport": {
+      "title": "Reporte de Transacciones",
+      "description": "Generar reportes detallados de transacciones"
+    },
+    "contactReport": {
+      "title": "Reporte de Contactos",
+      "description": "Generar reportes para contactos específicos"
+    },
+    "accountSummary": {
+      "title": "Resumen de Cuenta",
+      "description": "Generar resúmenes de saldos de cuentas"
+    },
+    "modal": {
+      "selectContact": "Seleccionar Contacto",
+      "allContacts": "Todos los Contactos",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Fin"
+    },
+    "generateAndShare": "Generar y Compartir",
+    "saveReportLocally": "Guardar Localmente",
+    "alerts": {
+      "selectReportType": "Por favor seleccione un tipo de reporte",
+      "selectContact": "Por favor seleccione un contacto para el reporte",
+      "realmError": "Error de base de datos - por favor reinicie la aplicación",
+      "noDataTitle": "Sin Datos Disponibles",
+      "noDataMessage": "No se encontraron registros para los criterios seleccionados",
+      "generateError": "Error al generar el reporte",
+      "sharingNotAvailableTitle": "Compartir No Disponible",
+      "sharingNotAvailableMessage": "Este dispositivo no soporta la funcionalidad de compartir",
+      "saveSuccessTitle": "Reporte Guardado",
+      "saveSuccessMessage": "Reporte guardado en: {{filePath}}",
+      "saveErrorMessage": "Error al guardar el reporte"
+    },
+    "errors": {
+      "contactNotFound": "Contacto no encontrado",
+      "invalidReportType": "Tipo de reporte inválido"
+    },
+    "realmError": "Error de base de datos - por favor intente nuevamente",
+    "retry": "Reintentar",
+    "loading": "Generando reporte...",
+    "shareDialogTitle": "Compartir Reporte",
+    "saveDialogTitle": "Guardar Reporte"
+  },
   "reportScreen.reports": "Informes",
   "reportScreen.transactionReport": "Informe de transacción",
   "reportScreen.transactionReportDesc": "Generar informe por rango de fechas y cuenta",
@@ -118,11 +163,26 @@
   "importContactsScreen.searchContacts": "Buscar contactos...",
   "dashboardScreen.myAccounts": "Mis cuentas",
   "dashboardScreen.addAccount": "Agregar nueva cuenta",
+  "dashboardScreen.accountOptions": "Opciones de cuenta",
   "createProfileScreen.createProfile": "Crear perfil",
   "createProfileScreen.editProfile": "Editar perfil",
   "createProfileScreen.firstName": "Nombre",
   "createProfileScreen.lastName": "Apellido",
   "createProfileScreen.emailAddress": "Dirección de correo electrónico",
+  "createProfileScreen.createTitle": "Crear perfil",
+  "createProfileScreen.editTitle": "Editar perfil",
+  "createProfileScreen.labels.firstName": "Nombre",
+  "createProfileScreen.labels.lastName": "Apellido",
+  "createProfileScreen.labels.email": "Correo electrónico",
+  "createProfileScreen.labels.language": "Idioma",
+  "createProfileScreen.placeholders.firstName": "Ingresa tu nombre",
+  "createProfileScreen.placeholders.lastName": "Ingresa tu apellido",
+  "createProfileScreen.placeholders.email": "Ingresa tu correo electrónico",
+  "createProfileScreen.validation.firstNameRequired": "El nombre es obligatorio",
+  "createProfileScreen.validation.lastNameRequired": "El apellido es obligatorio",
+  "createProfileScreen.validation.emailRequired": "El correo electrónico es obligatorio",
+  "createProfileScreen.validation.emailInvalid": "Por favor ingresa un correo electrónico válido",
+  "createProfileScreen.success.profileSaved": "¡Perfil guardado con éxito!",
   "calendarScreen.selectAccount": "Seleccionar cuenta",
   "calendarScreen.noTransactions": "No hay transacciones para este día",
   "calendarScreen.add": "Agregar",
@@ -167,9 +227,20 @@
   "addNewRecordScreen.alerts.confirmDelete.message": "Are you sure you want to delete this transaction? This action cannot be undone.",
   "addNewRecordScreen.alerts.permissionRequired.photoLibrary": "Photo library permission is required to select an image.",
   "addNewRecordScreen.alerts.imagePickerError.message": "Failed to pick image. Please try again.",
-  "addNewAccountScreen.accountName": "Nombre de la cuenta",
-  "addNewAccountScreen.addAccount": "Agregar cuenta",
-  "addNewAccountScreen.updateAccount": "Actualizar cuenta",
+  "addNewAccountScreen": {
+    "addAccount": "Agregar nueva cuenta",
+    "updateAccount": "Actualizar cuenta",
+    "accountName": "Nombre de la cuenta",
+    "language": "Idioma",
+    "currency": "Moneda",
+    "terms": "Términos",
+    "selectLanguage": "Seleccionar idioma",
+    "selectCurrency": "Seleccionar moneda",
+    "selectTerms": "Seleccionar términos",
+    "placeholders": {
+      "accountName": "Ingrese el nombre de la cuenta"
+    }
+  },
   "accountDetailsScreen.accountDetails": "Detalles de la cuenta",
   "accountDetailsScreen.recentTransactions": "Transacciones recientes",
   "accountDetailsScreen.noTransactionsYet": "Aún no hay transacciones",
@@ -189,7 +260,13 @@
     "delete": "Eliminar",
     "error": "Error",
     "success": "Éxito",
-    "reset": "Restablecer"
+    "reset": "Restablecer",
+    "retry": "Reintentar",
+    "save": "Guardar",
+    "confirm": "Confirmar",
+    "disabledMessage": "La protección por PIN se ha desactivado correctamente.",
+    "authFailed": "Error de autenticación por PIN:"
+    
   },
   "navigation": {
     "tabs": {

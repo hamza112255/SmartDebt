@@ -90,6 +90,51 @@
     "cancel": "Cancel",
     "createANewPin": "Create a new PIN"
   },
+  "reportScreen": {
+    "title": "Reports",
+    "transactionReport": {
+      "title": "Transaction Report",
+      "description": "Generate detailed transaction reports"
+    },
+    "contactReport": {
+      "title": "Contact Report",
+      "description": "Generate reports for specific contacts"
+    },
+    "accountSummary": {
+      "title": "Account Summary",
+      "description": "Generate account balance summaries"
+    },
+    "modal": {
+      "selectContact": "Select Contact",
+      "allContacts": "All Contacts",
+      "startDate": "Start Date",
+      "endDate": "End Date"
+    },
+    "generateAndShare": "Generate & Share",
+    "saveReportLocally": "Save Locally",
+    "alerts": {
+      "selectReportType": "Please select a report type",
+      "selectContact": "Please select a contact for the report",
+      "realmError": "Database error - please restart the app",
+      "noDataTitle": "No Data Available",
+      "noDataMessage": "No records found for the selected criteria",
+      "generateError": "Failed to generate report",
+      "sharingNotAvailableTitle": "Sharing Not Available",
+      "sharingNotAvailableMessage": "This device doesn't support sharing functionality",
+      "saveSuccessTitle": "Report Saved",
+      "saveSuccessMessage": "Report saved to: {{filePath}}",
+      "saveErrorMessage": "Failed to save report"
+    },
+    "errors": {
+      "contactNotFound": "Contact not found",
+      "invalidReportType": "Invalid report type"
+    },
+    "realmError": "Database error - please try again",
+    "retry": "Retry",
+    "loading": "Generating report...",
+    "shareDialogTitle": "Share Report",
+    "saveDialogTitle": "Save Report"
+  },
   "reportScreen.reports": "Reports",
   "reportScreen.transactionReport": "Transaction Report",
   "reportScreen.transactionReportDesc": "Generate report by date range and account",
@@ -118,11 +163,26 @@
   "importContactsScreen.searchContacts": "Search contacts...",
   "dashboardScreen.myAccounts": "My Accounts",
   "dashboardScreen.addAccount": "Add new account",
+  "dashboardScreen.accountOptions": "Account Options",
   "createProfileScreen.createProfile": "Create Profile",
   "createProfileScreen.editProfile": "Edit Profile",
   "createProfileScreen.firstName": "First Name",
   "createProfileScreen.lastName": "Last Name",
   "createProfileScreen.emailAddress": "Email Address",
+  "createProfileScreen.createTitle": "Create Profile",
+  "createProfileScreen.editTitle": "Edit Profile",
+  "createProfileScreen.labels.firstName": "First Name",
+  "createProfileScreen.labels.lastName": "Last Name",
+  "createProfileScreen.labels.email": "Email",
+  "createProfileScreen.labels.language": "Language",
+  "createProfileScreen.placeholders.firstName": "Enter your first name",
+  "createProfileScreen.placeholders.lastName": "Enter your last name",
+  "createProfileScreen.placeholders.email": "Enter your email address",
+  "createProfileScreen.validation.firstNameRequired": "First name is required",
+  "createProfileScreen.validation.lastNameRequired": "Last name is required",
+  "createProfileScreen.validation.emailRequired": "Email is required",
+  "createProfileScreen.validation.emailInvalid": "Please enter a valid email address",
+  "createProfileScreen.success.profileSaved": "Profile saved successfully!",
   "calendarScreen.selectAccount": "Select Account",
   "calendarScreen.noTransactions": "No transactions for this day",
   "calendarScreen.add": "Add",
@@ -167,6 +227,20 @@
   "addNewRecordScreen.alerts.confirmDelete.message": "Are you sure you want to delete this transaction? This action cannot be undone.",
   "addNewRecordScreen.alerts.permissionRequired.photoLibrary": "Photo library permission is required to select an image.",
   "addNewRecordScreen.alerts.imagePickerError.message": "Failed to pick image. Please try again.",
+  "addNewAccountScreen": {
+    "addAccount": "Add New Account",
+    "updateAccount": "Update Account",
+    "accountName": "Account Name",
+    "language": "Language",
+    "currency": "Currency",
+    "terms": "Terms",
+    "selectLanguage": "Select Language",
+    "selectCurrency": "Select Currency",
+    "selectTerms": "Select Terms",
+    "placeholders": {
+      "accountName": "Enter account name"
+    }
+  },
   "addNewAccountScreen.accountName": "Account Name",
   "addNewAccountScreen.addAccount": "Add Account",
   "addNewAccountScreen.updateAccount": "Update Account",
@@ -215,5 +289,18 @@
   "languages.es": "Español",
   "languages.ar": "العربية",
   "languages.nl": "Nederlands",
-  "languages.fr": "Français"
+  "languages.fr": "Français",
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.ok": "OK",
+  "common.delete": "Delete",
+  "common.confirm": "Confirm",
+  "common.error": "Error",
+  "common.success": "Success",
+  "common.retry": "Retry",
+  "common.reset": "Reset",
+  "common.resetTitle": "Reset",
+  "common.resetMessage": "This will permanently disable your PIN protection. Are you sure?",
+  "common.disabledMessage": "PIN protection has been disabled successfully.",
+  "common.authFailed": "PIN authentication failed:"
 }

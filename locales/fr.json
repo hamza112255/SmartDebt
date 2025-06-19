@@ -90,6 +90,51 @@
     "cancel": "Annuler",
     "createANewPin": "Créer un nouveau code PIN"
   },
+  "reportScreen": {
+    "title": "Rapports",
+    "transactionReport": {
+      "title": "Rapport de Transactions",
+      "description": "Générer des rapports détaillés de transactions"
+    },
+    "contactReport": {
+      "title": "Rapport de Contacts",
+      "description": "Générer des rapports pour des contacts spécifiques"
+    },
+    "accountSummary": {
+      "title": "Résumé du Compte",
+      "description": "Générer des résumés de soldes de comptes"
+    },
+    "modal": {
+      "selectContact": "Sélectionner un Contact",
+      "allContacts": "Tous les Contacts",
+      "startDate": "Date de Début",
+      "endDate": "Date de Fin"
+    },
+    "generateAndShare": "Générer & Partager",
+    "saveReportLocally": "Enregistrer Localement",
+    "alerts": {
+      "selectReportType": "Veuillez sélectionner un type de rapport",
+      "selectContact": "Veuillez sélectionner un contact pour le rapport",
+      "realmError": "Erreur de base de données - veuillez redémarrer l'application",
+      "noDataTitle": "Aucune Donnée Disponible",
+      "noDataMessage": "Aucun enregistrement trouvé pour les critères sélectionnés",
+      "generateError": "Échec de la génération du rapport",
+      "sharingNotAvailableTitle": "Partage Non Disponible",
+      "sharingNotAvailableMessage": "Cet appareil ne prend pas en charge la fonctionnalité de partage",
+      "saveSuccessTitle": "Rapport Enregistré",
+      "saveSuccessMessage": "Rapport enregistré dans : {{filePath}}",
+      "saveErrorMessage": "Échec de l'enregistrement du rapport"
+    },
+    "errors": {
+      "contactNotFound": "Contact non trouvé",
+      "invalidReportType": "Type de rapport invalide"
+    },
+    "realmError": "Erreur de base de données - veuillez réessayer",
+    "retry": "Réessayer",
+    "loading": "Génération du rapport...",
+    "shareDialogTitle": "Partager le Rapport",
+    "saveDialogTitle": "Enregistrer le Rapport"
+  },
   "reportScreen.reports": "Rapports",
   "reportScreen.transactionReport": "Rapport de transaction",
   "reportScreen.transactionReportDesc": "Générer un rapport par plage de dates et par compte",
@@ -118,11 +163,26 @@
   "importContactsScreen.searchContacts": "Rechercher des contacts...",
   "dashboardScreen.myAccounts": "Mes comptes",
   "dashboardScreen.addAccount": "Ajouter un nouveau compte",
+  "dashboardScreen.accountOptions": "Options du compte",
   "createProfileScreen.createProfile": "Créer un profil",
   "createProfileScreen.editProfile": "Modifier le profil",
   "createProfileScreen.firstName": "Prénom",
   "createProfileScreen.lastName": "Nom de famille",
   "createProfileScreen.emailAddress": "Adresse e-mail",
+  "createProfileScreen.createTitle": "Créer un profil",
+  "createProfileScreen.editTitle": "Modifier le profil",
+  "createProfileScreen.labels.firstName": "Prénom",
+  "createProfileScreen.labels.lastName": "Nom de famille",
+  "createProfileScreen.labels.email": "E-mail",
+  "createProfileScreen.labels.language": "Langue",
+  "createProfileScreen.placeholders.firstName": "Entrez votre prénom",
+  "createProfileScreen.placeholders.lastName": "Entrez votre nom de famille",
+  "createProfileScreen.placeholders.email": "Entrez votre adresse e-mail",
+  "createProfileScreen.validation.firstNameRequired": "Le prénom est obligatoire",
+  "createProfileScreen.validation.lastNameRequired": "Le nom de famille est obligatoire",
+  "createProfileScreen.validation.emailRequired": "L'e-mail est obligatoire",
+  "createProfileScreen.validation.emailInvalid": "Veuillez entrer une adresse e-mail valide",
+  "createProfileScreen.success.profileSaved": "Profil enregistré avec succès !",
   "calendarScreen.selectAccount": "Sélectionner un compte",
   "calendarScreen.noTransactions": "Aucune transaction pour ce jour",
   "calendarScreen.add": "Ajouter",
@@ -189,7 +249,14 @@
     "success": "Succès",
     "ok": "OK",
     "cancel": "Annuler",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "retry": "Reessayer",
+    "reset": "Réinitialiser",
+    "resetTitle": "Réinitialiser",
+    "resetMessage": "Cela désactivera définitivement la protection par PIN. Êtes-vous sûr?",
+    "disabledMessage": "La protection par PIN a été désactivée avec succès.",
+    "authFailed": "Échec de l'authentification par PIN :"
   },
   "navigation": {
     "tabs": {

@@ -26,6 +26,9 @@
   "signupScreen.creatingAccount": "جاري إنشاء حساب...",
   "signupScreen.alreadyHaveAccount": "هل لديك حساب بالفعل؟ ",
   "signupScreen.signInLink": "تسجيل الدخول",
+  "dashboardScreen.myAccounts": "حساباتي",
+  "dashboardScreen.addAccount": "إضافة حساب جديد",
+  "dashboardScreen.accountOptions": "خيارات الحساب",
   "settingsScreen": {
     "settings": "الإعدادات",
     "personalInformation": "المعلومات الشخصية",
@@ -90,6 +93,51 @@
     "cancel": "إلغاء",
     "createANewPin": "إنشاء رمز سري جديد"
   },
+  "reportScreen": {
+    "title": "التقارير",
+    "transactionReport": {
+      "title": "تقرير المعاملات",
+      "description": "إنشاء تقارير مفصلة للمعاملات"
+    },
+    "contactReport": {
+      "title": "تقرير جهات الاتصال",
+      "description": "إنشاء تقارير لجهات اتصال محددة"
+    },
+    "accountSummary": {
+      "title": "ملخص الحساب",
+      "description": "إنشاء ملخصات أرصدة الحسابات"
+    },
+    "modal": {
+      "selectContact": "اختر جهة اتصال",
+      "allContacts": "كل جهات الاتصال",
+      "startDate": "تاريخ البداية",
+      "endDate": "تاريخ النهاية"
+    },
+    "generateAndShare": "إنشاء ومشاركة",
+    "saveReportLocally": "حفظ محليًا",
+    "alerts": {
+      "selectReportType": "الرجاء تحديد نوع التقرير",
+      "selectContact": "الرجاء تحديد جهة اتصال للتقرير",
+      "realmError": "خطأ في قاعدة البيانات - يرجى إعادة تشغيل التطبيق",
+      "noDataTitle": "لا توجد بيانات متاحة",
+      "noDataMessage": "لم يتم العثور على سجلات للمعايير المحددة",
+      "generateError": "فشل إنشاء التقرير",
+      "sharingNotAvailableTitle": "المشاركة غير متاحة",
+      "sharingNotAvailableMessage": "هذا الجهاز لا يدعم وظيفة المشاركة",
+      "saveSuccessTitle": "تم حفظ التقرير",
+      "saveSuccessMessage": "تم حفظ التقرير في: {{filePath}}",
+      "saveErrorMessage": "فشل حفظ التقرير"
+    },
+    "errors": {
+      "contactNotFound": "جهة الاتصال غير موجودة",
+      "invalidReportType": "نوع التقرير غير صالح"
+    },
+    "realmError": "خطأ في قاعدة البيانات - يرجى المحاولة مرة أخرى",
+    "retry": "إعادة المحاولة",
+    "loading": "جارٍ إنشاء التقرير...",
+    "shareDialogTitle": "مشاركة التقرير",
+    "saveDialogTitle": "حفظ التقرير"
+  },
   "reportScreen.reports": "التقارير",
   "reportScreen.transactionReport": "تقرير المعاملات",
   "reportScreen.transactionReportDesc": "إنشاء تقرير حسب النطاق الزمني والحساب",
@@ -116,13 +164,25 @@
   "importContactsScreen.noContacts": "لم يتم العثور على جهات اتصال",
   "importContactsScreen.contactsPermissionRequired": "إذن الوصول إلى جهات الاتصال مطلوب لاستيراد جهات الاتصال",
   "importContactsScreen.searchContacts": "البحث عن جهات الاتصال...",
-  "dashboardScreen.myAccounts": "حساباتي",
-  "dashboardScreen.addAccount": "إضافة حساب جديد",
   "createProfileScreen.createProfile": "إنشاء حساب",
   "createProfileScreen.editProfile": "تعديل الملف الشخصي",
   "createProfileScreen.firstName": "الاسم الأول",
   "createProfileScreen.lastName": "اسم العائلة",
   "createProfileScreen.emailAddress": "عنوان البريد الإلكتروني",
+  "createProfileScreen.createTitle": "إنشاء ملف شخصي",
+  "createProfileScreen.editTitle": "تعديل الملف الشخصي",
+  "createProfileScreen.labels.firstName": "الاسم الأول",
+  "createProfileScreen.labels.lastName": "اسم العائلة",
+  "createProfileScreen.labels.email": "البريد الإلكتروني",
+  "createProfileScreen.labels.language": "اللغة",
+  "createProfileScreen.placeholders.firstName": "أدخل اسمك الأول",
+  "createProfileScreen.placeholders.lastName": "أدخل اسم العائلة",
+  "createProfileScreen.placeholders.email": "أدخل عنوان البريد الإلكتروني",
+  "createProfileScreen.validation.firstNameRequired": "الاسم الأول مطلوب",
+  "createProfileScreen.validation.lastNameRequired": "اسم العائلة مطلوب",
+  "createProfileScreen.validation.emailRequired": "البريد الإلكتروني مطلوب",
+  "createProfileScreen.validation.emailInvalid": "يرجى إدخال عنوان بريد إلكتروني صالح",
+  "createProfileScreen.success.profileSaved": "تم حفظ الملف الشخصي بنجاح!",
   "calendarScreen.selectAccount": "اختر حسابا",
   "calendarScreen.noTransactions": "لا توجد معاملات لهذا اليوم",
   "calendarScreen.add": "إضافة",
@@ -167,9 +227,20 @@
   "addNewRecordScreen.alerts.confirmDelete.message": "Are you sure you want to delete this transaction? This action cannot be undone.",
   "addNewRecordScreen.alerts.permissionRequired.photoLibrary": "Photo library permission is required to select an image.",
   "addNewRecordScreen.alerts.imagePickerError.message": "Failed to pick image. Please try again.",
-  "addNewAccountScreen.accountName": "اسم الحساب",
-  "addNewAccountScreen.addAccount": "إضافة حساب",
-  "addNewAccountScreen.updateAccount": "تحديث الحساب",
+  "addNewAccountScreen": {
+    "addAccount": "إضافة حساب جديد",
+    "updateAccount": "تحديث الحساب",
+    "accountName": "اسم الحساب",
+    "language": "اللغة",
+    "currency": "العملة",
+    "terms": "الشروط",
+    "selectLanguage": "اختر اللغة",
+    "selectCurrency": "اختر العملة",
+    "selectTerms": "اختر الشروط",
+    "placeholders": {
+      "accountName": "أدخل اسم الحساب"
+    }
+  },
   "accountDetailsScreen.accountDetails": "تفاصيل الحساب",
   "accountDetailsScreen.recentTransactions": "المعاملات الأخيرة",
   "accountDetailsScreen.noTransactionsYet": "لا توجد معاملات حتى الآن",
@@ -189,7 +260,8 @@
     "success": "نجاح",
     "ok": "موافق",
     "cancel": "إلغاء",
-    "delete": "حذف"
+    "delete": "حذف",
+    "edit": "تعديل"
   },
   "navigation": {
     "tabs": {
@@ -210,12 +282,6 @@
   },
   "screens": {
     "accountDetails": "تفاصيل الحساب"
-  },
-  "common": {
-    "error": "خطأ",
-    "success": "نجاح",
-    "cancel": "إلغاء",
-    "reset": "إعادة تعيين"
   },
   "languages.ar": "العربية",
   "languages.nl": "Nederlands",

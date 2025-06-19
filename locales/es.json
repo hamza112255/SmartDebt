@@ -292,5 +292,77 @@
   "languages.ar": "العربية",
   "languages.nl": "Nederlands",
   "languages.fr": "Français",
-  "languages.en": "English"
+  "languages.en": "English",
+  "currencies": {
+    "usd": {
+      "name": "Dólar estadounidense",
+      "country": "Estados Unidos"
+    },
+    "eur": {
+      "name": "Euro",
+      "country": "Unión Europea"
+    },
+    "gbp": {
+      "name": "Libra esterlina",
+      "country": "Reino Unido"
+    },
+    "jpy": {
+      "name": "Yen japonés",
+      "country": "Japón"
+    },
+    "aud": {
+      "name": "Dólar australiano",
+      "country": "Australia"
+    },
+    "cad": {
+      "name": "Dólar canadiense",
+      "country": "Canadá"
+    },
+    "chf": {
+      "name": "Franco suizo",
+      "country": "Suiza"
+    },
+    "cny": {
+      "name": "Yuan chino",
+      "country": "China"
+    },
+    "sek": {
+      "name": "Corona sueca",
+      "country": "Suecia"
+    },
+    "nzd": {
+      "name": "Dólar neozelandés",
+      "country": "Nueva Zelanda"
+    },
+    "mxn": {
+      "name": "Peso mexicano",
+      "country": "México"
+    },
+    "sgd": {
+      "name": "Dólar singapurense",
+      "country": "Singapur"
+    },
+    "hkd": {
+      "name": "Dólar hongkonés",
+      "country": "Hong Kong"
+    },
+    "nok": {
+      "name": "Corona noruega",
+      "country": "Noruega"
+    },
+    "pkr": {
+      "name": "Rupia pakistaní",
+      "country": "Pakistán"
+    },
+    "inr": {
+      "name": "Rupia india",
+      "country": "India"
+    }
+  },
+  "terms": {
+    "cashInCashOut": "Entrada - Salida de efectivo",
+    "debitCredit": "Débito - Crédito",
+    "receiveSendOut": "Recibir - Enviar",
+    "borrowLend": "Tomar prestado - Prestar"
+  }
 }

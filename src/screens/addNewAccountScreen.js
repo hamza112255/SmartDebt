@@ -20,7 +20,6 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { createObject, updateObject, getAllObjects } from '../realm';
 import uuid from 'react-native-uuid';
-import { screens } from '../constant/screens';
 import { useTranslation } from 'react-i18next';
 
 const colors = {
@@ -66,14 +65,12 @@ const AccountNameInput = memo(({ accountName, setAccountName, t }) => {
 });
 
 const AddAccountScreen = ({ navigation, route }) => {
+    const { t } = useTranslation();
     const [accountName, setAccountName] = useState('');
-    const [language, setLanguage] = useState('English');
-    const [currency, setCurrency] = useState({ code: 'USD', flag: '🇺🇸', name: 'US Dollar', country: 'United States' });
-    const [terms, setTerms] = useState('Cash In - Cash Out');
-    const [showLanguageSheet, setShowLanguageSheet] = useState(false);
+    const [currency, setCurrency] = useState({ code: 'USD', name: t('currencies.usd.name'), flag: '🇺🇸', country: t('currencies.usd.country') });
+    const [terms, setTerms] = useState(t('terms.cashInCashOut'));
     const [showCurrencySheet, setShowCurrencySheet] = useState(false);
     const [showTermsSheet, setShowTermsSheet] = useState(false);
-    const { t } = useTranslation();
 
     const existingAccount = route?.params?.account ?? null;
 
@@ -86,11 +83,6 @@ const AddAccountScreen = ({ navigation, route }) => {
             setTerms(existingAccount.type);
         }
     }, [existingAccount]);
-
-    const languages = [
-        t('languages.en'), t('languages.es'), t('languages.fr'), t('languages.de'), t('languages.it'), t('languages.pt'),
-        t('languages.ru'), t('languages.zh'), t('languages.ja'), t('languages.ko'), t('languages.ar'), t('languages.hi'), t('languages.ur'),
-    ];
 
     const currencies = [
         { code: 'USD', name: t('currencies.usd.name'), flag: '🇺🇸', country: t('currencies.usd.country') },
@@ -128,10 +120,10 @@ const AddAccountScreen = ({ navigation, route }) => {
             name: accountName.trim(),
             currency: currency.code,
             type: terms,
-            language,
             userId: currentUserId,
             isPrimary: existingAccount ? existingAccount.isPrimary : false,
             currentBalance: existingAccount ? existingAccount.currentBalance : 0,
+            language: t('settingsScreen.language'),
             // Initialize all type-based amounts to 0
             cashIn: existingAccount ? existingAccount.cashIn : 0,
             cashOut: existingAccount ? existingAccount.cashOut : 0,
@@ -159,10 +151,10 @@ const AddAccountScreen = ({ navigation, route }) => {
                 biometricEnabled: false,
                 pinEnabled: false,
                 pinCode: null,
+                language: null,
                 passwordHash: null,
                 userType: 'free',
                 profilePictureUrl: null,
-                language,
                 timezone: null,
                 isActive: true,
                 lastLoginAt: null,
@@ -285,12 +277,6 @@ const AddAccountScreen = ({ navigation, route }) => {
                                 />
                                 <View style={styles.settingsContainer}>
                                     <SettingRow
-                                        title={t('addNewAccountScreen.language')}
-                                        value={language}
-                                        onPress={() => setShowLanguageSheet(true)}
-                                        isRequired={true}
-                                    />
-                                    <SettingRow
                                         title={t('addNewAccountScreen.currency')}
                                         value={currency.code}
                                         onPress={() => setShowCurrencySheet(true)}
@@ -321,41 +307,6 @@ const AddAccountScreen = ({ navigation, route }) => {
                         </ScrollView>
                     </View>
                 </TouchableWithoutFeedback>
-
-                {/* Language Bottom Sheet */}
-                <BottomSheet
-                    visible={showLanguageSheet}
-                    onClose={() => setShowLanguageSheet(false)}
-                    title={t('addNewAccountScreen.selectLanguage')}
-                >
-                    <FlatList
-                        data={languages}
-                        keyExtractor={(item) => item}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={[
-                                    styles.sheetOption,
-                                    language === item && { backgroundColor: colors.lightGray }
-                                ]}
-                                onPress={() => {
-                                    setLanguage(item);
-                                    setShowLanguageSheet(false);
-                                }}
-                            >
-                                <Text style={[
-                                    styles.sheetOptionText,
-                                    language === item && { color: colors.primary, fontFamily: 'Sora-Bold' }
-                                ]}>
-                                    {item}
-                                </Text>
-                                {language === item && (
-                                    <Icon name="check" size={RFValue(22)} color={colors.primary} />
-                                )}
-                            </TouchableOpacity>
-                        )}
-                        showsVerticalScrollIndicator={false}
-                    />
-                </BottomSheet>
 
                 {/* Terms Bottom Sheet */}
                 <BottomSheet

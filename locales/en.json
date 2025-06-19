@@ -263,7 +263,8 @@
     "success": "Success",
     "ok": "OK",
     "cancel": "Cancel",
-    "delete": "Delete"
+    "delete": "Delete",
+    "edit": "Edit"
   },
   "navigation": {
     "tabs": {
@@ -293,6 +294,7 @@
   "common.save": "Save",
   "common.cancel": "Cancel",
   "common.ok": "OK",
+  "common.edit": "Edit",
   "common.delete": "Delete",
   "common.confirm": "Confirm",
   "common.error": "Error",
@@ -302,5 +304,29 @@
   "common.resetTitle": "Reset",
   "common.resetMessage": "This will permanently disable your PIN protection. Are you sure?",
   "common.disabledMessage": "PIN protection has been disabled successfully.",
-  "common.authFailed": "PIN authentication failed:"
+  "common.authFailed": "PIN authentication failed:",
+  "currencies": {
+    "usd": {"name": "US Dollar", "country": "United States"},
+    "eur": {"name": "Euro", "country": "European Union"},
+    "gbp": {"name": "British Pound", "country": "United Kingdom"},
+    "jpy": {"name": "Japanese Yen", "country": "Japan"},
+    "aud": {"name": "Australian Dollar", "country": "Australia"},
+    "cad": {"name": "Canadian Dollar", "country": "Canada"},
+    "chf": {"name": "Swiss Franc", "country": "Switzerland"},
+    "cny": {"name": "Chinese Yuan", "country": "China"},
+    "sek": {"name": "Swedish Krona", "country": "Sweden"},
+    "nzd": {"name": "New Zealand Dollar", "country": "New Zealand"},
+    "mxn": {"name": "Mexican Peso", "country": "Mexico"},
+    "sgd": {"name": "Singapore Dollar", "country": "Singapore"},
+    "hkd": {"name": "Hong Kong Dollar", "country": "Hong Kong"},
+    "nok": {"name": "Norwegian Krone", "country": "Norway"},
+    "pkr": {"name": "Pakistani Rupee", "country": "Pakistan"},
+    "inr": {"name": "Indian Rupee", "country": "India"}
+  },
+  "terms": {
+    "cashInCashOut": "Cash In - Cash Out",
+    "debitCredit": "Debit - Credit",
+    "receiveSendOut": "Receive - Send Out",
+    "borrowLend": "Borrow - Lend"
+  }
 }

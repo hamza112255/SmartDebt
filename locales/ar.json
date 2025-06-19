@@ -287,5 +287,77 @@
   "languages.nl": "Nederlands",
   "languages.en": "English",
   "languages.es": "Español",
-  "languages.fr": "Français"
+  "languages.fr": "Français",
+  "currencies": {
+    "usd": {
+      "name": "الدولار الأمريكي",
+      "country": "الولايات المتحدة"
+    },
+    "eur": {
+      "name": "اليورو",
+      "country": "الاتحاد الأوروبي"
+    },
+    "gbp": {
+      "name": "الجنيه الإسترليني",
+      "country": "المملكة المتحدة"
+    },
+    "jpy": {
+      "name": "الين الياباني",
+      "country": "اليابان"
+    },
+    "aud": {
+      "name": "الدولار الأسترالي",
+      "country": "أستراليا"
+    },
+    "cad": {
+      "name": "الدولار الكندي",
+      "country": "كندا"
+    },
+    "chf": {
+      "name": "الفرنك السويسري",
+      "country": "سويسرا"
+    },
+    "cny": {
+      "name": "اليوان الصيني",
+      "country": "الصين"
+    },
+    "sek": {
+      "name": "الكرونة السويدية",
+      "country": "السويد"
+    },
+    "nzd": {
+      "name": "الدولار النيوزيلندي",
+      "country": "نيوزيلندا"
+    },
+    "mxn": {
+      "name": "البيزو المكسيكي",
+      "country": "المكسيك"
+    },
+    "sgd": {
+      "name": "الدولار السنغافوري",
+      "country": "سنغافورة"
+    },
+    "hkd": {
+      "name": "الدولار هونج كونج",
+      "country": "هونج كونج"
+    },
+    "nok": {
+      "name": "الكرونة النرويجية",
+      "country": "النرويج"
+    },
+    "pkr": {
+      "name": "الروبية الباكستانية",
+      "country": "باكستان"
+    },
+    "inr": {
+      "name": "الروبية الهندية",
+      "country": "الهند"
+    }
+  },
+  "terms": {
+    "cashInCashOut": "إيداع - سحب نقدي",
+    "debitCredit": "مدين - دائن",
+    "receiveSendOut": "استلام - إرسال",
+    "borrowLend": "اقتراض - إقراض"
+  }
 }

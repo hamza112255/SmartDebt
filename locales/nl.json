@@ -76,8 +76,6 @@
     "startDate": "Startdatum",
     "endDate": "Einddatum"
   },
-  "reportScreen.generateAndShare": "Genereren & Delen",
-  "reportScreen.saveReportLocally": "Lokaal Opslaan",
   "reportScreen.alerts": {
     "selectReportType": "Selecteer een rapporttype",
     "selectContact": "Selecteer een contact voor het rapport",
@@ -96,7 +94,6 @@
     "invalidReportType": "Ongeldig rapporttype"
   },
   "reportScreen.realmError": "Databasefout - probeer het opnieuw",
-  "reportScreen.retry": "Opnieuw Proberen",
   "reportScreen.loading": "Rapport genereren...",
   "reportScreen.shareDialogTitle": "Rapport Delen",
   "reportScreen.saveDialogTitle": "Rapport Opslaan",
@@ -267,5 +264,77 @@
   "languages.en": "English",
   "languages.es": "Español",
   "languages.ar": "العربية",
-  "languages.fr": "Français"
+  "languages.fr": "Français",
+  "currencies": {
+    "usd": {
+      "name": "Amerikaanse dollar",
+      "country": "Verenigde Staten"
+    },
+    "eur": {
+      "name": "Euro",
+      "country": "Europese Unie"
+    },
+    "gbp": {
+      "name": "Britse pond",
+      "country": "Verenigd Koninkrijk"
+    },
+    "jpy": {
+      "name": "Japanse yen",
+      "country": "Japan"
+    },
+    "aud": {
+      "name": "Australische dollar",
+      "country": "Australië"
+    },
+    "cad": {
+      "name": "Canadese dollar",
+      "country": "Canada"
+    },
+    "chf": {
+      "name": "Zwitserse frank",
+      "country": "Zwitserland"
+    },
+    "cny": {
+      "name": "Chinese yuan",
+      "country": "China"
+    },
+    "sek": {
+      "name": "Zweedse kroon",
+      "country": "Zweden"
+    },
+    "nzd": {
+      "name": "Nieuw-Zeelandse dollar",
+      "country": "Nieuw-Zeeland"
+    },
+    "mxn": {
+      "name": "Mexicaanse peso",
+      "country": "Mexico"
+    },
+    "sgd": {
+      "name": "Singaporese dollar",
+      "country": "Singapore"
+    },
+    "hkd": {
+      "name": "Hongkongse dollar",
+      "country": "Hongkong"
+    },
+    "nok": {
+      "name": "Noorse kroon",
+      "country": "Noorwegen"
+    },
+    "pkr": {
+      "name": "Pakistaanse roepie",
+      "country": "Pakistan"
+    },
+    "inr": {
+      "name": "Indiase roepie",
+      "country": "India"
+    }
+  },
+  "terms": {
+    "cashInCashOut": "Geld ontvangen - Uitgeven",
+    "debitCredit": "Debet - Credit",
+    "receiveSendOut": "Ontvangen - Verzenden",
+    "borrowLend": "Lenen - Uitlenen"
+  }
 }

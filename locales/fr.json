@@ -282,5 +282,77 @@
   "languages.en": "English",
   "languages.es": "Español",
   "languages.ar": "العربية",
-  "languages.nl": "Nederlands"
+  "languages.nl": "Nederlands",
+  "currencies": {
+    "usd": {
+      "name": "Dollar américain",
+      "country": "États-Unis"
+    },
+    "eur": {
+      "name": "Euro",
+      "country": "Union européenne"
+    },
+    "gbp": {
+      "name": "Livre sterling",
+      "country": "Royaume-Uni"
+    },
+    "jpy": {
+      "name": "Yen japonais",
+      "country": "Japon"
+    },
+    "aud": {
+      "name": "Dollar australien",
+      "country": "Australie"
+    },
+    "cad": {
+      "name": "Dollar canadien",
+      "country": "Canada"
+    },
+    "chf": {
+      "name": "Franc suisse",
+      "country": "Suisse"
+    },
+    "cny": {
+      "name": "Yuan chinois",
+      "country": "Chine"
+    },
+    "sek": {
+      "name": "Couronne suédoise",
+      "country": "Suède"
+    },
+    "nzd": {
+      "name": "Dollar néo-zélandais",
+      "country": "Nouvelle-Zélande"
+    },
+    "mxn": {
+      "name": "Peso mexicain",
+      "country": "Mexique"
+    },
+    "sgd": {
+      "name": "Dollar de Singapour",
+      "country": "Singapour"
+    },
+    "hkd": {
+      "name": "Dollar de Hong Kong",
+      "country": "Hong Kong"
+    },
+    "nok": {
+      "name": "Couronne norvégienne",
+      "country": "Norvège"
+    },
+    "pkr": {
+      "name": "Roupie pakistanaise",
+      "country": "Pakistan"
+    },
+    "inr": {
+      "name": "Roupie indienne",
+      "country": "Inde"
+    }
+  },
+  "terms": {
+    "cashInCashOut": "Entrée - Sortie d'argent",
+    "debitCredit": "Débit - Crédit",
+    "receiveSendOut": "Recevoir - Envoyer",
+    "borrowLend": "Emprunter - Prêter"
+  }
 }

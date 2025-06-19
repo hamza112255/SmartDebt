@@ -375,6 +375,12 @@
     "receiveSendOut": "Recevoir - Envoyer",
     "borrowLend": "Emprunter - Prêter"
   },
+  "accountTypes":{
+    "cash_in_out":"Entrée - Sortie d'argent",
+    "debit_credit":"Débit - Crédit",
+    "receive_send_out":"Recevoir - Envoyer",
+    "borrow_lend":"Emprunter - Prêter"
+  },
   "addNewAccountScreen.success": {
     "accountAdded": "Compte ajouté avec succès!",
     "accountUpdated": "Compte mis à jour avec succès!"
@@ -403,5 +409,30 @@
       "friday": "Vendredi",
       "saturday": "Samedi"
     }
+  },
+  "newRecordScreen": {
+    "title": "Nouvelle transaction",
+    "editTitle": "Modifier la transaction",
+    "purposePlaceholder": "Quelle est cette transaction?",
+    "amountPlaceholder": "0.00",
+    "remarksPlaceholder": "Ajouter des notes supplémentaires (facultatif)",
+    "dateLabel": "Date",
+    "timeLabel": "Heure",
+    "amountLabel": "Montant",
+    "purposeLabel": "Doel",
+    "remarksLabel": "Monto",
+    "typeLabel": "Type de transaction",
+    "contactLabel": "Personne de contact",
+    "saveButton": "Enregistrer",
+    "attachmentsLabel": "Ajouter une photo",
+    "addNewPhoto":"Ajouter une nouvelle photo",
+    "cancelButton": "Annuler",
+    "selectPhoto": "Ajouter une photo",
+    "takePhoto": "Prendre une photo",
+    "removePhoto": "Supprimer la photo",
+    "successMessage": "Transaction enregistrée avec succès!",
+    "errorMessage": "Veuillez remplir tous les champs obligatoires",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette transaction?",
+    "selectContactPlaceholder": "Sélectionner un contact"
   }
 }

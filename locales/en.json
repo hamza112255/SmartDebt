@@ -349,6 +349,12 @@
     "receiveSendOut": "Receive - Send Out",
     "borrowLend": "Borrow - Lend"
   },
+  "accountTypes":{
+    "cash_in_out":"Cash In - Cash Out",
+    "debit_credit":"Debit - Credit",
+    "receive_send_out":"Receive - Send Out",
+    "borrow_lend":"Borrow - Lend"
+  },
   "addNewAccountScreen.success": {
     "accountAdded": "Account added successfully!",
     "accountUpdated": "Account updated successfully!"
@@ -377,5 +383,30 @@
       "friday": "Friday",
       "saturday": "Saturday"
     }
+  },
+  "newRecordScreen": {
+    "title": "New Transaction",
+    "editTitle": "Edit Transaction",
+    "purposePlaceholder": "What's this transaction for?",
+    "amountPlaceholder": "0.00",
+    "remarksPlaceholder": "Add additional notes (optional)",
+    "dateLabel": "Date",
+    "timeLabel": "Time",
+    "typeLabel": "Transaction Type",
+    "amountLabel": "Amount",
+    "purposeLabel": "Purpose",
+    "remarksLabel": "Remarks",
+    "attachmentsLabel": "Attachment",
+    "contactLabel": "Contact Person",
+    "addNewPhoto":"Add New Photo",
+    "saveButton": "Save",
+    "cancelButton": "Cancel",
+    "selectPhoto": "Add Photo",
+    "takePhoto": "Take Photo",
+    "removePhoto": "Remove Photo",
+    "successMessage": "Transaction saved successfully!",
+    "errorMessage": "Please fill all required fields",
+    "deleteConfirm": "Are you sure you want to delete this transaction?",
+    "selectContactPlaceholder": "Select Contact"
   }
 }

@@ -28,6 +28,7 @@ import * as ImagePicker from 'expo-image-picker';
 import moment from 'moment';
 import { useFocusEffect } from '@react-navigation/native';
 const { width, height } = Dimensions.get('window');
+import { useTranslation } from 'react-i18next';
 
 const colors = {
     primary: '#667eea',
@@ -82,6 +83,7 @@ const getAvailableTransactionTypes = (accountType) => {
 };
 
 const NewRecordScreen = ({ navigation, route }) => {
+    const { t } = useTranslation();
     const {
         transactionId,
         accountId,
@@ -702,7 +704,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         style={styles.header}
                     >
                         <Text style={styles.headerTitle}>
-                            {isEditing ? 'Edit Transaction' : 'New Transaction'}
+                            {isEditing ? t('newRecordScreen.editTitle') : t('newRecordScreen.title')}
                         </Text>
                         <View style={styles.placeholder} />
                     </LinearGradient>
@@ -713,7 +715,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         keyboardShouldPersistTaps="handled"
                     >
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>Transaction Type</Text>
+                            <Text style={styles.sectionTitle}>{t('newRecordScreen.typeLabel')}</Text>
                             <View style={styles.typeContainer}>
                                 {availableTypes.map((item) => (
                                     <TouchableOpacity
@@ -736,7 +738,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>Date & Time</Text>
+                            <Text style={styles.sectionTitle}>{t('newRecordScreen.dateLabel')}</Text>
                             <View style={styles.dateTimeRow}>
                                 <TouchableOpacity
                                     style={[styles.dateTimeInput, isDateFocused && styles.inputFocused]}
@@ -750,6 +752,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     <Icon name="calendar-today" size={RFValue(20)} color={colors.primary} />
                                     <Text style={styles.dateTimeText}>{formatDate(transactionDate)}</Text>
                                 </TouchableOpacity>
+                                <Text style={styles.sectionTitle}>{t('newRecordScreen.timeLabel')}</Text>
                                 <TouchableOpacity
                                     style={[styles.dateTimeInput, isTimeFocused && styles.inputFocused]}
                                     onPress={() => {
@@ -782,16 +785,14 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>
-                                Contact Person <Text style={styles.required}>*</Text>
-                            </Text>
+                            <Text style={styles.sectionTitle}>{t('newRecordScreen.contactLabel')}</Text>
                             <TouchableOpacity
                                 style={[styles.dropdownInput, contactPerson && styles.inputFocused]}
                                 onPress={handleContactPress}
                                 activeOpacity={0.8}
                             >
                                 <Text style={[styles.inputText, !contactName && styles.placeholderText]}>
-                                    {contactName || 'Select Contact'}
+                                    {contactName || t('newRecordScreen.selectContactPlaceholder')}
                                 </Text>
                                 <Icon
                                     name={showContactDropdown ? 'expand-less' : 'expand-more'}
@@ -832,14 +833,12 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>
-                                Purpose <Text style={styles.required}>*</Text>
-                            </Text>
+                            <Text style={styles.sectionTitle}>{t('newRecordScreen.purposeLabel')}</Text>
                             <View style={[styles.inputWrapper, isPurposeFocused && styles.inputWrapperFocused]}>
                                 <Icon name="description" size={RFValue(20)} color={colors.primary} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="What's this transaction for?"
+                                    placeholder={t('newRecordScreen.purposePlaceholder')}
                                     placeholderTextColor={colors.textSecondary}
                                     value={purpose}
                                     onChangeText={setPurpose}
@@ -851,16 +850,14 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>
-                                Amount <Text style={styles.required}>*</Text>
-                            </Text>
+                            <Text style={styles.sectionTitle}>{t('newRecordScreen.amountLabel')}</Text>
                             <View style={styles.amountContainer}>
                                 <View style={[styles.inputWrapper, styles.amountInputWrapper, isAmountFocused && styles.inputWrapperFocused]}>
                                     <Icon name="attach-money" size={RFValue(20)} color={colors.primary} />
                                     <TextInput
                                         style={[styles.input, styles.amountInput]}
                                         keyboardType="numeric"
-                                        placeholder="0.00"
+                                        placeholder={t('newRecordScreen.amountPlaceholder')}
                                         placeholderTextColor={colors.textSecondary}
                                         value={amount}
                                         onChangeText={setAmount}
@@ -879,12 +876,12 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>Remarks</Text>
+                            <Text style={styles.sectionTitle}>{t('newRecordScreen.remarksLabel')}</Text>
                             <View style={[styles.inputWrapper, styles.remarkWrapper, isRemarksFocused && styles.inputWrapperFocused]}>
                                 <Icon name="note" size={RFValue(20)} color={colors.primary} style={styles.remarkIcon} />
                                 <TextInput
                                     style={[styles.input, styles.remarkInput]}
-                                    placeholder="Add additional notes (optional)"
+                                    placeholder={t('newRecordScreen.remarksPlaceholder')}
                                     placeholderTextColor={colors.textSecondary}
                                     value={remarks}
                                     onChangeText={setRemarks}
@@ -898,7 +895,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>Attachments</Text>
+                            <Text style={styles.sectionTitle}>{t('newRecordScreen.attachmentsLabel')}</Text>
                             <View style={styles.attachmentContainer}>
                                 <TouchableOpacity
                                     style={[styles.attachmentButton, imageUri && styles.attachmentButtonWithImage]}
@@ -924,7 +921,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     ) : (
                                         <View style={styles.attachmentPlaceholder}>
                                             <Icon name="add-a-photo" size={RFValue(28)} color={colors.primary} />
-                                            <Text style={styles.attachmentText}>Add Photo</Text>
+                                            <Text style={styles.attachmentText}>{t('newRecordScreen.addNewPhoto')}</Text>
                                         </View>
                                     )}
                                 </TouchableOpacity>
@@ -944,7 +941,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     activeOpacity={0.8}
                                     disabled={isLoading}
                                 >
-                                    <Text style={[styles.buttonText, { color: colors.textSecondary }]}>Cancel</Text>
+                                    <Text style={[styles.buttonText, { color: colors.textSecondary }]}>{t('newRecordScreen.cancelButton')}</Text>
                                 </TouchableOpacity>
                                 {isEditing && (
                                     <TouchableOpacity
@@ -956,7 +953,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         {isLoading ? (
                                             <ActivityIndicator color={colors.error} size="small" />
                                         ) : (
-                                            <Text style={[styles.buttonText, { color: colors.error }]}>Delete</Text>
+                                            <Text style={[styles.buttonText, { color: colors.error }]}>{t('newRecordScreen.deleteButton')}</Text>
                                         )}
                                     </TouchableOpacity>
                                 )}
@@ -974,7 +971,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             <ActivityIndicator color={colors.white} size="small" />
                                         ) : (
                                             <Text style={[styles.buttonText, { color: colors.white }]}>
-                                                {isEditing ? 'Update' : 'Save'}
+                                                {isEditing ? t('newRecordScreen.updateButton') : t('newRecordScreen.saveButton')}
                                             </Text>
                                         )}
                                     </LinearGradient>
@@ -994,7 +991,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </TouchableWithoutFeedback>
                         <Animated.View style={[styles.bottomSheetContent, { transform: [{ translateY: slideAnim }] }]}>
                             <View style={styles.bottomSheetHandle} />
-                            <Text style={styles.bottomSheetTitle}>Add Contact</Text>
+                            <Text style={styles.bottomSheetTitle}>{t('newRecordScreen.addContactLabel')}</Text>
                             <TouchableOpacity
                                 style={styles.bottomSheetOption}
                                 onPress={() => {
@@ -1004,7 +1001,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 activeOpacity={0.8}
                             >
                                 <Icon name="person-add" size={RFValue(20)} color={colors.primary} />
-                                <Text style={styles.bottomSheetText}>Create New Contact</Text>
+                                <Text style={styles.bottomSheetText}>{t('newRecordScreen.createContactLabel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.bottomSheetOption}
@@ -1012,7 +1009,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 activeOpacity={0.8}
                             >
                                 <Icon name="contacts" size={RFValue(20)} color={colors.primary} />
-                                <Text style={styles.bottomSheetText}>Import from Contacts</Text>
+                                <Text style={styles.bottomSheetText}>{t('newRecordScreen.importContactLabel')}</Text>
                             </TouchableOpacity>
                         </Animated.View>
                     </Modal>

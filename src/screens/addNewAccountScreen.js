@@ -68,7 +68,7 @@ const AddAccountScreen = ({ navigation, route }) => {
     const { t } = useTranslation();
     const [accountName, setAccountName] = useState('');
     const [currency, setCurrency] = useState({ code: 'USD', name: t('currencies.usd.name'), flag: '🇺🇸', country: t('currencies.usd.country') });
-    const [terms, setTerms] = useState(t('terms.cashInCashOut'));
+    const [terms, setTerms] = useState('cash_in_out');
     const [showCurrencySheet, setShowCurrencySheet] = useState(false);
     const [showTermsSheet, setShowTermsSheet] = useState(false);
 
@@ -103,8 +103,16 @@ const AddAccountScreen = ({ navigation, route }) => {
     ];
 
     const termOptions = [
-        t('terms.cashInCashOut'), t('terms.debitCredit'), t('terms.receiveSendOut'), t('terms.borrowLend'),
+        {code: 'cash_in_out', display: t('terms.cashInCashOut')},
+        {code: 'debit_credit', display: t('terms.debitCredit')},
+        {code: 'receive_send', display: t('terms.receiveSendOut')},
+        {code: 'borrow_lend', display: t('terms.borrowLend')}
     ];
+
+    const getTranslatedTerm = (typeCode) => {
+        const term = termOptions.find(t => t.code === typeCode);
+        return term ? term.display : t('terms.cashInCashOut');
+    };
 
     const handleAddAccount = () => {
         if (!accountName.trim()) return;
@@ -284,7 +292,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                                     />
                                     <SettingRow
                                         title={t('addNewAccountScreen.terms')}
-                                        value={terms}
+                                        value={getTranslatedTerm(terms)}
                                         onPress={() => setShowTermsSheet(true)}
                                         isRequired={true}
                                     />
@@ -311,27 +319,27 @@ const AddAccountScreen = ({ navigation, route }) => {
                 <BottomSheet
                     visible={showTermsSheet}
                     onClose={() => setShowTermsSheet(false)}
-                    title={t('addNewAccountScreen.selectTerms')}
+                    title={t('addNewAccountScreen.selectTransactionType')}
                 >
                     {termOptions.map((option) => (
                         <TouchableOpacity
-                            key={option}
+                            key={option.code}
                             style={[
                                 styles.sheetOption,
-                                terms === option && { backgroundColor: colors.lightGray }
+                                terms === option.code && { backgroundColor: colors.lightGray }
                             ]}
                             onPress={() => {
-                                setTerms(option);
+                                setTerms(option.code);
                                 setShowTermsSheet(false);
                             }}
                         >
                             <Text style={[
                                 styles.sheetOptionText,
-                                terms === option && { color: colors.primary, fontFamily: 'Sora-Bold' }
+                                terms === option.code && { color: colors.primary, fontFamily: 'Sora-Bold' }
                             ]}>
-                                {option}
+                                {option.display}
                             </Text>
-                            {terms === option && (
+                            {terms === option.code && (
                                 <Icon name="check" size={RFValue(22)} color={colors.primary} />
                             )}
                         </TouchableOpacity>

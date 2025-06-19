@@ -384,6 +384,12 @@
     "receiveSendOut": "استلام - إرسال",
     "borrowLend": "اقتراض - إقراض"
   },
+  "accountTypes":{
+    "cash_in_out":"إيداع - سحب نقدي",
+    "debit_credit":"مدين - دائن",
+    "receive_send_out":"استلام - إرسال",
+    "borrow_lend":"اقتراض - إقراض"
+  },
   "calendar": {
     "months": {
       "january": "يناير",
@@ -408,5 +414,30 @@
       "friday": "الجمعة",
       "saturday": "السبت"
     }
+  },
+  "newRecordScreen": {
+    "title": "إضافة معاملة جديدة",
+    "editTitle": "تعديل معاملة",
+    "purposePlaceholder": "ما هو الغرض من هذه المعاملة؟",
+    "amountPlaceholder": "0.00",
+    "remarksPlaceholder": "إضافة ملاحظات إضافية (اختياري)",
+    "dateLabel": "التاريخ",
+    "timeLabel": "الوقت",
+    "typeLabel": "نوع المعاملة",
+    "amountLabel": "المبلغ",
+    "purposeLabel": "الغرض",
+    "remarksLabel": "ملاحظات",
+    "attachmentsLabel": "إرفاق",
+    "addNewPhoto":"إضافة صورة جديدة",
+    "contactLabel": "شخص الاتصال",
+    "saveButton": "حفظ",
+    "cancelButton": "إلغاء",
+    "selectPhoto": "إضافة صورة",
+    "takePhoto": "التقاط صورة",
+    "removePhoto": "إزالة الصورة",
+    "successMessage": "تم حفظ المعاملة بنجاح!",
+    "errorMessage": "الرجاء ملء جميع الحقول المطلوبة",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه المعاملة؟",
+    "selectContactPlaceholder": "اختر جهة الاتصال"
   }
 }

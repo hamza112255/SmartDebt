@@ -230,23 +230,23 @@ const makeStyles = (accountColor) => StyleSheet.create({
     typeSplitContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: hp('1%'),
+        width: '100%',
+        marginTop: hp('1.5%')
     },
     typeSplitItem: {
-        flex: 1,
         alignItems: 'center',
+        flex: 1
     },
     typeSplitLabel: {
         fontSize: RFPercentage(1.8),
-        fontFamily: 'Sora-Regular',
-        color: colors.white,
-        marginBottom: hp(0.5),
+        color: colors.lightGray,
+        fontFamily: 'Sora-Regular'
     },
     typeSplitValue: {
-        fontSize: RFPercentage(1.5),
+        fontSize: RFPercentage(2.0),
         fontFamily: 'Sora-Bold',
-        color: colors.white,
-    },
+        marginTop: hp('0.5%')
+    }
 });
 
 const AccountDetailScreen = ({ navigation, route }) => {
@@ -589,6 +589,30 @@ const AccountDetailScreen = ({ navigation, route }) => {
         }
     }, [loadTransactions, updateAccountBalance, accountData?.id]);
 
+    const getTypeAmount = (account, direction) => {
+        switch(account.type) {
+            case 'cash_in_out': 
+                return direction === 'in' ? account.cashIn : account.cashOut;
+            case 'debit_credit': 
+                return direction === 'in' ? account.credit : account.debit;
+            case 'receive_send_out': 
+                return direction === 'in' ? account.receive : account.sendOut;
+            case 'borrow_lend': 
+                return direction === 'in' ? account.borrow : account.lend;
+            default: return 0;
+        }
+    };
+
+    const getTranslatedAccountType = (typeCode) => {
+        switch(typeCode) {
+            case 'cash_in_out': return t('accountTypes.cash_in_out');
+            case 'debit_credit': return t('accountTypes.debit_credit');
+            case 'receive_send_out': return t('accountTypes.receive_send_out');
+            case 'borrow_lend': return t('accountTypes.borrow_lend');
+            default: return typeCode; // fallback
+        }
+    };
+
     // Update your render to use accountData instead of account
     if (!accountData) return null;
 
@@ -602,40 +626,37 @@ const AccountDetailScreen = ({ navigation, route }) => {
                         </TouchableOpacity>
                         <View style={dynamicStyles.headerTitleContainer}>
                             <Text style={dynamicStyles.accountName}>{accountData.name || t('common.account')}</Text>
-                            {accountData.type && <Text style={dynamicStyles.accountType}>{t(`${accountData.type}`)}</Text>}
+                            {accountData.type && <Text style={dynamicStyles.accountType}>{getTranslatedAccountType(accountData.type)}</Text>}
                         </View>
                     </View>
 
                     {/* Account Balance */}
                     <View style={dynamicStyles.balanceContainer}>
                         <Text style={dynamicStyles.balanceLabel}>{t('accountDetailsScreen.currentBalance')}</Text>
-                        <Text style={dynamicStyles.balanceAmount}>
-                            {formatAmount(accountData?.currentBalance || 0, accountData?.currency)}
-                        </Text>
+                        <Text style={dynamicStyles.balanceAmount}>{formatAmount(accountData.currentBalance, accountData.currency)}</Text>
                         
-                        {/* Add split type values */}
                         {accountData?.type && (
                             <View style={dynamicStyles.typeSplitContainer}>
                                 <View style={dynamicStyles.typeSplitItem}>
                                     <Text style={dynamicStyles.typeSplitLabel}>
-                                        {t(`${accountData.type}`).split(' - ')[0]}
+                                        {getTranslatedAccountType(accountData.type).split(' - ')[0]}
                                     </Text>
                                     <Text style={[dynamicStyles.typeSplitValue, {color: colors.success}]}>
-                                        {formatAmount(accountData?.cashIn || 0, accountData?.currency)}
+                                        {formatAmount(getTypeAmount(accountData, 'in'), accountData.currency)}
                                     </Text>
                                 </View>
                                 <View style={dynamicStyles.typeSplitItem}>
                                     <Text style={dynamicStyles.typeSplitLabel}>
-                                        {t(`terms.${accountData.type}`).split(' - ')[1]}
+                                        {getTranslatedAccountType(accountData.type).split(' - ')[1]}
                                     </Text>
                                     <Text style={[dynamicStyles.typeSplitValue, {color: colors.error}]}>
-                                        {formatAmount(accountData?.cashOut || 0, accountData?.currency)}
+                                        {formatAmount(getTypeAmount(accountData, 'out'), accountData.currency)}
                                     </Text>
                                 </View>
                             </View>
                         )}
                     </View>
-
+                    
                     {/* Dynamic Type Columns */}
                     {accountColumns?.length > 0 && (
                         <View style={dynamicStyles.typeContainer}>

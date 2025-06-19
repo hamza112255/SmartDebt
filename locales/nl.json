@@ -345,6 +345,12 @@
     "receiveSendOut": "Ontvangen - Verzenden",
     "borrowLend": "Lenen - Uitlenen"
   },
+  "accountTypes":{
+    "cash_in_out":"Geld ontvangen - Uitgeven",
+    "debit_credit":"Debet - Credit",
+    "receive_send_out":"Ontvangen - Verzenden",
+    "borrow_lend":"Lenen - Uitlenen"
+  },
   "addNewAccountScreen.success": {
     "accountAdded": "Account toegevoegd met succes!",
     "accountUpdated": "Account bijgewerkt met succes!"
@@ -373,5 +379,30 @@
       "friday": "Vrijdag",
       "saturday": "Zaterdag"
     }
+  },
+  "newRecordScreen": {
+    "title": "Nieuwe transactie",
+    "editTitle": "Transactie bewerken",
+    "purposePlaceholder": "Wat is deze transactie?",
+    "amountPlaceholder": "0.00",
+    "remarksPlaceholder": "Voeg extra notities toe (optioneel)",
+    "dateLabel": "Datum",
+    "timeLabel": "Tijd",
+    "amountLabel": "Bedrag",
+    "purposeLabel": "Doel",
+    "remarksLabel": "Monto",
+    "typeLabel": "Type transactie",
+    "contactLabel": "Contactpersoon",
+    "saveButton": "Opslaan",
+    "addNewPhoto":"Voeg een nieuwe foto toe",
+    "attachmentsLabel": "Bijlage",
+    "cancelButton": "Annuleren",
+    "selectPhoto": "Foto toevoegen",
+    "takePhoto": "Foto maken",
+    "removePhoto": "Foto verwijderen",
+    "successMessage": "Transactie succesvol opgeslagen!",
+    "errorMessage": "Vul alle verplichte velden in",
+    "deleteConfirm": "Weet je zeker dat je deze transactie wilt verwijderen?",
+    "selectContactPlaceholder": "Contact selecteren"
   }
 }

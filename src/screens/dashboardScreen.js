@@ -72,6 +72,16 @@ const DashboardScreen = ({ navigation }) => {
         return `${code} ${numeric.toLocaleString()}`;
     };
 
+    const getTranslatedAccountType = (typeCode) => {
+        switch(typeCode) {
+            case 'cash_in_out': return t('terms.cashInCashOut');
+            case 'debit_credit': return t('terms.debitCredit');
+            case 'receive_send': return t('terms.receiveSendOut');
+            case 'borrow_lend': return t('terms.borrowLend');
+            default: return typeCode; // fallback
+        }
+    };
+
     const handleMorePress = (account) => {
         // Create a serializable version of the account
         const serializedAccount = {
@@ -167,7 +177,7 @@ const DashboardScreen = ({ navigation }) => {
                                         styles.accountOption,
                                         { color: cardColors.text }
                                     ]}>
-                                        {account.type ?? '—'}
+                                        {t(`accountTypes.${account.type}`)}
                                     </Text>
                                     <Text style={[
                                         styles.accountBalance,

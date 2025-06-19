@@ -229,21 +229,12 @@ const CalendarScreen = ({ navigation, route }) => {
     // Reload accounts and accountMap, always update transactions/stats when focus
     useFocusEffect(
         useCallback(() => {
-            loadAccounts();
             syncAccountMap();
-
-            const transactionListener = (transactions, changes) => {
-                if (changes.insertions?.length > 0 || changes.modifications?.length > 0 || changes.deletions?.length > 0) {
-                    loadAccounts();
-                    syncAccountMap();
-                }
-            };
-
-            const transactions = realm.objects('Transaction');
-            transactions.addListener(transactionListener);
-
-            return () => transactions.removeListener(transactionListener);
-        }, [loadAccounts, syncAccountMap])
+            loadAccounts();
+            if (selectedAccount?.id) {
+                loadTransactions(selectedAccount.id);
+            }
+        }, [syncAccountMap, loadAccounts, loadTransactions, selectedAccount?.id])
     );
 
     // Whenever selectedAccount, selectedDate, or accountMap changes, reload transactions/stats
@@ -252,6 +243,12 @@ const CalendarScreen = ({ navigation, route }) => {
             loadTransactions(selectedAccount.id);
         }
     }, [selectedDate, selectedAccount, accountMap, loadTransactions]);
+
+    useEffect(() => {
+        if (selectedAccount?.id) {
+            loadTransactions(selectedAccount.id);
+        }
+    }, [selectedAccount?.type, loadTransactions]);
 
     const renderTransactionType = (transaction, account) => {
         if (account?.type === 'Cash In - Cash Out') {

@@ -475,7 +475,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
         const subTerms = translatedTerm.split(' - ');
         const keys = accountData.type.toLowerCase().replace(/ /g, '').split('-');
 
-        if (subTerms.length === 2 && keys.length === 2) {
+        if (subTerms?.length === 2 && keys?.length === 2) {
             return [
                 { key: keys[0], label: subTerms[0] },
                 { key: keys[1], label: subTerms[1] },
@@ -637,7 +637,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
                     </View>
 
                     {/* Dynamic Type Columns */}
-                    {accountColumns.length > 0 && (
+                    {accountColumns?.length > 0 && (
                         <View style={dynamicStyles.typeContainer}>
                             {accountColumns.map((col, index) => (
                                 <View key={index} style={dynamicStyles.typeBox}>
@@ -657,7 +657,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
                         <Text style={dynamicStyles.sectionTitle}>{t('accountDetailsScreen.recentTransactions')}</Text>
                     </View>
 
-                    {transactions.length > 0 ? (
+                    {transactions?.length > 0 ? (
                         transactions.map((transaction, index) => (
                             <View key={`${transaction.id}_${index}`}>
                                 {renderTransactionItem({ item: transaction })}

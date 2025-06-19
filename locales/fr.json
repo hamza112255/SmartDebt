@@ -369,14 +369,39 @@
     "receive": "Recevoir",
     "sendOut": "Envoyer",
     "borrow": "Emprunter",
-    "lend": "Prêter"
+    "lend": "Prêter",
+    "cashInCashOut": "Entrée - Sortie d'argent",
+    "debitCredit": "Débit - Crédit",
+    "receiveSendOut": "Recevoir - Envoyer",
+    "borrowLend": "Emprunter - Prêter"
   },
-  "cashInCashOut": "Entrée - Sortie d'argent",
-  "debitCredit": "Débit - Crédit",
-  "receiveSendOut": "Recevoir - Envoyer",
-  "borrowLend": "Emprunter - Prêter",
   "addNewAccountScreen.success": {
     "accountAdded": "Compte ajouté avec succès!",
     "accountUpdated": "Compte mis à jour avec succès!"
+  },
+  "calendar": {
+    "months": {
+      "january": "Janvier",
+      "february": "Février",
+      "march": "Mars",
+      "april": "Avril",
+      "may": "Mai",
+      "june": "Juin",
+      "july": "Juillet",
+      "august": "Août",
+      "september": "Septembre",
+      "october": "Octobre",
+      "november": "Novembre",
+      "december": "Décembre"
+    },
+    "weekdays": {
+      "sunday": "Dimanche",
+      "monday": "Lundi",
+      "tuesday": "Mardi",
+      "wednesday": "Mercredi",
+      "thursday": "Jeudi",
+      "friday": "Vendredi",
+      "saturday": "Samedi"
+    }
   }
 }

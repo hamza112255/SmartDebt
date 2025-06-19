@@ -313,15 +313,15 @@ const CalendarScreen = ({ navigation, route }) => {
 
     const getStatLabel = (side, account) => {
         if (account?.type === 'Cash In - Cash Out') {
-            return side === 'left' ? 'Cash Out' : 'Cash In';
+            return side === 'left' ? t('terms.cashOut') : t('terms.cashIn');
         }
         if (account?.type === 'Receive - Send Out') {
-            return side === 'left' ? 'Send Out' : 'Receive';
+            return side === 'left' ? t('terms.sendOut') : t('terms.receive');
         }
         if (account?.type === 'Borrow - Lend') {
-            return side === 'left' ? 'Lend' : 'Borrow';
+            return side === 'left' ? t('terms.lend') : t('terms.borrow');
         }
-        return side === 'left' ? 'Debit' : 'Credit';
+        return side === 'left' ? t('terms.debit') : t('terms.credit');
     };
 
     const getStatValue = (side, account, stats) => {

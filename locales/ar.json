@@ -354,12 +354,6 @@
       "country": "الهند"
     }
   },
-  "terms": {
-    "cashInCashOut": "إيداع - سحب نقدي",
-    "debitCredit": "مدين - دائن",
-    "receiveSendOut": "استلام - إرسال",
-    "borrowLend": "اقتراض - إقراض"
-  },
   "accountDetailsScreen": {
     "title": "تفاصيل الحساب",
     "transactionsHeader": "المعاملات الحديثة",
@@ -380,6 +374,10 @@
     "receive": "استلام",
     "sendOut": "إرسال",
     "borrow": "اقتراض",
-    "lend": "إقراض"
+    "lend": "إقراض",
+    "cashInCashOut": "إيداع - سحب نقدي",
+    "debitCredit": "مدين - دائن",
+    "receiveSendOut": "استلام - إرسال",
+    "borrowLend": "اقتراض - إقراض"
   }
 }

@@ -227,6 +227,26 @@ const makeStyles = (accountColor) => StyleSheet.create({
         fontFamily: 'Sora-Regular',
         color: colors.gray,
     },
+    typeSplitContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: hp('1%'),
+    },
+    typeSplitItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    typeSplitLabel: {
+        fontSize: RFPercentage(1.8),
+        fontFamily: 'Sora-Regular',
+        color: colors.white,
+        marginBottom: hp(0.5),
+    },
+    typeSplitValue: {
+        fontSize: RFPercentage(1.5),
+        fontFamily: 'Sora-Bold',
+        color: colors.white,
+    },
 });
 
 const AccountDetailScreen = ({ navigation, route }) => {
@@ -590,8 +610,30 @@ const AccountDetailScreen = ({ navigation, route }) => {
                     <View style={dynamicStyles.balanceContainer}>
                         <Text style={dynamicStyles.balanceLabel}>{t('accountDetailsScreen.currentBalance')}</Text>
                         <Text style={dynamicStyles.balanceAmount}>
-                            {accountData.currentBalance ? formatAmount(accountData.currentBalance) : formatAmount(0)}
+                            {formatAmount(accountData?.currentBalance || 0, accountData?.currency)}
                         </Text>
+                        
+                        {/* Add split type values */}
+                        {accountData?.type && (
+                            <View style={dynamicStyles.typeSplitContainer}>
+                                <View style={dynamicStyles.typeSplitItem}>
+                                    <Text style={dynamicStyles.typeSplitLabel}>
+                                        {t(`${accountData.type}`).split(' - ')[0]}
+                                    </Text>
+                                    <Text style={[dynamicStyles.typeSplitValue, {color: colors.success}]}>
+                                        {formatAmount(accountData?.cashIn || 0, accountData?.currency)}
+                                    </Text>
+                                </View>
+                                <View style={dynamicStyles.typeSplitItem}>
+                                    <Text style={dynamicStyles.typeSplitLabel}>
+                                        {t(`terms.${accountData.type}`).split(' - ')[1]}
+                                    </Text>
+                                    <Text style={[dynamicStyles.typeSplitValue, {color: colors.error}]}>
+                                        {formatAmount(accountData?.cashOut || 0, accountData?.currency)}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                     </View>
 
                     {/* Dynamic Type Columns */}

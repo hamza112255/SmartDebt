@@ -323,12 +323,6 @@
     "pkr": {"name": "Pakistani Rupee", "country": "Pakistan"},
     "inr": {"name": "Indian Rupee", "country": "India"}
   },
-  "terms": {
-    "cashInCashOut": "Cash In - Cash Out",
-    "debitCredit": "Debit - Credit",
-    "receiveSendOut": "Receive - Send Out",
-    "borrowLend": "Borrow - Lend"
-  },
   "accountDetailsScreen": {
     "title": "Account Details",
     "transactionsHeader": "Recent Transactions",
@@ -349,6 +343,10 @@
     "receive": "Receive",
     "sendOut": "Send Out",
     "borrow": "Borrow",
-    "lend": "Lend"
+    "lend": "Lend",
+    "cashInCashOut": "Cash In - Cash Out",
+    "debitCredit": "Debit - Credit",
+    "receiveSendOut": "Receive - Send Out",
+    "borrowLend": "Borrow - Lend"
   }
 }

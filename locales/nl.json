@@ -43,10 +43,16 @@
   "settingsScreen.createANewPin": "Maak een nieuwe PIN-code",
   "reportScreen.reports": "Rapporten",
   "reportScreen.transactionReport": "Transactierapport",
+  "reportScreen.transactionReport.title": "Transactierapport",
+  "reportScreen.transactionReport.description": "Genereer gedetailleerde transactierapporten",
   "reportScreen.transactionReportDesc": "Genereer een rapport op basis van datumbereik en account",
   "reportScreen.contactReport": "Contactrapport",
+  "reportScreen.contactReport.title": "Contactrapport",
+  "reportScreen.contactReport.description": "Genereer rapporten voor specifieke contacten",
   "reportScreen.contactReportDesc": "Genereer een rapport op basis van contactpersoon en datumbereik",
   "reportScreen.accountSummary": "Accountoverzicht",
+  "reportScreen.accountSummary.title": "Rekeningoverzicht",
+  "reportScreen.accountSummary.description": "Genereer saldooverzichten van rekeningen",
   "reportScreen.accountSummaryDesc": "Genereer een overzicht voor alle accounts",
   "reportScreen.selectContact": "Selecteer contactpersoon",
   "reportScreen.startDate": "Startdatum",
@@ -58,18 +64,6 @@
   "reportScreen.error": "Fout",
   "reportScreen.retry": "Opnieuw proberen",
   "reportScreen.title": "Rapporten",
-  "reportScreen.transactionReport": {
-    "title": "Transactierapport",
-    "description": "Genereer gedetailleerde transactierapporten"
-  },
-  "reportScreen.contactReport": {
-    "title": "Contactrapport",
-    "description": "Genereer rapporten voor specifieke contacten"
-  },
-  "reportScreen.accountSummary": {
-    "title": "Rekeningoverzicht",
-    "description": "Genereer saldooverzichten van rekeningen"
-  },
   "reportScreen.modal": {
     "selectContact": "Selecteer Contact",
     "allContacts": "Alle Contacten",
@@ -331,12 +325,6 @@
       "country": "India"
     }
   },
-  "terms": {
-    "cashInCashOut": "Geld ontvangen - Uitgeven",
-    "debitCredit": "Debet - Credit",
-    "receiveSendOut": "Ontvangen - Verzenden",
-    "borrowLend": "Lenen - Uitlenen"
-  },
   "accountDetailsScreen": {
     "title": "Détails du compte",
     "transactionsHeader": "Transactions récentes",
@@ -356,6 +344,10 @@
     "receive": "Ontvangen",
     "sendOut": "Verzenden",
     "borrow": "Lenen",
-    "lend": "Uitlenen"
+    "lend": "Uitlenen",
+    "cashInCashOut": "Geld ontvangen - Uitgeven",
+    "debitCredit": "Debet - Credit",
+    "receiveSendOut": "Ontvangen - Verzenden",
+    "borrowLend": "Lenen - Uitlenen"
   }
 }

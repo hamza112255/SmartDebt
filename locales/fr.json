@@ -349,12 +349,6 @@
       "country": "Inde"
     }
   },
-  "terms": {
-    "cashInCashOut": "Entrée - Sortie d'argent",
-    "debitCredit": "Débit - Crédit",
-    "receiveSendOut": "Recevoir - Envoyer",
-    "borrowLend": "Emprunter - Prêter"
-  },
   "accountDetailsScreen": {
     "title": "Détails du compte",
     "transactionsHeader": "Transactions récentes",
@@ -376,5 +370,9 @@
     "sendOut": "Envoyer",
     "borrow": "Emprunter",
     "lend": "Prêter"
-  }
+  },
+  "cashInCashOut": "Entrée - Sortie d'argent",
+  "debitCredit": "Débit - Crédit",
+  "receiveSendOut": "Recevoir - Envoyer",
+  "borrowLend": "Emprunter - Prêter"
 }

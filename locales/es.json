@@ -359,12 +359,6 @@
       "country": "India"
     }
   },
-  "terms": {
-    "cashInCashOut": "Entrada - Salida de efectivo",
-    "debitCredit": "Débito - Crédito",
-    "receiveSendOut": "Recibir - Enviar",
-    "borrowLend": "Tomar prestado - Prestar"
-  },
   "accountDetailsScreen": {
     "title": "Detalles de la cuenta",
     "transactionsHeader": "Transacciones recientes",
@@ -385,6 +379,10 @@
     "receive": "Recibir",
     "sendOut": "Enviar",
     "borrow": "Tomar prestado",
-    "lend": "Prestar"
+    "lend": "Prestar",
+    "cashInCashOut": "Entrada - Salida de efectivo",
+    "debitCredit": "Débito - Crédito",
+    "receiveSendOut": "Recibir - Enviar",
+    "borrowLend": "Tomar prestado - Prestar"
   }
 }

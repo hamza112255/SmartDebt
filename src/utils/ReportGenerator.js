@@ -1,0 +1,384 @@
+import { realm } from '../realm';
+import uuid from 'react-native-uuid';
+
+export class ReportGenerator {
+  static generateTransactionSummary(userId, startDate, endDate, filters = {}) {
+    try {
+      let transactions = realm.objects('Transaction')
+        .filtered('userId == $0', userId)
+        .filtered('transactionDate >= $0 && transactionDate <= $1', startDate, endDate);
+
+      if (filters.accountId) {
+        transactions = transactions.filtered('accountId == $0', filters.accountId);
+      }
+
+      if (filters.contactId) {
+        transactions = transactions.filtered('contactId == $0', filters.contactId);
+      }
+
+      const summary = {
+        totalTransactions: transactions.length,
+        totalAmount: 0,
+        byType: {},
+        byAccount: {},
+        byContact: {},
+      };
+
+      transactions.forEach(tx => {
+        const amount = Number(tx.amount) || 0;
+        
+        // By Type
+        if (!summary.byType[tx.type]) {
+          summary.byType[tx.type] = { count: 0, amount: 0 };
+        }
+        summary.byType[tx.type].count++;
+        summary.byType[tx.type].amount += amount;
+
+        // By Account
+        if (!summary.byAccount[tx.accountId]) {
+          summary.byAccount[tx.accountId] = { count: 0, amount: 0 };
+        }
+        summary.byAccount[tx.accountId].count++;
+        summary.byAccount[tx.accountId].amount += amount;
+
+        // By Contact
+        if (tx.contactId && !summary.byContact[tx.contactId]) {
+          summary.byContact[tx.contactId] = { count: 0, amount: 0 };
+        }
+        if (tx.contactId) {
+          summary.byContact[tx.contactId].count++;
+          summary.byContact[tx.contactId].amount += amount;
+        }
+
+        summary.totalAmount += amount;
+      });
+
+      const report = {
+        id: uuid.v4(),
+        userId,
+        type: 'transaction',
+        subType: 'summary',
+        title: 'Transaction Summary Report',
+        dateRange: 'custom',
+        startDate,
+        endDate,
+        filters: JSON.stringify(filters),
+        data: JSON.stringify(summary),
+        generatedOn: new Date(),
+        createdOn: new Date(),
+        updatedOn: new Date(),
+      };
+
+      realm.write(() => {
+        realm.create('Report', report);
+      });
+
+      return report;
+    } catch (error) {
+      console.error('Error generating transaction summary:', error);
+      throw error;
+    }
+  }
+
+  static generateContactBalances(userId) {
+    try {
+      const contacts = realm.objects('Contact')
+        .filtered('userId == $0 && isActive == true', userId);
+      console.log('Contacts:', realm.objects('Contact'));
+
+      const balances = {};
+      
+      contacts.forEach(contact => {
+        const transactions = realm.objects('Transaction')
+          .filtered('contactId == $0', contact.id);
+
+        let totalOwed = 0;
+        let totalOwing = 0;
+
+        transactions.forEach(tx => {
+          const amount = Number(tx.amount) || 0;
+          if (['cashOut', 'sendOut', 'lend', 'debit'].includes(tx.type)) {
+            totalOwed += amount;
+          } else {
+            totalOwing += amount;
+          }
+        });
+
+        balances[contact.id] = {
+          name: contact.name,
+          totalOwed,
+          totalOwing,
+          netBalance: totalOwed - totalOwing,
+        };
+      });
+
+      const report = {
+        id: uuid.v4(),
+        userId,
+        type: 'contact',
+        subType: 'balances',
+        title: 'Contact Balances Report',
+        dateRange: 'all',
+        startDate: new Date(0),
+        endDate: new Date(),
+        data: JSON.stringify(balances),
+        generatedOn: new Date(),
+        createdOn: new Date(),
+        updatedOn: new Date(),
+      };
+
+      realm.write(() => {
+        realm.create('Report', report);
+      });
+
+      return report;
+    } catch (error) {
+      console.error('Error generating contact balances:', error);
+      throw error;
+    }
+  }
+
+  static generateTransactionReport(filters) {
+    const transactions = realm.objects('Transaction')
+        .filtered(
+            'transactionDate >= $0 && transactionDate <= $1',
+            filters.startDate,
+            filters.endDate
+        );
+
+    if (filters.accountId) {
+        transactions = transactions.filtered('accountId == $0', filters.accountId);
+    }
+
+    return {
+        type: 'transaction',
+        data: Array.from(transactions),
+        filters,
+        generatedAt: new Date(),
+    };
+  }
+
+  static generateContactReport(filters) {
+    console.log('Generating contact report with filters:', filters);
+    
+    let transactions = realm.objects('Transaction')
+        .filtered(
+            'transactionDate >= $0 && transactionDate <= $1',
+            filters.startDate,
+            filters.endDate
+        );
+
+    if (filters.contactId) {
+        console.log('Looking for contact with ID:', filters.contactId);
+        transactions = transactions.filtered('contactId == $0', filters.contactId);
+    }
+
+    const contact = filters.contactId ? 
+        realm.objectForPrimaryKey('Contact', filters.contactId) : null;
+        
+    console.log('Found contact:', contact);
+
+    return {
+        type: 'contact',
+        contactInfo: contact,
+        data: Array.from(transactions),
+        filters,
+        generatedAt: new Date(),
+    };
+  }
+
+  static generateAccountReport(filters) {
+    const accounts = realm.objects('Account');
+    const accountSummaries = accounts.map(account => {
+        const transactions = realm.objects('Transaction')
+            .filtered(
+                'accountId == $0 && transactionDate >= $1 && transactionDate <= $2',
+                account.id,
+                filters.startDate,
+                filters.endDate
+            );
+
+        return {
+            account,
+            transactions: Array.from(transactions),
+            summary: this.calculateAccountSummary(transactions)
+        };
+    });
+
+    return {
+        type: 'account',
+        data: accountSummaries,
+        filters,
+        generatedAt: new Date(),
+    };
+  }
+
+  static calculateAccountSummary(transactions) {
+    let totalCredits = 0;
+    let totalDebits = 0;
+
+    transactions.forEach(tx => {
+      const amount = Number(tx.amount) || 0;
+      if (['cashIn', 'receive', 'credit', 'refund'].includes(tx.type)) {
+        totalCredits += amount;
+      } else {
+        totalDebits += amount;
+      }
+    });
+
+    return {
+      totalCredits,
+      totalDebits,
+      balance: totalCredits - totalDebits,
+    };
+  }
+
+  static generateReportHTML(reportData) {
+    // Generate appropriate HTML based on report type
+    switch (reportData.type) {
+        case 'transaction':
+            return this.generateTransactionHTML(reportData);
+        case 'contact':
+            return this.generateContactHTML(reportData);
+        case 'account':
+            return this.generateAccountHTML(reportData);
+        default:
+            throw new Error('Invalid report type');
+    }
+  }
+
+  static _generateHTMLWrapper(title, bodyContent) {
+    return `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1, h2 { color: #333; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .summary { margin-top: 20px; padding: 15px; background-color: #eef; border-left: 5px solid #1e90ff; }
+            .header { text-align: center; margin-bottom: 40px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${title}</h1>
+            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          </div>
+          ${bodyContent}
+        </body>
+      </html>
+    `;
+  }
+
+  static generateTransactionHTML(reportData) {
+    const { data, filters } = reportData;
+    let rows = data.map(tx => `
+      <tr>
+        <td>${new Date(tx.transactionDate).toLocaleDateString()}</td>
+        <td>${tx.type}</td>
+        <td>${tx.amount.toFixed(2)}</td>
+        <td>${tx.description || ''}</td>
+      </tr>
+    `).join('');
+
+    const body = `
+      <h2>Transaction Report</h2>
+      <p>From: ${new Date(filters.startDate).toLocaleDateString()} To: ${new Date(filters.endDate).toLocaleDateString()}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+    return this._generateHTMLWrapper('Transaction Report', body);
+  }
+
+  static generateContactHTML(reportData) {
+    const { contactInfo, data, filters } = reportData;
+    
+    if (!contactInfo) {
+      throw new Error('No contact information available for this report');
+    }
+    
+    if (!data || data.length === 0) {
+      return this._generateHTMLWrapper(
+        `Report for ${contactInfo.name}`, 
+        `<p>No transaction data found for ${contactInfo.name}</p>`
+      );
+    }
+    
+    let rows = data.map(tx => `
+      <tr>
+        <td>${new Date(tx.transactionDate).toLocaleDateString()}</td>
+        <td>${tx.type}</td>
+        <td>${tx.amount?.toFixed(2) || '0.00'}</td>
+        <td>${tx.description || ''}</td>
+      </tr>
+    `).join('');
+
+    const body = `
+      <h2>Report for ${contactInfo.name}</h2>
+      <p>From: ${new Date(filters.startDate).toLocaleDateString()} To: ${new Date(filters.endDate).toLocaleDateString()}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+    return this._generateHTMLWrapper(`Report for ${contactInfo.name}`, body);
+  }
+
+  static generateAccountHTML(reportData) {
+    const { data, filters } = reportData;
+    const accountSections = data.map(accSummary => `
+      <div>
+        <h3>Account: ${accSummary.account.name} (${accSummary.account.type})</h3>
+        <div class="summary">
+          <p>Total Credits: ${accSummary.summary.totalCredits.toFixed(2)}</p>
+          <p>Total Debits: ${accSummary.summary.totalDebits.toFixed(2)}</p>
+          <p><strong>Balance: ${accSummary.summary.balance.toFixed(2)}</strong></p>
+        </div>
+        <h4>Transactions:</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${accSummary.transactions.map(tx => `
+              <tr>
+                <td>${new Date(tx.transactionDate).toLocaleDateString()}</td>
+                <td>${tx.type}</td>
+                <td>${tx.amount.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `).join('');
+
+    const body = `
+      <h2>Account Report</h2>
+      <p>From: ${new Date(filters.startDate).toLocaleDateString()} To: ${new Date(filters.endDate).toLocaleDateString()}</p>
+      ${accountSections}
+    `;
+    return this._generateHTMLWrapper('Account Statement', body);
+  }
+}

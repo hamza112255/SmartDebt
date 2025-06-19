@@ -343,7 +343,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 } else {
                     realm.create('Transaction', transactionData);
                 }
-                
+
                 // Remove the alert from here
             });
 
@@ -652,27 +652,27 @@ const NewRecordScreen = ({ navigation, route }) => {
             <TouchableWithoutFeedback onPress={() => setShowContactOptionsModal(false)}>
                 <View style={styles.modalOverlay} />
             </TouchableWithoutFeedback>
-            
+
             <View style={styles.bottomSheetContainer}>
                 <View style={styles.bottomSheetContent}>
                     <View style={styles.bottomSheetHandle} />
                     <Text style={styles.bottomSheetTitle}>Add Contact</Text>
-                    
-                    <TouchableOpacity 
+
+                    <TouchableOpacity
                         style={styles.bottomSheetOption}
                         onPress={() => handleContactOptionSelect('create')}
                     >
                         <Text style={styles.bottomSheetText}>Create New Contact</Text>
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity 
+
+                    <TouchableOpacity
                         style={styles.bottomSheetOption}
                         onPress={() => handleContactOptionSelect('import')}
                     >
                         <Text style={styles.bottomSheetText}>Import from Device</Text>
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity 
+
+                    <TouchableOpacity
                         style={styles.bottomSheetCancel}
                         onPress={() => setShowContactOptionsModal(false)}
                     >
@@ -785,7 +785,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                             <Text style={styles.sectionTitle}>
                                 Contact Person <Text style={styles.required}>*</Text>
                             </Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[styles.dropdownInput, contactPerson && styles.inputFocused]}
                                 onPress={handleContactPress}
                                 activeOpacity={0.8}
@@ -793,13 +793,13 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 <Text style={[styles.inputText, !contactName && styles.placeholderText]}>
                                     {contactName || 'Select Contact'}
                                 </Text>
-                                <Icon 
-                                    name={showContactDropdown ? 'expand-less' : 'expand-more'} 
-                                    size={24} 
-                                    color={colors.gray} 
+                                <Icon
+                                    name={showContactDropdown ? 'expand-less' : 'expand-more'}
+                                    size={24}
+                                    color={colors.gray}
                                 />
                             </TouchableOpacity>
-                            
+
                             {/* Contact dropdown */}
                             {showContactDropdown && (
                                 <View style={styles.dropdownMenu}>
@@ -817,7 +817,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             </TouchableOpacity>
                                         ))}
                                     </ScrollView>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.addContactBtn}
                                         onPress={() => {
                                             setShowContactDropdown(false);

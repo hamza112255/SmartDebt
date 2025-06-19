@@ -16,6 +16,7 @@ import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import Realm from 'realm';
 import { realm } from '../realm';
+import { useTranslation } from 'react-i18next';
 
 const colors = {
   primary: '#2563eb',
@@ -33,6 +34,7 @@ const ImportContactsScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [permissionStatus, setPermissionStatus] = useState(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const getContacts = async () => {
@@ -150,7 +152,7 @@ const ImportContactsScreen = ({ navigation, route }) => {
   if (permissionStatus !== 'granted') {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.permissionText}>Contacts permission required to import contacts</Text>
+        <Text style={styles.permissionText}>{t('importContactsScreen.contactsPermissionRequired')}</Text>
       </SafeAreaView>
     );
   }
@@ -165,20 +167,20 @@ const ImportContactsScreen = ({ navigation, route }) => {
         >
           <Icon name="arrow-back" size={RFValue(24)} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Import Contacts</Text>
+        <Text style={styles.headerTitle}>{t('importContactsScreen.importContacts')}</Text>
         <TouchableOpacity
           style={styles.saveButton}
           onPress={saveSelectedContacts}
           disabled={!selectedContacts.length}
         >
-          <Text style={styles.saveButtonText}>Save ({selectedContacts.length})</Text>
+          <Text style={styles.saveButtonText}>{t('importContactsScreen.save')} ({selectedContacts.length})</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search contacts..."
+          placeholder={t('importContactsScreen.placeholders.search')}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -191,7 +193,7 @@ const ImportContactsScreen = ({ navigation, route }) => {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={() => (
-          <Text style={styles.emptyText}>No contacts found</Text>
+          <Text style={styles.emptyText}>{t('importContactsScreen.noContacts')}</Text>
         )}
       />
     </SafeAreaView>

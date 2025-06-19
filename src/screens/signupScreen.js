@@ -1,19 +1,20 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
     SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    TouchableOpacity,
+    TextInput,
     KeyboardAvoidingView,
     Platform,
-    ScrollView,
     Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 const colors = {
     primary: '#2563eb',
@@ -40,6 +41,7 @@ const SignupScreen = ({ navigation }) => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    const { t } = useTranslation(); // Initialize useTranslation
 
     const updateFormData = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -52,29 +54,29 @@ const SignupScreen = ({ navigation }) => {
         const newErrors = {};
 
         if (!formData.name.trim()) {
-            newErrors.name = 'Full name is required';
+            newErrors.name = t('signupScreen.validation.nameRequired');
         } else if (formData.name.trim().length < 2) {
-            newErrors.name = 'Name must be at least 2 characters';
+            newErrors.name = t('signupScreen.validation.nameMinLength');
         }
 
         if (!formData.email.trim()) {
-            newErrors.email = 'Email is required';
+            newErrors.email = t('signupScreen.validation.emailRequired');
         } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Please enter a valid email';
+            newErrors.email = t('signupScreen.validation.emailInvalid');
         }
 
         if (!formData.password.trim()) {
-            newErrors.password = 'Password is required';
+            newErrors.password = t('signupScreen.validation.passwordRequired');
         } else if (formData.password.length < 8) {
-            newErrors.password = 'Password must be at least 8 characters';
+            newErrors.password = t('signupScreen.validation.passwordMinLength');
         } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-            newErrors.password = 'Password must contain uppercase, lowercase and number';
+            newErrors.password = t('signupScreen.validation.passwordComplexity');
         }
 
         if (!formData.confirmPassword.trim()) {
-            newErrors.confirmPassword = 'Please confirm your password';
+            newErrors.confirmPassword = t('signupScreen.validation.confirmPasswordRequired');
         } else if (formData.password !== formData.confirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
+            newErrors.confirmPassword = t('signupScreen.validation.passwordsDoNotMatch');
         }
 
         setErrors(newErrors);
@@ -88,17 +90,17 @@ const SignupScreen = ({ navigation }) => {
         try {
             await new Promise(resolve => setTimeout(resolve, 2000));
             Alert.alert(
-                'Account Created Successfully!',
-                'Welcome to SmartDebt. You can now sign in with your credentials.',
+                t('signupScreen.success.title'),
+                t('signupScreen.success.message'),
                 [
                     {
-                        text: 'Sign In',
+                        text: t('signupScreen.success.signInButton'),
                         onPress: () => navigation.navigate('Login'),
                     },
                 ]
             );
         } catch (error) {
-            Alert.alert('Signup Failed', 'Please try again later.');
+            Alert.alert(t('signupScreen.errors.signupFailed'), t('signupScreen.errors.tryAgain'));
         } finally {
             setIsLoading(false);
         }
@@ -125,17 +127,17 @@ const SignupScreen = ({ navigation }) => {
                         <View style={styles.logoContainer}>
                             <Icon name="account-balance-wallet" size={RFValue(48)} color={colors.primary} />
                         </View>
-                        <Text style={styles.title}>Create Account</Text>
-                        <Text style={styles.subtitle}>Join SmartDebt and take control of your finances</Text>
+                        <Text style={styles.title}>{t('signupScreen.title')}</Text>
+                        <Text style={styles.subtitle}>{t('signupScreen.subtitle')}</Text>
                     </View>
                     <View style={styles.formContainer}>
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Full Name</Text>
+                            <Text style={styles.label}>{t('signupScreen.fullNameLabel')}</Text>
                             <View style={[styles.inputWrapper, errors.name && styles.inputError]}>
                                 <Icon name="person" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Enter your full name"
+                                    placeholder={t('signupScreen.placeholders.name')}
                                     placeholderTextColor={colors.gray}
                                     value={formData.name}
                                     onChangeText={(text) => updateFormData('name', text)}
@@ -146,12 +148,12 @@ const SignupScreen = ({ navigation }) => {
                             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
                         </View>
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Email Address</Text>
+                            <Text style={styles.label}>{t('signupScreen.emailAddressLabel')}</Text>
                             <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
                                 <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Enter your email"
+                                    placeholder={t('signupScreen.placeholders.email')}
                                     placeholderTextColor={colors.gray}
                                     value={formData.email}
                                     onChangeText={(text) => updateFormData('email', text)}
@@ -163,12 +165,12 @@ const SignupScreen = ({ navigation }) => {
                             {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
                         </View>
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Password</Text>
+                            <Text style={styles.label}>{t('signupScreen.passwordLabel')}</Text>
                             <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
                                 <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Create a strong password"
+                                    placeholder={t('signupScreen.placeholders.password')}
                                     placeholderTextColor={colors.gray}
                                     value={formData.password}
                                     onChangeText={(text) => updateFormData('password', text)}
@@ -189,12 +191,12 @@ const SignupScreen = ({ navigation }) => {
                             {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
                         </View>
                         <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Confirm Password</Text>
+                            <Text style={styles.label}>{t('signupScreen.confirmPasswordLabel')}</Text>
                             <View style={[styles.inputWrapper, errors.confirmPassword && styles.inputError]}>
                                 <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Confirm your password"
+                                    placeholder={t('signupScreen.placeholders.confirmPassword')}
                                     placeholderTextColor={colors.gray}
                                     value={formData.confirmPassword}
                                     onChangeText={(text) => updateFormData('confirmPassword', text)}
@@ -215,18 +217,18 @@ const SignupScreen = ({ navigation }) => {
                             {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
                         </View>
                         <View style={styles.passwordRequirements}>
-                            <Text style={styles.requirementsTitle}>Password must contain:</Text>
-                            <Text style={styles.requirementItem}>• At least 8 characters</Text>
-                            <Text style={styles.requirementItem}>• One uppercase letter</Text>
-                            <Text style={styles.requirementItem}>• One lowercase letter</Text>
-                            <Text style={styles.requirementItem}>• One number</Text>
+                            <Text style={styles.requirementsTitle}>{t('signupScreen.passwordRequirements.title')}</Text>
+                            <Text style={styles.requirementItem}>{t('signupScreen.atLeast8Chars')}</Text>
+                            <Text style={styles.requirementItem}>{t('signupScreen.oneUppercase')}</Text>
+                            <Text style={styles.requirementItem}>{t('signupScreen.oneLowercase')}</Text>
+                            <Text style={styles.requirementItem}>{t('signupScreen.oneNumber')}</Text>
                         </View>
                         <View style={styles.termsContainer}>
                             <Text style={styles.termsText}>
-                                By creating an account, you agree to our{' '}
-                                <Text style={styles.termsLink}>Terms of Service</Text>
-                                {' '}and{' '}
-                                <Text style={styles.termsLink}>Privacy Policy</Text>
+                                {t('signupScreen.termsAgreement')}{' '}
+                                <Text style={styles.termsLink}>{t('signupScreen.termsOfService')}</Text>
+                                {' '}{t('signupScreen.and')}{' '}
+                                <Text style={styles.termsLink}>{t('signupScreen.privacyPolicy')}</Text>
                             </Text>
                         </View>
                         <TouchableOpacity
@@ -235,15 +237,15 @@ const SignupScreen = ({ navigation }) => {
                             disabled={isLoading}
                         >
                             {isLoading ? (
-                                <Text style={styles.buttonText}>Creating Account...</Text>
+                                <Text style={styles.buttonText}>{t('signupScreen.creatingAccount')}</Text>
                             ) : (
-                                <Text style={styles.buttonText}>Create Account</Text>
+                                <Text style={styles.buttonText}>{t('signupScreen.createAccountButton')}</Text>
                             )}
                         </TouchableOpacity>
                         <View style={styles.signInContainer}>
-                            <Text style={styles.signInText}>Already have an account? </Text>
+                            <Text style={styles.signInText}>{t('signupScreen.alreadyHaveAccount')}</Text>
                             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                                <Text style={styles.signInLink}>Sign In</Text>
+                                <Text style={styles.signInLink}>{t('signupScreen.signInLink')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

@@ -12,6 +12,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
+import { useTranslation } from 'react-i18next';
 
 const colors = {
     primary: '#2563eb',
@@ -30,9 +31,10 @@ const ProfileScreen = ({ navigation }) => {
     const [name, setName] = useState('John Doe');
     const [email, setEmail] = useState('john.doe@example.com');
     const [password, setPassword] = useState('********');
+    const { t } = useTranslation();
 
     const handleSave = () => {
-        Alert.alert('Success', 'Profile updated successfully!');
+        Alert.alert(t('common.success'), t('profileScreen.success.update'));
     };
 
     return (
@@ -45,32 +47,32 @@ const ProfileScreen = ({ navigation }) => {
                 }}
             >
                 <View style={[styles.header, { paddingHorizontal: wp(4.5) }]}>
-                    <Text style={styles.headerTitle}>Profile</Text>
+                    <Text style={styles.headerTitle}>{t('profileScreen.profile')}</Text>
                 </View>
                 <View style={[styles.formWrapper, { maxWidth: wp(90), width: '100%' }]}>
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Name</Text>
+                        <Text style={styles.label}>{t('profileScreen.name')}</Text>
                         <View style={styles.inputWrapper}>
                             <Icon name="person-outline" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 value={name}
                                 onChangeText={setName}
-                                placeholder="Enter your name"
+                                placeholder={t('profileScreen.placeholders.name')}
                                 placeholderTextColor={colors.gray}
                                 autoCapitalize="words"
                             />
                         </View>
                     </View>
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email</Text>
+                        <Text style={styles.label}>{t('profileScreen.email')}</Text>
                         <View style={styles.inputWrapper}>
                             <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 value={email}
                                 onChangeText={setEmail}
-                                placeholder="Enter your email"
+                                placeholder={t('profileScreen.placeholders.email')}
                                 placeholderTextColor={colors.gray}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
@@ -78,14 +80,14 @@ const ProfileScreen = ({ navigation }) => {
                         </View>
                     </View>
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Password</Text>
+                        <Text style={styles.label}>{t('profileScreen.password')}</Text>
                         <View style={styles.inputWrapper}>
                             <Icon name="lock-outline" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 value={password}
                                 onChangeText={setPassword}
-                                placeholder="Enter your password"
+                                placeholder={t('profileScreen.placeholders.password')}
                                 placeholderTextColor={colors.gray}
                                 secureTextEntry
                                 autoCapitalize="none"
@@ -94,7 +96,7 @@ const ProfileScreen = ({ navigation }) => {
                     </View>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
-                            <Text style={styles.saveButtonText}>Save Changes</Text>
+                            <Text style={styles.saveButtonText}>{t('profileScreen.saveChanges')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

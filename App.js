@@ -34,11 +34,15 @@ import ImportContactsScreen from './src/screens/ImportContactsScreen';
 import BiometricModal from './src/components/BiometricModal';
 import PinModal from './src/components/PinModal';
 import BiometricContext from './src/contexts/BiometricContext';
+import ReportDetailScreen from './src/screens/ReportDetailScreen';
+import i18n from './src/i18n'; // Import i18n
+import { I18nextProvider, useTranslation } from 'react-i18next'; // Import I18nextProvider
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
+  const { t } = useTranslation();
   return (
     <Tab.Navigator
       initialRouteName="Dashboard"
@@ -120,7 +124,7 @@ function MainTabs() {
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarLabel: 'Settings',
+          tabBarLabel: t('navigation.tabs.settings'),
           tabBarLabelStyle: { fontFamily: 'Sora-Regular' },
         }}
       />
@@ -128,7 +132,7 @@ function MainTabs() {
         name="Reports"
         component={ReportScreen}
         options={{
-          tabBarLabel: 'Reports',
+          tabBarLabel: t('navigation.tabs.reports'),
           tabBarLabelStyle: { fontFamily: 'Sora-Regular' },
         }}
       />
@@ -136,7 +140,7 @@ function MainTabs() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('navigation.tabs.home'),
           tabBarLabelStyle: {
             fontFamily: 'Sora-Bold',
             color: '#64748b',
@@ -149,7 +153,7 @@ function MainTabs() {
         name="Calendar"
         component={CalendarScreen}
         options={{
-          tabBarLabel: 'Calendar',
+          tabBarLabel: t('navigation.tabs.calendar'),
           tabBarLabelStyle: { fontFamily: 'Sora-Regular' },
         }}
       />
@@ -157,7 +161,7 @@ function MainTabs() {
         name="Notifications"
         component={CalendarScreen}
         options={{
-          tabBarLabel: 'Alerts',
+          tabBarLabel: t('navigation.tabs.alerts'),
           tabBarBadge: 3,
           tabBarBadgeStyle: {
             backgroundColor: '#ef4444',
@@ -175,7 +179,8 @@ function MainTabs() {
   );
 }
 
-export default function App() {
+function App({ currentLanguage }) {
+  const { t } = useTranslation();
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [isBiometricEnrolled, setIsBiometricEnrolled] = useState(false);
@@ -188,6 +193,7 @@ export default function App() {
   const [needsPinAuth, setNeedsPinAuth] = useState(false);
   const [storedPin, setStoredPin] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [language, setLanguage] = useState(currentLanguage); // Default language
 
   const updateBiometricState = (enabled) => {
     setIsBiometricEnabled(enabled);
@@ -218,7 +224,7 @@ export default function App() {
           setIsAuthenticated(true);
           SecureStore.setItemAsync('lastAuthTime', Date.now().toString());
         } else {
-          Alert.alert('Incorrect PIN', 'Please try again.');
+          Alert.alert(t('pin.incorrectTitle'), t('pin.incorrectMessage'));
         }
       } else {
         const users = getAllObjects('User');
@@ -238,18 +244,18 @@ export default function App() {
         }
       }
     } catch (error) {
-      Alert.alert('Error', `Failed to authenticate PIN: ${error.message}`);
+      Alert.alert(t('common.error'), `${t('pin.authFailed')} ${error.message}`);
     }
   };
 
   const handleEmergencyReset = async () => {
     Alert.alert(
-      'Emergency Reset',
-      'This will disable PIN protection and clear the PIN. Continue?',
+        t('pin.resetTitle'),
+        t('pin.resetMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('common.reset'),
           style: 'destructive',
           onPress: async () => {
             setIsPinEnabled(false);
@@ -268,7 +274,7 @@ export default function App() {
 
             await SecureStore.deleteItemAsync('pinEnabled');
             await SecureStore.deleteItemAsync('pinCode');
-            Alert.alert('Success', 'PIN protection has been disabled');
+            Alert.alert(t('common.success'), t('pin.disabledMessage'));
           },
         },
       ]
@@ -426,8 +432,12 @@ export default function App() {
                     name={screens.AccountDetails}
                     component={AccountDetailScreen}
                     options={({ route }) => ({
-                      headerTitle: route.params?.accountName || 'Account Details'
+                      headerTitle: route.params?.accountName || t('screens.accountDetails')
                     })}
+                  />
+                  <Stack.Screen
+                    name={screens.ReportDetail}
+                    component={ReportDetailScreen}
                   />
                 </Stack.Navigator>
               </NavigationContainer>
@@ -452,3 +462,56 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+function AppWrapper() {
+  const [languageInitialized, setLanguageInitialized] = useState(false);
+  
+  // Add language state that can be updated from child components
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
+
+  useEffect(() => {
+    const initializeLanguage = async () => {
+      try {
+        const users = getAllObjects('User');
+        if (users.length > 0) {
+          const userLanguage = users[0].language;
+          if (userLanguage && userLanguage !== i18n.language) {
+            await i18n.changeLanguage(userLanguage);
+            setCurrentLanguage(userLanguage);
+          }
+        }
+      } catch (error) {
+        console.log('Error initializing language:', error);
+      } finally {
+        setLanguageInitialized(true);
+      }
+    };
+
+    initializeLanguage();
+
+    // Add listener for language changes
+    i18n.on('languageChanged', (lng) => {
+      setCurrentLanguage(lng);
+    });
+
+    return () => {
+      i18n.off('languageChanged');
+    };
+  }, []);
+
+  if (!languageInitialized) {
+    return (
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <I18nextProvider i18n={i18n}>
+      <App currentLanguage={currentLanguage} />
+    </I18nextProvider>
+  );
+}
+
+export default AppWrapper;

@@ -161,6 +161,27 @@ export const UserCodeListElementSchema = {
   },
 };
 
+export const ReportSchema = {
+  name: "Report",
+  primaryKey: "id",
+  properties: {
+    id: "string",
+    userId: "string",
+    type: "string", // 'transaction', 'contact', 'account'
+    subType: "string", // 'summary', 'balance', 'cashflow', etc.
+    title: "string",
+    dateRange: "string", // 'daily', 'weekly', 'monthly', 'custom'
+    startDate: "date",
+    endDate: "date",
+    filters: "string?", // JSON string of filters
+    generatedOn: "date",
+    data: "string", // JSON string of report data
+    isArchived: { type: "bool", default: false },
+    createdOn: "date",
+    updatedOn: "date",
+  },
+};
+
 // ---------------- Realm Instance ---------------- //
 let realm = new Realm({
   schema: [
@@ -171,6 +192,7 @@ let realm = new Realm({
     CodeListSchema,
     CodeListElementSchema,
     UserCodeListElementSchema,
+    ReportSchema, // Add ReportSchema
   ],
   schemaVersion: 1,
 });
@@ -189,6 +211,7 @@ export const initializeRealm = async () => {
           CodeListSchema,
           CodeListElementSchema,
           UserCodeListElementSchema,
+          ReportSchema, // Add ReportSchema
         ],
         schemaVersion: 1,
       });

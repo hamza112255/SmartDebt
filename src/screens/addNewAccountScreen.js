@@ -20,6 +20,7 @@ import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { createObject, updateObject, getAllObjects } from '../realm';
 import uuid from 'react-native-uuid';
 import { screens } from '../constant/screens';
+import { useTranslation } from 'react-i18next';
 
 const colors = {
     primary: '#2563eb',
@@ -33,7 +34,7 @@ const colors = {
     text: '#1e293b',
 };
 
-const AccountNameInput = memo(({ accountName, setAccountName }) => {
+const AccountNameInput = memo(({ accountName, setAccountName, t }) => {
     const textInputRef = useRef(null);
 
     const handleTextChange = useCallback((text) => {
@@ -43,14 +44,14 @@ const AccountNameInput = memo(({ accountName, setAccountName }) => {
     return (
         <View style={styles.inputContainer}>
             <Text style={styles.label}>
-                Account Name <Text style={styles.required}>*</Text>
+                {t('addNewAccountScreen.accountName')} <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
                 ref={textInputRef}
                 style={styles.input}
                 value={accountName}
                 onChangeText={handleTextChange}
-                placeholder="Enter account name"
+                placeholder={t('addNewAccountScreen.placeholders.accountName')}
                 placeholderTextColor={colors.gray}
                 autoFocus={false}
                 returnKeyType="default"
@@ -71,6 +72,7 @@ const AddAccountScreen = ({ navigation, route }) => {
     const [showLanguageSheet, setShowLanguageSheet] = useState(false);
     const [showCurrencySheet, setShowCurrencySheet] = useState(false);
     const [showTermsSheet, setShowTermsSheet] = useState(false);
+    const { t } = useTranslation();
 
     const existingAccount = route?.params?.account ?? null;
 
@@ -85,31 +87,31 @@ const AddAccountScreen = ({ navigation, route }) => {
     }, [existingAccount]);
 
     const languages = [
-        'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-        'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi', 'Urdu',
+        t('languages.en'), t('languages.es'), t('languages.fr'), t('languages.de'), t('languages.it'), t('languages.pt'),
+        t('languages.ru'), t('languages.zh'), t('languages.ja'), t('languages.ko'), t('languages.ar'), t('languages.hi'), t('languages.ur'),
     ];
 
     const currencies = [
-        { code: 'USD', name: 'US Dollar', flag: '🇺🇸', country: 'United States' },
-        { code: 'EUR', name: 'Euro', flag: '🇪🇺', country: 'European Union' },
-        { code: 'GBP', name: 'British Pound', flag: '🇬🇧', country: 'United Kingdom' },
-        { code: 'JPY', name: 'Japanese Yen', flag: '🇯🇵', country: 'Japan' },
-        { code: 'AUD', name: 'Australian Dollar', flag: '🇦🇺', country: 'Australia' },
-        { code: 'CAD', name: 'Canadian Dollar', flag: '🇨🇦', country: 'Canada' },
-        { code: 'CHF', name: 'Swiss Franc', flag: '🇨🇭', country: 'Switzerland' },
-        { code: 'CNY', name: 'Chinese Yuan', flag: '🇨🇳', country: 'China' },
-        { code: 'SEK', name: 'Swedish Krona', flag: '🇸🇪', country: 'Sweden' },
-        { code: 'NZD', name: 'New Zealand Dollar', flag: '🇳🇿', country: 'New Zealand' },
-        { code: 'MXN', name: 'Mexican Peso', flag: '🇲🇽', country: 'Mexico' },
-        { code: 'SGD', name: 'Singapore Dollar', flag: '🇸🇬', country: 'Singapore' },
-        { code: 'HKD', name: 'Hong Kong Dollar', flag: '🇭🇰', country: 'Hong Kong' },
-        { code: 'NOK', name: 'Norwegian Krone', flag: '🇳🇴', country: 'Norway' },
-        { code: 'PKR', name: 'Pakistani Rupee', flag: '🇵🇰', country: 'Pakistan' },
-        { code: 'INR', name: 'Indian Rupee', flag: '🇮🇳', country: 'India' },
+        { code: 'USD', name: t('currencies.usd.name'), flag: '🇺🇸', country: t('currencies.usd.country') },
+        { code: 'EUR', name: t('currencies.eur.name'), flag: '🇪🇺', country: t('currencies.eur.country') },
+        { code: 'GBP', name: t('currencies.gbp.name'), flag: '🇬🇧', country: t('currencies.gbp.country') },
+        { code: 'JPY', name: t('currencies.jpy.name'), flag: '🇯🇵', country: t('currencies.jpy.country') },
+        { code: 'AUD', name: t('currencies.aud.name'), flag: '🇦🇺', country: t('currencies.aud.country') },
+        { code: 'CAD', name: t('currencies.cad.name'), flag: '🇨🇦', country: t('currencies.cad.country') },
+        { code: 'CHF', name: t('currencies.chf.name'), flag: '🇨🇭', country: t('currencies.chf.country') },
+        { code: 'CNY', name: t('currencies.cny.name'), flag: '🇨🇳', country: t('currencies.cny.country') },
+        { code: 'SEK', name: t('currencies.sek.name'), flag: '🇸🇪', country: t('currencies.sek.country') },
+        { code: 'NZD', name: t('currencies.nzd.name'), flag: '🇳🇿', country: t('currencies.nzd.country') },
+        { code: 'MXN', name: t('currencies.mxn.name'), flag: '🇲🇽', country: t('currencies.mxn.country') },
+        { code: 'SGD', name: t('currencies.sgd.name'), flag: '🇸🇬', country: t('currencies.sgd.country') },
+        { code: 'HKD', name: t('currencies.hkd.name'), flag: '🇭🇰', country: t('currencies.hkd.country') },
+        { code: 'NOK', name: t('currencies.nok.name'), flag: '🇳🇴', country: t('currencies.nok.country') },
+        { code: 'PKR', name: t('currencies.pkr.name'), flag: '🇵🇰', country: t('currencies.pkr.country') },
+        { code: 'INR', name: t('currencies.inr.name'), flag: '🇮🇳', country: t('currencies.inr.country') },
     ];
 
     const termOptions = [
-        'Cash In - Cash Out', 'Debit - Credit', 'Receive - Send Out', 'Borrow - Lend',
+        t('terms.cashInCashOut'), t('terms.debitCredit'), t('terms.receiveSendOut'), t('terms.borrowLend'),
     ];
 
     const handleAddAccount = () => {
@@ -174,8 +176,10 @@ const AddAccountScreen = ({ navigation, route }) => {
 
         if (existingAccount) {
             updateObject('Account', data.id, data);
+            Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
         } else {
             createObject('Account', data);
+            Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
         }
 
         navigation.goBack();
@@ -260,7 +264,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                             >
                                 <Icon name="arrow-back" size={RFValue(24)} color={colors.primary} />
                             </TouchableOpacity>
-                            <Text style={styles.headerTitle}>Add New Account</Text>
+                            <Text style={styles.headerTitle}>{existingAccount ? t('addNewAccountScreen.updateAccount') : t('addNewAccountScreen.addAccount')}</Text>
                             <View style={styles.placeholder} />
                         </View>
                         <ScrollView
@@ -276,23 +280,24 @@ const AddAccountScreen = ({ navigation, route }) => {
                                 <AccountNameInput
                                     accountName={accountName}
                                     setAccountName={setAccountName}
+                                    t={t}
                                 />
                                 <View style={styles.settingsContainer}>
                                     <SettingRow
-                                        title="Language"
+                                        title={t('addNewAccountScreen.language')}
                                         value={language}
                                         onPress={() => setShowLanguageSheet(true)}
                                         isRequired={true}
                                     />
                                     <SettingRow
-                                        title="Currency"
+                                        title={t('addNewAccountScreen.currency')}
                                         value={currency.code}
                                         onPress={() => setShowCurrencySheet(true)}
                                         isRequired={true}
                                         icon={<CurrencyIcon />}
                                     />
                                     <SettingRow
-                                        title="Terms"
+                                        title={t('addNewAccountScreen.terms')}
                                         value={terms}
                                         onPress={() => setShowTermsSheet(true)}
                                         isRequired={true}
@@ -308,7 +313,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                                         disabled={!accountName.trim()}
                                         activeOpacity={0.85}
                                     >
-                                        <Text style={styles.buttonText}>{existingAccount ? 'Update Account' : 'Add Account'}</Text>
+                                        <Text style={styles.buttonText}>{existingAccount ? t('addNewAccountScreen.updateAccount') : t('addNewAccountScreen.addAccount')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -320,7 +325,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                 <BottomSheet
                     visible={showLanguageSheet}
                     onClose={() => setShowLanguageSheet(false)}
-                    title="Select Language"
+                    title={t('addNewAccountScreen.selectLanguage')}
                 >
                     <FlatList
                         data={languages}
@@ -355,7 +360,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                 <BottomSheet
                     visible={showTermsSheet}
                     onClose={() => setShowTermsSheet(false)}
-                    title="Select Terms"
+                    title={t('addNewAccountScreen.selectTerms')}
                 >
                     {termOptions.map((option) => (
                         <TouchableOpacity
@@ -386,7 +391,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                 <BottomSheet
                     visible={showCurrencySheet}
                     onClose={() => setShowCurrencySheet(false)}
-                    title="Select Currency"
+                    title={t('addNewAccountScreen.selectCurrency')}
                 >
                     <FlatList
                         data={currencies}

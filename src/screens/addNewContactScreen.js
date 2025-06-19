@@ -18,6 +18,7 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import Realm from 'realm';
 import { realm } from '../realm';
+import { useTranslation } from 'react-i18next';
 
 const colors = {
     primary: '#2563eb',
@@ -31,7 +32,7 @@ const colors = {
     text: '#1e293b',
 };
 
-const ContactNameInput = memo(({ contactName, setContactName }) => {
+const ContactNameInput = memo(({ contactName, setContactName, t }) => {
     const textInputRef = useRef(null);
 
     const handleTextChange = useCallback((text) => {
@@ -41,14 +42,14 @@ const ContactNameInput = memo(({ contactName, setContactName }) => {
     return (
         <View style={styles.inputContainer}>
             <Text style={styles.label}>
-                Name <Text style={styles.required}>*</Text>
+                {t('addNewContactScreen.name')} <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
                 ref={textInputRef}
                 style={styles.input}
                 value={contactName}
                 onChangeText={handleTextChange}
-                placeholder="Name"
+                placeholder={t('addNewContactScreen.name')}
                 placeholderTextColor={colors.gray}
                 autoFocus={false}
                 returnKeyType="done"
@@ -60,13 +61,14 @@ const ContactNameInput = memo(({ contactName, setContactName }) => {
     );
 });
 
-const SettingRow = ({ title, value, onChangeText, isRequired = false, style }) => {
+const SettingRow = ({ titleKey, value, onChangeText, isRequired = false, style, t }) => {
     const textInputRef = useRef(null);
+    const title = t(titleKey);
 
-    const keyboardType =
-        title === 'Contact No'
+    const keyboardType = 
+        titleKey === 'addNewContactScreen.contactNo'
             ? 'phone-pad'
-            : title === 'Email Address'
+            : titleKey === 'addNewContactScreen.email'
                 ? 'email-address'
                 : 'default';
 
@@ -103,12 +105,13 @@ const NewContactScreen = ({ navigation, route }) => {
     const [state, setState] = useState('');
     const [country, setCountry] = useState('');
     const [imageUri, setImageUri] = useState(null);
+    const { t } = useTranslation();
 
     const handlePickImage = async () => {
         try {
             const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (perm.status !== 'granted') {
-                alert('Photo library permission is required');
+                alert(t('addNewContactScreen.alerts.permissionRequired'));
                 return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({
@@ -127,7 +130,7 @@ const NewContactScreen = ({ navigation, route }) => {
 
     const handleAddContact = () => {
         if (!contactName.trim() || !userId) {
-            alert('Name is required');
+            alert(t('addNewContactScreen.validation.nameRequired'));
             return;
         }
 
@@ -153,7 +156,7 @@ const NewContactScreen = ({ navigation, route }) => {
             navigation.goBack();
         } catch (err) {
             console.error('Save contact error', err);
-            alert('Failed to save contact');
+            alert(t('addNewContactScreen.errors.addFailed', { message: err.message }));
         }
     };
 
@@ -167,7 +170,7 @@ const NewContactScreen = ({ navigation, route }) => {
                 >
                     <Icon name="arrow-back" size={RFValue(24)} color={colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Add Contact</Text>
+                <Text style={styles.headerTitle}>{t('addNewContactScreen.title')}</Text>
                 <View style={styles.placeholder} />
             </View>
             <KeyboardAvoidingView
@@ -197,17 +200,19 @@ const NewContactScreen = ({ navigation, route }) => {
                         <ContactNameInput
                             contactName={contactName}
                             setContactName={setContactName}
+                            t={t}
                         />
-                        <SettingRow
-                            title="Contact No"
-                            value={contactNo}
-                            onChangeText={setContactNo}
-                        />
-                        <SettingRow
-                            title="Email Address"
-                            value={email}
-                            onChangeText={setEmail}
-                        />
+                        <SettingRow titleKey="addNewContactScreen.contactNo" value={contactNo} onChangeText={setContactNo} t={t} />
+                        <SettingRow titleKey="addNewContactScreen.email" value={email} onChangeText={setEmail} t={t} />
+                        <SettingRow titleKey="addNewContactScreen.homeAddress" value={homeAddress} onChangeText={setHomeAddress} t={t} />
+                        <View style={styles.row}>
+                            <SettingRow titleKey="addNewContactScreen.postalCode" value={postalCode} onChangeText={setPostalCode} style={{ flex: 1, marginRight: 10 }} t={t} />
+                            <SettingRow titleKey="addNewContactScreen.city" value={city} onChangeText={setCity} style={{ flex: 1 }} t={t} />
+                        </View>
+                        <View style={styles.row}>
+                            <SettingRow titleKey="addNewContactScreen.state" value={state} onChangeText={setState} style={{ flex: 1, marginRight: 10 }} t={t} />
+                            <SettingRow titleKey="addNewContactScreen.country" value={country} onChangeText={setCountry} style={{ flex: 1 }} t={t} />
+                        </View>
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity
                                 style={[
@@ -218,7 +223,7 @@ const NewContactScreen = ({ navigation, route }) => {
                                 disabled={!contactName.trim()}
                                 activeOpacity={0.85}
                             >
-                                <Text style={styles.buttonText}>Add Contact</Text>
+                                <Text style={styles.buttonText}>{t('addNewContactScreen.buttons.save')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

@@ -7,6 +7,7 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { getAllObjects, realm } from '../realm';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import moment from 'moment';
 
 const colors = {
@@ -46,6 +47,7 @@ const CalendarScreen = ({ navigation, route }) => {
         debit: 0, credit: 0, balance: 0, cashIn: 0, cashOut: 0,
         receive: 0, sendOut: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
     });
+    const { t } = useTranslation();
 
     // Helper: update the accountMap from realm (to always have latest balances)
     const syncAccountMap = useCallback(() => {
@@ -568,7 +570,7 @@ const CalendarScreen = ({ navigation, route }) => {
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.accountSheet}>
-                        <Text style={styles.sheetTitle}>Select Account</Text>
+                        <Text style={styles.sheetTitle}>{t('calendarScreen.selectAccount')}</Text>
                         {accounts.map(account => (
                             <TouchableOpacity
                                 key={account.id}
@@ -585,7 +587,7 @@ const CalendarScreen = ({ navigation, route }) => {
                             style={styles.closeButton}
                             onPress={() => setShowAccountSheet(false)}
                         >
-                            <Text style={styles.closeButtonText}>Cancel</Text>
+                            <Text style={styles.closeButtonText}>{t('calendarScreen.cancel')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

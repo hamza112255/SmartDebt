@@ -14,6 +14,8 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { getAllObjects, createObject, updateObject } from '../realm';
 import uuid from 'react-native-uuid';
+import { useTranslation } from 'react-i18next';
+import { Picker } from '@react-native-picker/picker';
 
 const colors = {
     primary: '#2563eb',
@@ -35,52 +37,58 @@ export default function CreateProfileScreen({ navigation, route }) {
         return users.length > 0 ? users[0] : null;
     })();
 
-    const [form, setForm] = useState({
-        firstName: existingUser?.firstName || '',
-        lastName: existingUser?.lastName || '',
-        email: existingUser?.email || '',
+    const { t, i18n } = useTranslation();
+
+    const [form, setForm] = useState(() => {
+        // Initialize with current i18n language
+        const initialLanguage = i18n.language;
+
+        return {
+            firstName: mode === 'edit' ? initialValues.firstName || '' : existingUser?.firstName || '',
+            lastName: mode === 'edit' ? initialValues.lastName || '' : existingUser?.lastName || '',
+            email: mode === 'edit' ? initialValues.email || '' : existingUser?.email || '',
+            language: initialLanguage
+        };
     });
 
-    useEffect(() => {
-        if (mode === 'edit') {
-            setForm({
-                firstName: initialValues.firstName || '',
-                lastName: initialValues.lastName || '',
-                email: initialValues.email || ''
-            });
-        }
-    }, [mode, initialValues]);
-
-    // auto-detect timezone when creating new user
-    const deviceTimezone = Intl?.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
-    const updateField = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+    const updateField = (field, value) => {
+        setForm(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
 
     const handleSave = () => {
-        const { firstName, lastName, email } = form;
-        
+        const { firstName, lastName, email, language } = form;
+
         // Required field validation
         if (!firstName.trim()) {
-            Alert.alert('Error', 'First name is required');
+            Alert.alert(t('common.error'), t('createProfileScreen.validation.firstNameRequired'));
             return;
         }
         if (!lastName.trim()) {
-            Alert.alert('Error', 'Last name is required');
+            Alert.alert(t('common.error'), t('createProfileScreen.validation.lastNameRequired'));
             return;
         }
         if (!email.trim()) {
-            Alert.alert('Error', 'Email is required');
+            Alert.alert(t('common.error'), t('createProfileScreen.validation.emailRequired'));
             return;
         }
         if (!/^\S+@\S+\.\S+$/.test(email)) {
-            Alert.alert('Error', 'Please enter a valid email');
+            Alert.alert(t('common.error'), t('createProfileScreen.validation.emailInvalid'));
             return;
         }
+
+        // Save to Realm first
         const now = new Date();
+        const deviceTimezone = Intl?.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
         if (existingUser && mode === 'edit') {
             updateObject('User', existingUser.id, {
-                ...existingUser,
-                ...form,
+                firstName,
+                lastName,
+                email,
+                language,
                 timezone: deviceTimezone,
                 updatedOn: now,
                 syncStatus: 'pending',
@@ -90,9 +98,11 @@ export default function CreateProfileScreen({ navigation, route }) {
             const newId = uuid.v4();
             createObject('User', {
                 id: newId,
-                ...form,
+                firstName,
+                lastName,
+                email,
+                language,
                 timezone: deviceTimezone,
-                language: 'English',
                 userType: 'free',
                 emailConfirmed: false,
                 biometricEnabled: false,
@@ -107,6 +117,11 @@ export default function CreateProfileScreen({ navigation, route }) {
             });
         }
 
+        // Only change language after successful save
+        if (i18n.language !== language) {
+            i18n.changeLanguage(language);
+        }
+
         if (onSaveKey) {
             navigation.goBack();
         } else {
@@ -116,6 +131,14 @@ export default function CreateProfileScreen({ navigation, route }) {
             });
         }
     };
+
+    const languageOptions = [
+        { label: t('languages.en'), value: 'en' },
+        { label: t('languages.fr'), value: 'fr' },
+        { label: t('languages.es'), value: 'es' },
+        { label: t('languages.ar'), value: 'ar' },
+        { label: t('languages.nl'), value: 'nl' },
+    ];
 
     return (
         <SafeAreaView style={styles.container}>
@@ -129,19 +152,19 @@ export default function CreateProfileScreen({ navigation, route }) {
                             <Icon name="arrow-back" size={RFValue(22)} color={colors.primary} />
                         </TouchableOpacity>
                     )}
-                    <Text style={styles.headerTitle}>{mode === 'edit' ? 'Edit Profile' : 'Create Profile'}</Text>
+                    <Text style={styles.headerTitle}>{mode === 'edit' ? t('createProfileScreen.editTitle') : t('createProfileScreen.createTitle')}</Text>
                 </View>
                 <View style={[styles.formWrapper, { maxWidth: wp(90), width: '100%' }]}>
                     {/* First Name */}
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>First Name</Text>
+                        <Text style={styles.label}>{t('createProfileScreen.labels.firstName')}</Text>
                         <View style={styles.inputWrapper}>
                             <Icon name="person-outline" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 value={form.firstName}
                                 onChangeText={text => updateField('firstName', text)}
-                                placeholder="First Name"
+                                placeholder={t('createProfileScreen.placeholders.firstName')}
                                 placeholderTextColor={colors.gray}
                                 autoCapitalize="words"
                             />
@@ -149,14 +172,14 @@ export default function CreateProfileScreen({ navigation, route }) {
                     </View>
                     {/* Last Name */}
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Last Name</Text>
+                        <Text style={styles.label}>{t('createProfileScreen.labels.lastName')}</Text>
                         <View style={styles.inputWrapper}>
                             <Icon name="person-outline" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 value={form.lastName}
                                 onChangeText={text => updateField('lastName', text)}
-                                placeholder="Last Name"
+                                placeholder={t('createProfileScreen.placeholders.lastName')}
                                 placeholderTextColor={colors.gray}
                                 autoCapitalize="words"
                             />
@@ -164,24 +187,40 @@ export default function CreateProfileScreen({ navigation, route }) {
                     </View>
                     {/* Email */}
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email Address</Text>
+                        <Text style={styles.label}>{t('createProfileScreen.labels.email')}</Text>
                         <View style={styles.inputWrapper}>
                             <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 value={form.email}
                                 onChangeText={text => updateField('email', text)}
-                                placeholder="Email"
+                                placeholder={t('createProfileScreen.placeholders.email')}
                                 placeholderTextColor={colors.gray}
                                 autoCapitalize="none"
                                 keyboardType="email-address"
                             />
                         </View>
                     </View>
+                    {/* Language */}
+                    <View style={styles.inputContainer}>
+                        <Text style={styles.label}>{t('createProfileScreen.labels.language')}</Text>
+                        <View style={styles.inputWrapper}>
+                            <Icon name="language" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
+                            <Picker
+                                selectedValue={form.language}
+                                style={pickerStyles.picker}
+                                onValueChange={(itemValue) => updateField('language', itemValue)}
+                            >
+                                {languageOptions.map(lang => (
+                                    <Picker.Item label={lang.label} value={lang.value} key={lang.value} />
+                                ))}
+                            </Picker>
+                        </View>
+                    </View>
 
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
-                            <Text style={styles.saveButtonText}>Save</Text>
+                            <Text style={styles.saveButtonText}>{t('common.save')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -189,6 +228,15 @@ export default function CreateProfileScreen({ navigation, route }) {
         </SafeAreaView>
     );
 }
+
+const pickerStyles = StyleSheet.create({
+    picker: {
+        flex: 1,
+        height: hp(6.5),
+        color: colors.text,
+        fontSize: RFPercentage(2.2),
+    },
+});
 
 const styles = StyleSheet.create({
     container: {

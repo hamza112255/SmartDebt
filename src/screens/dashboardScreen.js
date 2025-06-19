@@ -5,6 +5,7 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import React, { useEffect, useState } from 'react';
 import { getAllObjects, deleteObject } from '../realm';
+import { useTranslation } from 'react-i18next';
 
 const colors = {
     primary: '#2563eb',
@@ -49,6 +50,7 @@ const CARD_COLORS = {
 
 const DashboardScreen = ({ navigation }) => {
     const [accounts, setAccounts] = useState([]);
+    const { t } = useTranslation();
 
     useEffect(() => {
         const accs = getAllObjects('Account');
@@ -77,36 +79,29 @@ const DashboardScreen = ({ navigation }) => {
             createdOn: account.createdOn?.toISOString(),
             updatedOn: account.updatedOn?.toISOString(),
         };
-        
-        Alert.alert('Account Options', account.name, [
-            { 
-                text: 'Edit', 
-                onPress: () => navigation.navigate(screens.NewAccount, { 
-                    account: serializedAccount 
-                }) 
+
+        Alert.alert(t('dashboardScreen.accountOptions'), account.name, [
+            {
+                text: t('common.edit'),
+                onPress: () => navigation.navigate(screens.NewAccount, {
+                    account: serializedAccount
+                })
             },
-            { 
-                text: 'Delete', 
-                style: 'destructive', 
-                onPress: () => deleteObject('Account', account.id) 
+            {
+                text: t('common.delete'),
+                style: 'destructive',
+                onPress: () => deleteObject('Account', account.id)
             },
-            { 
-                text: 'Cancel', 
-                style: 'cancel' 
+            {
+                text: t('common.cancel'),
+                style: 'cancel'
             },
         ]);
     };
     
     const handleAccountPress = (account) => {
-        // Create a serializable version of the account for navigation
-        const serializedAccount = {
-            ...account,
-            createdOn: account.createdOn?.toISOString(),
-            updatedOn: account.updatedOn?.toISOString(),
-        };
-        
         navigation.navigate(screens.AccountDetails, {
-            account: serializedAccount 
+            accountId: account.id
         });
     };
 
@@ -114,7 +109,7 @@ const DashboardScreen = ({ navigation }) => {
         <SafeAreaView style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.headerText}>
-                    My Accounts
+                    {t('dashboardScreen.myAccounts')}
                 </Text>
                 <View style={styles.accountsSection}>
                     {accounts.map((account, index) => {
@@ -150,7 +145,7 @@ const DashboardScreen = ({ navigation }) => {
                                                 styles.primaryTag,
                                                 { backgroundColor: '#fefcbf', color: cardColors.text }
                                             ]}>
-                                                Primary
+                                                {t('dashboardScreen.primaryTag')}
                                             </Text>
                                         )}
                                         <View style={styles.currencyContainer}>
@@ -190,7 +185,7 @@ const DashboardScreen = ({ navigation }) => {
                     onPress={() => navigation.navigate(screens.NewAccount)}
                 >
                     <Icon name="add" size={RFValue(24)} color={colors.gray} />
-                    <Text style={styles.addWalletText}>Add new account</Text>
+                    <Text style={styles.addWalletText}>{t('dashboardScreen.addAccount')}</Text>
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView >

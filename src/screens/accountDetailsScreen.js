@@ -13,6 +13,7 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllObjects, realm } from '../realm';
+import { useTranslation } from 'react-i18next';
 
 const colors = {
     primary: '#2563eb',
@@ -229,36 +230,66 @@ const makeStyles = (accountColor) => StyleSheet.create({
 });
 
 const AccountDetailScreen = ({ navigation, route }) => {
-    // Safely get and parse account data from route params
-    const accountParam = route.params?.account || {};
-    const account = {
-        id: accountParam.id || '',
-        name: accountParam.name || '',
-        type: accountParam.type || '',
-        color: accountParam.color || colors.primary,
-        currentBalance: parseFloat(accountParam.currentBalance) || 0,
-        cashIn: parseFloat(accountParam.cashIn) || 0,
-        cashOut: parseFloat(accountParam.cashOut) || 0,
-        receive: parseFloat(accountParam.receive) || 0,
-        sendOut: parseFloat(accountParam.sendOut) || 0,
-        borrow: parseFloat(accountParam.borrow) || 0,
-        lend: parseFloat(accountParam.lend) || 0,
-        credit: parseFloat(accountParam.credit) || 0,
-        debit: parseFloat(accountParam.debit) || 0,
-        currency: accountParam.currency || 'PKR',
-        userId: accountParam.userId || 'localUser',
-    };
-
+    // Replace account param handling with accountId
+        const { t, i18n } = useTranslation();
+    const accountId = route.params?.account?.id || route.params?.accountId;
+    const [accountData, setAccountData] = useState(null);
     // State for transactions
     const [transactions, setTransactions] = useState([]);
-    const [accountData, setAccountData] = useState(account);
     const [showAccountSheet, setShowAccountSheet] = useState(false);
 
     // Get the account color or use primary color as fallback
-    const accountColor = accountData.color || colors.primary;
+    const accountColor = accountData?.color || colors.primary;
 
     // Create styles with the account color
     const dynamicStyles = makeStyles(accountColor);
+
+    // Load account data from Realm
+    const loadAccountData = useCallback(() => {
+        if (!accountId) return;
+        const account = realm.objectForPrimaryKey('Account', accountId);
+        if (account) {
+            setAccountData({
+                id: account.id,
+                name: account.name,
+                type: account.type,
+                color: account.color,
+                currentBalance: account.currentBalance,
+                cashIn: account.cashIn,
+                cashOut: account.cashOut,
+                receive: account.receive,
+                sendOut: account.sendOut,
+                borrow: account.borrow,
+                lend: account.lend,
+                credit: account.credit,
+                debit: account.debit,
+                currency: account.currency,
+                userId: account.userId,
+            });
+        }
+    }, [accountId]);
+
+    // Add account listener
+    useEffect(() => {
+        if (!accountId) return;
+        
+        loadAccountData();
+        
+        const account = realm.objectForPrimaryKey('Account', accountId);
+        if (!account) return;
+        
+        const listener = (obj, changes) => {
+            if (changes.deleted) return;
+            loadAccountData();
+        };
+        
+        account.addListener(listener);
+        return () => {
+            if (account.isValid()) {
+                account.removeListener(listener);
+            }
+        };
+    }, [accountId, loadAccountData]);
 
     // Load transactions from Realm
     const updateAccountBalance = useCallback((accountId) => {
@@ -336,11 +367,22 @@ const AccountDetailScreen = ({ navigation, route }) => {
 
             const transactionListener = (txs, changes) => {
                 try {
-                    // If there are any insertions, modifications, or deletions
-                    if (changes?.insertions?.length > 0 ||
-                        changes?.modifications?.length > 0 ||
-                        changes?.deletions?.length > 0) {
+                    const relevantChanges = changes.insertions?.some(index => {
+                        const tx = txs[index];
+                        return tx.accountId === accountData?.id;
+                    }) || changes.modifications?.some(index => {
+                        const tx = txs[index];
+                        return tx.accountId === accountData?.id;
+                    }) || changes.deletions?.some(index => {
+                        const tx = txs[index];
+                        return tx.accountId === accountData?.id;
+                    });
+
+                    if (relevantChanges) {
                         loadTransactions();
+                        if (accountData?.id) {
+                            updateAccountBalance(accountData.id);
+                        }
                     }
                 } catch (error) {
                     console.error('Error in transaction listener:', error);
@@ -356,7 +398,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
         } catch (error) {
             console.error('Error setting up transaction listener:', error);
         }
-    }, [loadTransactions]);
+    }, [loadTransactions, updateAccountBalance, accountData?.id]);
 
     // Load transactions when screen gains focus
     useFocusEffect(
@@ -369,7 +411,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
     // Set navigation options
     useLayoutEffect(() => {
         navigation.setOptions({
-            title: accountData?.name || 'Account Details',
+                        title: accountData?.name || t('screens.accountDetails'),
             headerStyle: {
                 backgroundColor: accountColor,
                 elevation: 0,
@@ -390,46 +432,50 @@ const AccountDetailScreen = ({ navigation, route }) => {
                     <Icon name="arrow-back" size={RFValue(24)} color={colors.white} />
                 </TouchableOpacity>
             ),
+            headerRight: () => (
+                <TouchableOpacity
+                    onPress={() => navigation.navigate(screens.NewAccount, { account: accountData })}
+                    style={{ padding: 8 }}
+                >
+                    <Text style={{ color: colors.white, fontFamily: 'Sora-SemiBold', fontSize: RFValue(16) }}>{t('common.edit')}</Text>
+                </TouchableOpacity>
+            ),
         });
     }, [navigation, accountData, accountColor, dynamicStyles.backButton]);
 
     // Determine which columns to show based on account type
     const getAccountTypeColumns = () => {
-        if (!account.type) return [];
+        if (!accountData?.type) return [];
 
-        const typeMap = {
-            'Cash In - Cash Out': [
-                { key: 'cashIn', label: 'Cash In' },
-                { key: 'cashOut', label: 'Cash Out' }
-            ],
-            'Debit - Credit': [
-                { key: 'debit', label: 'Debit' },
-                { key: 'credit', label: 'Credit' }
-            ],
-            'Receive - Send Out': [
-                { key: 'receive', label: 'Receive' },
-                { key: 'sendOut', label: 'Send Out' }
-            ],
-            'Borrow - Lend': [
-                { key: 'borrow', label: 'Borrow' },
-                { key: 'lend', label: 'Lend' }
-            ]
-        };
+        const termKey = `terms.${accountData.type.replace(/ /g, '').replace('-', '')}`;
+        const translatedTerm = t(termKey);
 
-        return typeMap[account.type] || [];
+        if (translatedTerm === termKey) return []; // Key not found
+
+        const subTerms = translatedTerm.split(' - ');
+        const keys = accountData.type.toLowerCase().replace(/ /g, '').split('-');
+
+        if (subTerms.length === 2 && keys.length === 2) {
+            return [
+                { key: keys[0], label: subTerms[0] },
+                { key: keys[1], label: subTerms[1] },
+            ];
+        }
+
+        return [];
     };
 
     const accountColumns = getAccountTypeColumns();
 
     // Safely format amounts even when undefined/null and prepend account currency
-    const formatAmount = (amount, code = account.currency) => {
+    const formatAmount = (amount, code = accountData?.currency) => {
         const numeric = Number(amount ?? 0);
         return `${code} ${numeric.toLocaleString()}`;
     };
 
     const formatDate = (dateStr) => {
         const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', {
+                return date.toLocaleDateString(i18n.language, {
             month: 'short',
             day: 'numeric',
         });
@@ -470,18 +516,17 @@ const AccountDetailScreen = ({ navigation, route }) => {
         const amount = parseFloat(item?.amount) || 0;
         const iconName = getTransactionIcon(type);
 
-        let typeText = type;
-        if (account?.type === 'Cash In - Cash Out') {
-            typeText = type === 'cashIn' ? 'Cash In' : 'Cash Out';
-        } else if (account?.type === 'Receive - Send Out') {
-            typeText = type === 'receive' ? 'Receive' : 'Send Out';
-        } else if (account?.type === 'Borrow - Lend') {
-            typeText = type === 'borrow' ? 'Borrow' : 'Lend';
-        } else if (type === 'credit') {
-            typeText = 'Credit';
-        } else if (type === 'debit') {
-            typeText = 'Debit';
-        }
+        const typeTextMap = {
+            cashIn: t('terms.cashIn'),
+            cashOut: t('terms.cashOut'),
+            debit: t('terms.debit'),
+            credit: t('terms.credit'),
+            receive: t('terms.receive'),
+            sendOut: t('terms.sendOut'),
+            borrow: t('terms.borrow'),
+            lend: t('terms.lend'),
+        };
+        const typeText = typeTextMap[type] || type;
 
         return (
             <View style={[dynamicStyles.transactionItem, { opacity: item._isValid !== false ? 1 : 0.5 }]}>
@@ -494,10 +539,10 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 </View>
                 <View style={dynamicStyles.transactionDetails}>
                     <Text style={dynamicStyles.transactionName} numberOfLines={1}>
-                        {item?.purpose || 'No description'}
+                        {item?.purpose || t('accountDetailsScreen.noDescription')}
                     </Text>
                     <Text style={dynamicStyles.transactionDate}>
-                        {item?.transactionDate ? formatDate(item.transactionDate) : 'No date'}
+                        {item?.transactionDate ? formatDate(item.transactionDate) : t('accountDetailsScreen.noDate')}
                     </Text>
                 </View>
                 <View style={dynamicStyles.amountContainer}>
@@ -514,7 +559,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 </View>
             </View>
         );
-    }, [account?.type, accountData?.currency, dynamicStyles]);
+    }, [accountData?.type, accountData?.currency, dynamicStyles]);
 
     // Add this function before the return statement
     const handleTransactionSave = useCallback(() => {
@@ -523,6 +568,9 @@ const AccountDetailScreen = ({ navigation, route }) => {
             updateAccountBalance(accountData.id);
         }
     }, [loadTransactions, updateAccountBalance, accountData?.id]);
+
+    // Update your render to use accountData instead of account
+    if (!accountData) return null;
 
     return (
         <SafeAreaView style={dynamicStyles.container}>
@@ -533,16 +581,16 @@ const AccountDetailScreen = ({ navigation, route }) => {
                             <Icon name="arrow-back" size={RFValue(24)} color={colors.white} />
                         </TouchableOpacity>
                         <View style={dynamicStyles.headerTitleContainer}>
-                            <Text style={dynamicStyles.accountName}>{account.name || 'Account'}</Text>
-                            {account.type && <Text style={dynamicStyles.accountType}>{account.type}</Text>}
+                            <Text style={dynamicStyles.accountName}>{accountData.name || t('common.account')}</Text>
+                            {accountData.type && <Text style={dynamicStyles.accountType}>{t(`terms.${accountData.type.replace(/ - /g, '')}`)}</Text>}
                         </View>
                     </View>
 
                     {/* Account Balance */}
                     <View style={dynamicStyles.balanceContainer}>
-                        <Text style={dynamicStyles.balanceLabel}>Current Balance</Text>
+                        <Text style={dynamicStyles.balanceLabel}>{t('accountDetailsScreen.currentBalance')}</Text>
                         <Text style={dynamicStyles.balanceAmount}>
-                            {account.currentBalance ? formatAmount(account.currentBalance) : formatAmount(0)}
+                            {accountData.currentBalance ? formatAmount(accountData.currentBalance) : formatAmount(0)}
                         </Text>
                     </View>
 
@@ -553,7 +601,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
                                 <View key={index} style={dynamicStyles.typeBox}>
                                     <Text style={dynamicStyles.typeLabel}>{col.label}</Text>
                                     <Text style={dynamicStyles.typeAmount}>
-                                        {formatAmount(account[col.key] || 0)}
+                                        {formatAmount(accountData[col.key] || 0)}
                                     </Text>
                                 </View>
                             ))}
@@ -564,7 +612,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 {/* Recent Transactions */}
                 <View style={dynamicStyles.transactionsSection}>
                     <View style={dynamicStyles.transactionsHeader}>
-                        <Text style={dynamicStyles.sectionTitle}>Recent Transactions</Text>
+                        <Text style={dynamicStyles.sectionTitle}>{t('accountDetailsScreen.recentTransactions')}</Text>
                     </View>
 
                     {transactions.length > 0 ? (
@@ -576,9 +624,9 @@ const AccountDetailScreen = ({ navigation, route }) => {
                     ) : (
                         <View style={dynamicStyles.noTransactions}>
                             <Icon name="receipt" size={RFValue(40)} color={colors.lightGray} />
-                            <Text style={dynamicStyles.noTransactionsText}>No transactions yet</Text>
+                            <Text style={dynamicStyles.noTransactionsText}>{t('accountDetailsScreen.noTransactions')}</Text>
                             <Text style={dynamicStyles.noTransactionsSubtext}>
-                                Tap the + button to add your first transaction
+                                {t('accountDetailsScreen.addFirstTransaction')}
                             </Text>
                         </View>
                     )}

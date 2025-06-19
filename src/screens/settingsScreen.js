@@ -21,6 +21,7 @@ import BiometricContext from '../../src/contexts/BiometricContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PinModal from '../components/PinModal';
 import * as SecureStore from 'expo-secure-store';
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 const colors = {
     primary: '#2563eb',
@@ -51,6 +52,7 @@ const SettingsScreen = ({ navigation }) => {
     const [showBiometricConfirm, setShowBiometricConfirm] = useState(false);
     const [showPinSetup, setShowPinSetup] = useState(false);
     const { updateBiometricState, updatePinState } = useContext(BiometricContext);
+    const { t } = useTranslation(); // Initialize useTranslation
 
     useEffect(() => {
         loadUserData();
@@ -76,13 +78,13 @@ const SettingsScreen = ({ navigation }) => {
                 setUserId(u.id);
             }
         } catch (error) {
-            Alert.alert('Error', 'Failed to load user data');
+            Alert.alert(t('common.error'), t('settingsScreen.errors.loadUser'));
         }
     };
 
     const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-    const section = (title) => <Text style={styles.sectionHeader}>{title}</Text>;
+    
 
     const handleSave = () => {
         const now = new Date();
@@ -112,22 +114,25 @@ const SettingsScreen = ({ navigation }) => {
                 });
                 setUserId(newId);
             }
-            Alert.alert('Success', 'Profile saved successfully');
+            Alert.alert(t('common.success'), t('settingsScreen.success.profileSaved'));
         } catch (error) {
-            Alert.alert('Error', 'Failed to save profile');
+            Alert.alert(t('common.error'), t('settingsScreen.errors.saveSettings'));
         }
     };
 
     const handleEditProfile = () => {
-        navigation.navigate('CreateProfile', {
-            mode: 'edit',
-            initialValues: {
-                firstName: form.firstName,
-                lastName: form.lastName,
-                email: form.email,
-            },
-            onSaveKey: 'settingsScreenRefresh',
-        });
+        Alert.alert(t('settingsScreen.confirm.editProfileTitle'), t('settingsScreen.confirm.editProfileMessage'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('settingsScreen.buttons.proceed'), onPress: () => navigation.navigate('CreateProfile', {
+                mode: 'edit',
+                initialValues: {
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    email: form.email,
+                },
+                onSaveKey: 'settingsScreenRefresh',
+            }) }
+        ]);
     };
 
     useEffect(() => {
@@ -148,7 +153,7 @@ const SettingsScreen = ({ navigation }) => {
             await initializeRealm();
             const users = getAllObjects('User');
             if (users.length === 0) {
-                throw new Error('No user record found');
+                throw new Error(t('settingsScreen.errors.noUserFound'));
             }
 
             realm.write(() => {
@@ -175,7 +180,7 @@ const SettingsScreen = ({ navigation }) => {
             }
             return true;
         } catch (error) {
-            Alert.alert('Error', `Failed to save ${field}: ${error.message}`);
+            Alert.alert(t('common.error'), t('settingsScreen.errors.saveSettings'));
             return false;
         }
     };
@@ -219,7 +224,7 @@ const SettingsScreen = ({ navigation }) => {
                 });
             }
         } catch (error) {
-            Alert.alert('Error', 'Failed to save PIN');
+            Alert.alert(t('common.error'), t('settingsScreen.errors.setPin'));
         }
     };
 
@@ -242,42 +247,39 @@ const SettingsScreen = ({ navigation }) => {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
             >
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Icon name="arrow-back" size={RFPercentage(3)} color={colors.white} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Settings</Text>
+                <Text style={styles.headerTitle}>{t('settingsScreen.title')}</Text>
                 <View style={{ width: RFPercentage(3) }} />
             </LinearGradient>
 
             <ScrollView contentContainerStyle={styles.contentWrapper}>
-                {section('Personal Information')}
+                <Text style={styles.sectionHeader}>{t('settingsScreen.sections.profile')}</Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: hp(2) }}>
                     <View style={{ flexDirection: 'row', flex: 1 }}>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.label}>First Name</Text>
-                            <Text style={styles.readonlyValue}>{form.firstName || 'Not set'}</Text>
+                            <Text style={styles.label}>{t('settingsScreen.labels.firstName')}</Text>
+                            <Text style={styles.readonlyValue}>{form.firstName || t('common.notSet')}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.label}>Last Name</Text>
-                            <Text style={styles.readonlyValue}>{form.lastName || 'Not set'}</Text>
+                            <Text style={styles.label}>{t('settingsScreen.labels.lastName')}</Text>
+                            <Text style={styles.readonlyValue}>{form.lastName || t('common.notSet')}</Text>
                         </View>
                     </View>
                     <TouchableOpacity onPress={handleEditProfile} style={styles.editBtn}>
-                        <Icon name="edit" size={RFPercentage(2.5)} color={colors.primary} />
+                        <Text style={styles.editBtnText}>{t('settingsScreen.buttons.editProfile')}</Text>
                     </TouchableOpacity>
                 </View>
                 <View style={styles.readonlyGroup}>
-                    <Text style={styles.label}>Email</Text>
-                    <Text style={styles.readonlyValue}>{form.email || 'Not set'}</Text>
+                    <Text style={styles.label}>{t('settingsScreen.labels.emailAddress')}</Text>
+                    <Text style={styles.readonlyValue}>{form.email || t('common.notSet')}</Text>
                 </View>
                 <View style={styles.readonlyGroup}>
-                    <Text style={styles.label}>Language</Text>
-                    <Text style={styles.readonlyValue}>{form.language}</Text>
+                    <Text style={styles.label}>{t('settingsScreen.labels.language')}</Text>
+                    <Text style={styles.readonlyValue}>{t(`languages.${form.language.toLowerCase()}`)}</Text>
                 </View>
 
-                {section('Security')}
+                <Text style={styles.sectionHeader}>{t('settingsScreen.sections.security')}</Text>
                 <View style={styles.switchRow}>
-                    <Text style={styles.switchLabel}>Biometric Enabled</Text>
+                    <Text style={styles.switchLabel}>{t('settingsScreen.labels.enableBiometric')}</Text>
                     <Switch
                         value={form.biometricEnabled}
                         onValueChange={() => setShowBiometricConfirm(true)}
@@ -286,7 +288,7 @@ const SettingsScreen = ({ navigation }) => {
                     />
                 </View>
                 <View style={styles.switchRow}>
-                    <Text style={styles.switchLabel}>PIN Enabled</Text>
+                    <Text style={styles.switchLabel}>{t('settingsScreen.labels.enablePin')}</Text>
                     <Switch
                         value={form.pinEnabled}
                         onValueChange={handlePinToggle}
@@ -299,30 +301,26 @@ const SettingsScreen = ({ navigation }) => {
                     onPress={handleChangePin}
                     disabled={!form.pinEnabled}
                 >
-                    <Text style={[styles.changePinText, !form.pinEnabled && styles.disabledText]}>
-                        Change PIN
-                    </Text>
+                    <Text style={[styles.changePinText, !form.pinEnabled && styles.disabledText]}>{t('settingsScreen.buttons.changePin')}</Text>
                 </TouchableOpacity>
 
                 <Modal visible={showBiometricConfirm} transparent={true}>
                     <View style={styles.modalContainer}>
                         <View style={styles.modalContent}>
-                            <Text style={styles.modalTitle}>Confirm Change</Text>
-                            <Text style={styles.modalText}>
-                                Are you sure you want to {form.biometricEnabled ? 'disable' : 'enable'} biometric authentication?
-                            </Text>
+                            <Text style={styles.modalTitle}>{t('settingsScreen.modals.biometricTitle')}</Text>
+                            <Text style={styles.modalText}>{t(form.biometricEnabled ? 'settingsScreen.modals.biometricDisableConfirm' : 'settingsScreen.modals.biometricEnableConfirm')}</Text>
                             <View style={styles.modalButtons}>
                                 <TouchableOpacity
                                     style={[styles.modalButton, { borderRightWidth: 1, borderColor: colors.border }]}
                                     onPress={() => setShowBiometricConfirm(false)}
                                 >
-                                    <Text style={styles.modalButtonText}>Cancel</Text>
+                                    <Text style={styles.modalButtonText}>{t('common.cancel')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.modalButton}
                                     onPress={() => toggleBiometric(!form.biometricEnabled)}
                                 >
-                                    <Text style={[styles.modalButtonText, { color: colors.primary }]}>Confirm</Text>
+                                    <Text style={[styles.modalButtonText, { color: colors.primary }]}>{t('common.confirm')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -336,16 +334,16 @@ const SettingsScreen = ({ navigation }) => {
                         setShowPinSetup(false);
                         setForm((prev) => ({ ...prev, pinEnabled: false }));
                     }}
-                    title="Create a new PIN"
+                    title={t('settingsScreen.modals.setupPinTitle')}
                     isPinCreationFlow={true}
                 />
 
                 {form.pinEnabled && (
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>PIN Code</Text>
+                        <Text style={styles.label}>{t('settingsScreen.labels.pinCode')}</Text>
                         <TextInput
                             style={[styles.input, { backgroundColor: colors.lightGray }]}
-                            placeholder="Enter 4-digit PIN"
+                            placeholder={t('settingsScreen.placeholders.pinNotSet')}
                             value={form.pinCode}
                             editable={false}
                             keyboardType="number-pad"
@@ -368,7 +366,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         paddingVertical: hp(2),
         paddingHorizontal: wp(4.5),
     },

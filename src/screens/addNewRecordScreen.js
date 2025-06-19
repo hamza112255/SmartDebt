@@ -159,12 +159,12 @@ const NewRecordScreen = ({ navigation, route }) => {
 
         const types = getAvailableTransactionTypes(account.type);
         setAvailableTypes(types);
-
-        // If this is not editing, set default type
-        if (!isEditing) {
-            setType(types[0]?.value);
+        
+        // Only update type if not in edit mode and type isn't already set
+        if (!isEditing && !type) {
+            setType(types[0]?.value || '');
         }
-    }, [accountId, isEditing]);
+    }, [accountId, isEditing, type]);
 
     // Set type after availableTypes are set and transaction is loaded (edit mode)
     useEffect(() => {
@@ -730,7 +730,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             styles.typeButtonText,
                                             type === item.value && styles.typeButtonTextActive
                                         ]}>
-                                            {item.label}
+                                            {t(`terms.${item.value}`)}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
@@ -1108,6 +1108,11 @@ const styles = StyleSheet.create({
     typeButtonTextActive: {
         color: colors.primary,
         fontFamily: 'Sora-Bold'
+    },
+    typeButtonContent: {
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     inputRow: {
         flexDirection: 'row',

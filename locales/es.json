@@ -270,7 +270,7 @@
   },
   "navigation": {
     "tabs": {
-      "settings": "Configuración",
+      "settings": "Config",
       "reports": "Informes",
       "home": "Inicio",
       "calendar": "Calendario",
@@ -435,6 +435,8 @@
     "attachmentsLabel": "Adjuntar",
     "contactLabel": "Persona de contacto",
     "addNewPhoto":"Agregar nueva foto",
+    "updateButton":"Actualizar",
+    "deleteButton":"Eliminar",
     "saveButton": "Guardar",
     "cancelButton": "Cancelar",
     "selectPhoto": "Agregar foto",

@@ -433,6 +433,8 @@
     "saveButton": "حفظ",
     "cancelButton": "إلغاء",
     "selectPhoto": "إضافة صورة",
+    "deleteButton": "حذف",
+    "updateButton": "تحديث",
     "takePhoto": "التقاط صورة",
     "removePhoto": "إزالة الصورة",
     "successMessage": "تم حفظ المعاملة بنجاح!",

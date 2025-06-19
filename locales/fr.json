@@ -426,6 +426,8 @@
     "saveButton": "Enregistrer",
     "attachmentsLabel": "Ajouter une photo",
     "addNewPhoto":"Ajouter une nouvelle photo",
+    "updateButton":"Mettre à jour",
+    "deleteButton":"Supprimer",
     "cancelButton": "Annuler",
     "selectPhoto": "Ajouter une photo",
     "takePhoto": "Prendre une photo",

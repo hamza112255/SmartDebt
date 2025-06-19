@@ -397,6 +397,8 @@
     "addNewPhoto":"Voeg een nieuwe foto toe",
     "attachmentsLabel": "Bijlage",
     "cancelButton": "Annuleren",
+    "updateButton":"Mettre à jour",
+    "deleteButton":"Supprimer",
     "selectPhoto": "Foto toevoegen",
     "takePhoto": "Foto maken",
     "removePhoto": "Foto verwijderen",

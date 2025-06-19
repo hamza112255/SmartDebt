@@ -49,70 +49,48 @@ const CalendarScreen = ({ navigation, route }) => {
     });
     const { t } = useTranslation();
 
-    // Helper: update the accountMap from realm (to always have latest balances)
-    const syncAccountMap = useCallback(() => {
-        const realmAccounts = getAllObjects('Account');
+    const loadAccountsAndMap = useCallback(() => {
+        const realmAccounts = getAllObjects('Account') || [];
+        const accountsList = realmAccounts.map(acc => ({
+            id: acc.id,
+            name: acc.name,
+            currency: acc.currency,
+            type: acc.type,
+            currentBalance: acc.currentBalance || 0,
+            userId: acc.userId,
+            cashIn: acc.cashIn || 0,
+            cashOut: acc.cashOut || 0,
+            receive: acc.receive || 0,
+            sendOut: acc.sendOut || 0,
+            borrow: acc.borrow || 0,
+            lend: acc.lend || 0,
+            debit: acc.debit || 0,
+            credit: acc.credit || 0,
+        }));
+
         const mapping = {};
-        (realmAccounts || []).forEach(acc => {
-            mapping[acc.id] = {
-                id: acc.id,
-                name: acc.name,
-                currency: acc.currency,
-                type: acc.type,
-                currentBalance: acc.currentBalance || 0,
-                userId: acc.userId,
-                cashIn: acc.cashIn || 0,
-                cashOut: acc.cashOut || 0,
-                receive: acc.receive || 0,
-                sendOut: acc.sendOut || 0,
-                borrow: acc.borrow || 0,
-                lend: acc.lend || 0,
-                debit: acc.debit || 0,
-                credit: acc.credit || 0,
-            };
-        });
-        setAccountMap(mapping);
-        return mapping;
-    }, []);
+        accountsList.forEach(acc => (mapping[acc.id] = acc));
 
-    // Update accounts and accountMap when focus
-    const loadAccounts = useCallback(() => {
-        const realmAccounts = getAllObjects('Account');
-        if (realmAccounts && realmAccounts?.length > 0) {
-            const accountsList = realmAccounts.map(acc => ({
-                id: acc.id,
-                name: acc.name,
-                currency: acc.currency,
-                type: acc.type,
-                currentBalance: acc.currentBalance || 0,
-                userId: acc.userId,
-                cashIn: acc.cashIn || 0,
-                cashOut: acc.cashOut || 0,
-                receive: acc.receive || 0,
-                sendOut: acc.sendOut || 0,
-                borrow: acc.borrow || 0,
-                lend: acc.lend || 0,
-                debit: acc.debit || 0,
-                credit: acc.credit || 0,
-            }));
-            setAccounts(accountsList);
-            const mapping = {};
-            accountsList.forEach(acc => (mapping[acc.id] = acc));
-            setAccountMap(mapping);
-
-            if (!selectedAccount || !accountsList.some(a => a.id === selectedAccount.id)) {
-                setSelectedAccount(accountsList[0]);
+        setAccounts(prev => {
+            if (JSON.stringify(prev) !== JSON.stringify(accountsList)) {
+                return accountsList;
             }
-        } else {
-            setAccounts([]);
-            setSelectedAccount(null);
-            setTransactions({});
-            setAccountMap({});
-            setMarkedDates({ [selectedDate]: { selected: true, selectedColor: colors.primary } });
-        }
-    }, [selectedAccount, selectedDate]);
+            return prev;
+        });
+        setAccountMap(prev => {
+            if (JSON.stringify(prev) !== JSON.stringify(mapping)) {
+                return mapping;
+            }
+            return prev;
+        });
 
-    // Always update stats & transactions when selectedAccount, selectedDate, or accountMap changes
+        if (!selectedAccount || !accountsList.some(a => a.id === selectedAccount.id)) {
+            setSelectedAccount(accountsList[0] || null);
+        }
+
+        return { accountsList, mapping };
+    }, [selectedAccount]);
+
     const loadTransactions = useCallback((accountId) => {
         if (!accountId) {
             setTransactions({});
@@ -133,11 +111,8 @@ const CalendarScreen = ({ navigation, route }) => {
 
             realmTransactions.forEach(tx => {
                 const date = tx.transactionDate ? moment(tx.transactionDate).format('YYYY-MM-DD') : today;
-                if (!transactionsByDate[date]) {
-                    transactionsByDate[date] = [];
-                }
+                if (!transactionsByDate[date]) transactionsByDate[date] = [];
 
-                // Get contact name from Realm
                 const contact = tx.contactId ? realm.objectForPrimaryKey('Contact', tx.contactId) : null;
                 const contactName = contact?.name || '';
 
@@ -148,7 +123,7 @@ const CalendarScreen = ({ navigation, route }) => {
                     amount: tx.amount || 0,
                     date,
                     color: ['cashIn', 'receive', 'borrow', 'credit'].includes(tx.type) ? colors.success : colors.error,
-                    contactName: contactName,
+                    contactName,
                     contactId: tx.contactId || '',
                 };
 
@@ -159,10 +134,19 @@ const CalendarScreen = ({ navigation, route }) => {
                 }
             });
 
-            setTransactions(transactionsByDate);
-            setMarkedDates(newMarkedDates);
+            setTransactions(prev => {
+                if (JSON.stringify(prev) !== JSON.stringify(transactionsByDate)) {
+                    return transactionsByDate;
+                }
+                return prev;
+            });
+            setMarkedDates(prev => {
+                if (JSON.stringify(prev) !== JSON.stringify(newMarkedDates)) {
+                    return newMarkedDates;
+                }
+                return prev;
+            });
 
-            // Don't setSelectedAccount here! Use the latest account info from accountMap for displays.
             const latestAcc = accountMap[accountId] || selectedAccount;
             setStats(calculateStats(transactionsByDate[selectedDate] || [], latestAcc));
         } catch (error) {
@@ -170,85 +154,71 @@ const CalendarScreen = ({ navigation, route }) => {
         }
     }, [selectedDate, accountMap, selectedAccount]);
 
-    // Marked date with transparent bg and blue border for selected date
     const handleDayPress = useCallback((day) => {
         const newDate = day.dateString;
         setSelectedDate(newDate);
 
-        setMarkedDates(prev => ({
-            ...prev,
-            [newDate]: {
-                ...prev[newDate],
-                selected: true,
-                selectedColor: 'transparent',
-                customStyles: {
-                    container: {
-                        borderWidth: 2,
-                        borderColor: colors.primary,
-                        backgroundColor: 'transparent',
-                        borderRadius: 8
-                    },
-                    text: {
-                        color: colors.primary,
-                        fontWeight: 'bold'
-                    }
-                }
-            },
-            ...(Object.keys(prev).reduce((acc, date) => {
-                if (date !== newDate && prev[date].selected) {
+        setMarkedDates(prev => {
+            const updated = {
+                ...Object.keys(prev).reduce((acc, date) => {
                     acc[date] = { ...prev[date], selected: false, selectedColor: undefined, customStyles: undefined };
-                } else {
-                    acc[date] = prev[date];
-                }
-                return acc;
-            }, {})),
-        }));
+                    return acc;
+                }, {}),
+                [newDate]: {
+                    ...prev[newDate],
+                    selected: true,
+                    selectedColor: 'transparent',
+                    customStyles: {
+                        container: {
+                            borderWidth: 2,
+                            borderColor: colors.primary,
+                            backgroundColor: 'transparent',
+                            borderRadius: 8,
+                        },
+                        text: {
+                            color: colors.primary,
+                            fontWeight: 'bold',
+                        },
+                    },
+                },
+            };
+            return JSON.stringify(prev) !== JSON.stringify(updated) ? updated : prev;
+        });
     }, []);
 
-    const handleSwitchAccount = (accountId) => {
+    const handleSwitchAccount = useCallback((accountId) => {
         const account = accounts.find(a => a.id === accountId);
-        if (!account) return;
+        if (account) {
+            setSelectedAccount(account);
+        }
+    }, [accounts]);
 
-        setSelectedAccount(account);
-    };
+    useFocusEffect(
+        useCallback(() => {
+            const { accountsList } = loadAccountsAndMap();
+            if (selectedAccount?.id || accountsList[0]?.id) {
+                loadTransactions(selectedAccount?.id || accountsList[0]?.id);
+            }
+        }, [loadAccountsAndMap, loadTransactions, selectedAccount?.id])
+    );
+
+    useEffect(() => {
+        if (selectedAccount?.id) {
+            loadTransactions(selectedAccount.id);
+        }
+    }, [selectedAccount?.id, selectedDate, loadTransactions]);
 
     const activeAccount = selectedAccount || accounts[0] || { id: null, name: 'Select Account' };
-
     const getDayOfWeek = (dateStr) => moment(dateStr).format('dddd');
 
     const safeGetTransactions = (date) => {
         try {
-            if (!transactions || typeof transactions !== 'object' || !date || typeof date !== 'string') return [];
             return Array.isArray(transactions[date]) ? transactions[date] : [];
         } catch (error) {
             console.error('Error getting transactions:', error);
             return [];
         }
     };
-
-    // Reload accounts and accountMap, always update transactions/stats when focus
-    useFocusEffect(
-        useCallback(() => {
-            syncAccountMap();
-            loadAccounts();
-            if (selectedAccount?.id) {
-                loadTransactions(selectedAccount.id);
-            }
-        }, [syncAccountMap, loadAccounts, loadTransactions, selectedAccount?.id])
-    );
-
-    // Whenever selectedAccount, selectedDate, or accountMap changes, reload transactions/stats
-    useEffect(() => {
-        if (selectedAccount) {
-            loadTransactions(selectedAccount.id);
-        }
-    }, [selectedDate, selectedAccount, accountMap, loadTransactions]);
-
-    useEffect(() => {
-        if (selectedAccount?.id) {
-            loadTransactions(selectedAccount.id);
-        }
-    }, [selectedAccount?.type, loadTransactions]);
 
     const renderTransactionType = (transaction, account) => {
         if (account?.type === 'Cash In - Cash Out') {
@@ -258,7 +228,6 @@ const CalendarScreen = ({ navigation, route }) => {
         } else if (account?.type === 'Borrow - Lend') {
             return transaction.type === 'borrow' ? 'Borrow' : 'Lend';
         }
-        // fallback for normal
         switch (transaction.type) {
             case 'cashIn': return 'Cash In';
             case 'cashOut': return 'Cash Out';
@@ -291,21 +260,10 @@ const CalendarScreen = ({ navigation, route }) => {
             else if (transaction.type === 'debit') acc.debitType += amount;
             return acc;
         }, {
-            credit: 0,
-            debit: 0,
-            cashIn: 0,
-            cashOut: 0,
-            receive: 0,
-            sendOut: 0,
-            borrow: 0,
-            lend: 0,
-            creditType: 0,
-            debitType: 0,
+            credit: 0, debit: 0, cashIn: 0, cashOut: 0, receive: 0,
+            sendOut: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
         });
-        return {
-            ...transactionStats,
-            balance: baseBalance
-        };
+        return { ...transactionStats, balance: baseBalance };
     };
 
     const getStatLabel = (side, account) => {
@@ -347,7 +305,6 @@ const CalendarScreen = ({ navigation, route }) => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-                {/* Account Selector */}
                 <View style={styles.accountSelectorContainer}>
                     <TouchableOpacity
                         style={styles.accountSelector}
@@ -360,7 +317,6 @@ const CalendarScreen = ({ navigation, route }) => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Calendar */}
                 <Calendar
                     onDayPress={handleDayPress}
                     markedDates={markedDates}
@@ -414,13 +370,13 @@ const CalendarScreen = ({ navigation, route }) => {
                                     <View style={styles.dotContainer}>
                                         {(() => {
                                             const transactions = safeGetTransactions(date.dateString);
-                                            const hasReceive = transactions.some(t => 
+                                            const hasReceive = transactions.some(t =>
                                                 ['cashIn', 'receive', 'borrow', 'credit'].includes(t.type)
                                             );
-                                            const hasSend = transactions.some(t => 
+                                            const hasSend = transactions.some(t =>
                                                 ['cashOut', 'sendOut', 'lend', 'debit'].includes(t.type)
                                             );
-                                            
+
                                             return (
                                                 <>
                                                     {hasReceive && (
@@ -439,7 +395,6 @@ const CalendarScreen = ({ navigation, route }) => {
                     }}
                 />
 
-                {/* Stats */}
                 <View style={styles.statsRow}>
                     <View style={[styles.statCard, { backgroundColor: colors.error }]}>
                         <Text style={[styles.statLabel, { color: colors.white }]}>
@@ -458,14 +413,13 @@ const CalendarScreen = ({ navigation, route }) => {
                         </Text>
                     </View>
                     <View style={[styles.statCard, { backgroundColor: colors.primary }]}>
-                        <Text style={[styles.statLabel, { color: colors.white }]}>Balance</Text>
-                        <Text style={[styles.statValue, { color: colors.white }]}> 
+                        <Text style={[styles.statLabel, { color: colors.white }]}>{t('accountDetailsScreen.balance')}</Text>
+                        <Text style={[styles.statValue, { color: colors.white }]}>
                             {currency}{currentBalance < 0 && ' -'}{Math.abs(currentBalance).toFixed(2)}
                         </Text>
                     </View>
                 </View>
 
-                {/* Transactions */}
                 <View style={styles.transactions}>
                     <View style={styles.transactionHeader}>
                         <Text style={styles.transactionDate}>
@@ -494,10 +448,7 @@ const CalendarScreen = ({ navigation, route }) => {
                                         transactionId: safeGet(transaction, 'id'),
                                         accountId: selectedAccount.id,
                                         userId: selectedAccount.userId,
-                                        onSave: () => {
-                                            loadAccounts();
-                                            syncAccountMap();
-                                        },
+                                        onSave: loadAccountsAndMap,
                                         sourceScreen: 'calendar'
                                     }
                                 )}
@@ -545,10 +496,7 @@ const CalendarScreen = ({ navigation, route }) => {
                             navigation.navigate(screens.NewRecord, {
                                 accountId: selectedAccount.id,
                                 userId: selectedAccount.userId,
-                                onSave: () => {
-                                    loadAccounts();
-                                    syncAccountMap();
-                                },
+                                onSave: loadAccountsAndMap,
                                 sourceScreen: 'calendar'
                             });
                         }
@@ -558,7 +506,6 @@ const CalendarScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
             )}
 
-            {/* Bottom Sheet for Account Selection */}
             <Modal
                 visible={showAccountSheet}
                 onRequestClose={() => setShowAccountSheet(false)}
@@ -592,7 +539,6 @@ const CalendarScreen = ({ navigation, route }) => {
         </SafeAreaView>
     );
 };
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,

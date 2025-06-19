@@ -202,6 +202,18 @@ const CalendarScreen = ({ navigation, route }) => {
         }, [loadAccountsAndMap, loadTransactions, selectedAccount?.id])
     );
 
+    useFocusEffect(
+        useCallback(() => {
+            if (selectedAccount?.id) {
+                // Refresh the selected account data
+                const refreshedAccount = realm.objectForPrimaryKey('Account', selectedAccount.id);
+                if (refreshedAccount) {
+                    setSelectedAccount({...refreshedAccount});
+                }
+            }
+        }, [selectedAccount?.id, realm])
+    );
+
     useEffect(() => {
         if (selectedAccount?.id) {
             loadTransactions(selectedAccount.id);
@@ -267,15 +279,18 @@ const CalendarScreen = ({ navigation, route }) => {
     };
 
     const getStatLabel = (side, account) => {
-        if (account?.type === 'Cash In - Cash Out') {
-            return side === 'left' ? t('terms.cashOut') : t('terms.cashIn');
+        if (!account?.type) return side === 'left' ? t('terms.debit') : t('terms.credit');
+        
+        // Get the translated type name
+        const typeName = t(`accountTypes.${account.type}`);
+        
+        // Split into parts if it contains a dash
+        if (typeName.includes(' - ')) {
+            const [left, right] = typeName.split(' - ');
+            return side === 'left' ? left : right;
         }
-        if (account?.type === 'Receive - Send Out') {
-            return side === 'left' ? t('terms.sendOut') : t('terms.receive');
-        }
-        if (account?.type === 'Borrow - Lend') {
-            return side === 'left' ? t('terms.lend') : t('terms.borrow');
-        }
+        
+        // Fallback for simple types
         return side === 'left' ? t('terms.debit') : t('terms.credit');
     };
 
@@ -397,17 +412,21 @@ const CalendarScreen = ({ navigation, route }) => {
 
                 <View style={styles.statsRow}>
                     <View style={[styles.statCard, { backgroundColor: colors.error }]}>
-                        <Text style={[styles.statLabel, { color: colors.white }]}>
-                            {getStatLabel('left', selectedAccount)}
-                        </Text>
+                        <View style={styles.typeContainer}>
+                            <Text style={[styles.typeLabel, { color: colors.white }]}>
+                                {getStatLabel('left', selectedAccount)}
+                            </Text>
+                        </View>
                         <Text style={[styles.statValue, { color: colors.white }]}>
                             {currency} {getStatValue('left', selectedAccount, stats).toFixed(2)}
                         </Text>
                     </View>
                     <View style={[styles.statCard, { backgroundColor: colors.success }]}>
-                        <Text style={[styles.statLabel, { color: colors.white }]}>
-                            {getStatLabel('right', selectedAccount)}
-                        </Text>
+                        <View style={styles.typeContainer}>
+                            <Text style={[styles.typeLabel, { color: colors.white }]}>
+                                {getStatLabel('right', selectedAccount)}
+                            </Text>
+                        </View>
                         <Text style={[styles.statValue, { color: colors.white }]}>
                             {currency} {getStatValue('right', selectedAccount, stats).toFixed(2)}
                         </Text>
@@ -468,7 +487,7 @@ const CalendarScreen = ({ navigation, route }) => {
                                         {safeGet(transaction, 'name', 'No description')}
                                     </Text>
                                     <Text style={styles.transactionType}>
-                                        {renderTransactionType(transaction, selectedAccount)} • {safeGet(transaction, 'contactName', 'No contact')}
+                                        {t(`terms.${transaction.type}`)} • {safeGet(transaction, 'contactName', t('common.noContact'))}
                                     </Text>
                                 </View>
                                 <Text
@@ -647,6 +666,21 @@ const styles = StyleSheet.create({
         fontSize: RFPercentage(1.5),
         color: colors.primary,
         textAlign: 'center',
+    },
+    typeContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: hp(0.5),
+    },
+    typeLabel: {
+        fontFamily: 'Sora-Regular',
+        fontSize: RFPercentage(1.5),
+        color: colors.gray,
+        textAlign: 'center',
+    },
+    amountContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
     },
     transactions: {
         padding: wp(4),

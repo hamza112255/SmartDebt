@@ -352,12 +352,12 @@
   "accountTypes":{
     "cash_in_out":"Cash In - Cash Out",
     "debit_credit":"Debit - Credit",
-    "receive_send_out":"Receive - Send Out",
+    "receive_send":"Receive - Send Out",
     "borrow_lend":"Borrow - Lend"
   },
   "addNewAccountScreen.success": {
-    "accountAdded": "Account added successfully!",
-    "accountUpdated": "Account updated successfully!"
+    "accountAdded": "Account added successfully",
+    "accountUpdated": "Account updated successfully"
   },
   "calendar": {
     "months": {
@@ -406,7 +406,7 @@
     "selectPhoto": "Add Photo",
     "takePhoto": "Take Photo",
     "removePhoto": "Remove Photo",
-    "successMessage": "Transaction saved successfully!",
+    "successMessage": "Transaction saved successfully",
     "errorMessage": "Please fill all required fields",
     "deleteConfirm": "Are you sure you want to delete this transaction?",
     "selectContactPlaceholder": "Select Contact"

@@ -387,7 +387,7 @@
   "accountTypes":{
     "cash_in_out":"إيداع - سحب نقدي",
     "debit_credit":"مدين - دائن",
-    "receive_send_out":"استلام - إرسال",
+    "receive_send":"استلام - إرسال",
     "borrow_lend":"اقتراض - إقراض"
   },
   "calendar": {

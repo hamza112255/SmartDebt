@@ -388,7 +388,7 @@
   "accountTypes":{
     "cash_in_out":"Entrada - Salida de efectivo",
     "debit_credit":"Débito - Crédito",
-    "receive_send_out":"Recibir - Enviar",
+    "receive_send":"Recibir - Enviar",
     "borrow_lend":"Tomar prestado - Prestar"
   },
   "addNewAccountScreen.success": {

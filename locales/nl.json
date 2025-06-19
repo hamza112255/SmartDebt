@@ -348,7 +348,7 @@
   "accountTypes":{
     "cash_in_out":"Geld ontvangen - Uitgeven",
     "debit_credit":"Debet - Credit",
-    "receive_send_out":"Ontvangen - Verzenden",
+    "receive_send":"Ontvangen - Verzenden",
     "borrow_lend":"Lenen - Uitlenen"
   },
   "addNewAccountScreen.success": {

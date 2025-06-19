@@ -239,6 +239,10 @@
     "selectTerms": "اختر الشروط",
     "placeholders": {
       "accountName": "أدخل اسم الحساب"
+    },
+    "success": {
+      "accountAdded": "تم إضافة الحساب بنجاح",
+      "accountUpdated": "تم تحديث الحساب بنجاح"
     }
   },
   "accountDetailsScreen.accountDetails": "تفاصيل الحساب",

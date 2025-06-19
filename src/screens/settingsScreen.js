@@ -265,7 +265,7 @@ const SettingsScreen = ({ navigation }) => {
                         </View>
                     </View>
                     <TouchableOpacity onPress={handleEditProfile} style={styles.editBtn}>
-                        <Text style={styles.editBtnText}>{t('settingsScreen.buttons.editProfile')}</Text>
+                        <Icon name="edit" size={hp(3)} color={colors.primary} />
                     </TouchableOpacity>
                 </View>
                 <View style={styles.readonlyGroup}>

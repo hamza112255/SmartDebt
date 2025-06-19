@@ -384,5 +384,9 @@
     "debitCredit": "Débito - Crédito",
     "receiveSendOut": "Recibir - Enviar",
     "borrowLend": "Tomar prestado - Prestar"
+  },
+  "addNewAccountScreen.success": {
+    "accountAdded": "Cuenta agregada exitosamente!",
+    "accountUpdated": "Cuenta actualizada exitosamente!"
   }
 }

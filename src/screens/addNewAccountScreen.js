@@ -77,7 +77,6 @@ const AddAccountScreen = ({ navigation, route }) => {
     useEffect(() => {
         if (existingAccount) {
             setAccountName(existingAccount.name);
-            setLanguage(existingAccount.language);
             const foundCurrency = currencies.find(c => c.code === existingAccount.currency);
             if (foundCurrency) setCurrency(foundCurrency);
             setTerms(existingAccount.type);

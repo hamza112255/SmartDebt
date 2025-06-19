@@ -374,5 +374,9 @@
   "cashInCashOut": "Entrée - Sortie d'argent",
   "debitCredit": "Débit - Crédit",
   "receiveSendOut": "Recevoir - Envoyer",
-  "borrowLend": "Emprunter - Prêter"
+  "borrowLend": "Emprunter - Prêter",
+  "addNewAccountScreen.success": {
+    "accountAdded": "Compte ajouté avec succès!",
+    "accountUpdated": "Compte mis à jour avec succès!"
+  }
 }

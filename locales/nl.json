@@ -183,9 +183,6 @@
   "addNewContactScreen.city": "Stad",
   "addNewContactScreen.state": "Staat",
   "addNewContactScreen.country": "Land",
-  "common.ok": "OK",
-  "common.cancel": "Cancel",
-  "common.delete": "Delete",
   "settingsScreen.errors.noUserFound": "Geen gebruikersrecord gevonden",
   "settingsScreen.errors.setPin": "Instellen van pincode mislukt. Probeer het opnieuw.",
   "settingsScreen.errors.loadUser": "Laden van gebruikersgegevens mislukt",
@@ -220,7 +217,11 @@
   "settingsScreen.title": "Instellingen",
   "common.confirm": "Bevestigen",
   "common.save": "Opslaan",
+  "common.edit": "Bewerken",
   "common.error": "Fout",
+  "common.delete": "Verwijderen",
+  "common.cancel": "Annuleren",
+  "common.ok": "OK",
   "common.success": "Succes",
   "common.retry": "Opnieuw proberen",
   "common.reset": "Resetten",
@@ -247,12 +248,6 @@
   },
   "screens": {
     "accountDetails": "Rekeninggegevens"
-  },
-  "common": {
-    "error": "Fout",
-    "success": "Succes",
-    "cancel": "Annuleren",
-    "reset": "Resetten"
   },
   "languages.nl": "Nederlands",
   "languages.en": "English",
@@ -349,5 +344,9 @@
     "debitCredit": "Debet - Credit",
     "receiveSendOut": "Ontvangen - Verzenden",
     "borrowLend": "Lenen - Uitlenen"
+  },
+  "addNewAccountScreen.success": {
+    "accountAdded": "Account toegevoegd met succes!",
+    "accountUpdated": "Account bijgewerkt met succes!"
   }
 }

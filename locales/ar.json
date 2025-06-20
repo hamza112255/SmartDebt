@@ -97,64 +97,63 @@
     "title": "التقارير",
     "transactionReport": {
       "title": "تقرير المعاملات",
-      "description": "إنشاء تقارير مفصلة للمعاملات"
+      "description": "إنشاء تقرير بجميع المعاملات ضمن نطاق زمني."
     },
     "contactReport": {
-      "title": "تقرير جهات الاتصال",
-      "description": "إنشاء تقارير لجهات اتصال محددة"
+      "title": "تقرير حسب جهة الاتصال",
+      "description": "إنشاء تقرير يلخص الأرصدة لكل جهة اتصال."
     },
     "accountSummary": {
       "title": "ملخص الحساب",
-      "description": "إنشاء ملخصات أرصدة الحسابات"
+      "description": "ملخص لأرصدة الحسابات."
     },
-    "modal": {
-      "selectContact": "اختر جهة اتصال",
-      "allContacts": "كل جهات الاتصال",
-      "startDate": "تاريخ البداية",
-      "endDate": "تاريخ النهاية"
+    "accountSummaryByAccount": {
+      "title": "ملخص الحساب حسب الحساب",
+      "description": "إنشاء ملخص لحساب معين مع فلاتر لنوع المعاملة."
     },
+    "summaryOfAllAccounts": {
+      "title": "ملخص جميع الحسابات",
+      "description": "ملخص لجميع الحسابات ضمن نطاق زمني."
+    },
+    "loading": "جاري إنشاء التقرير...",
+    "realmError": "فشل تحميل البيانات من قاعدة البيانات. يرجى المحاولة مرة أخرى.",
+    "retry": "إعادة المحاولة",
     "generateAndShare": "إنشاء ومشاركة",
-    "saveReportLocally": "حفظ محليًا",
+    "saveReportLocally": "حفظ التقرير محلياً",
+    "shareDialogTitle": "مشاركة التقرير",
+    "saveDialogTitle": "حفظ التقرير",
+    "modal": {
+      "title": "تحديد فلاتر التقرير",
+      "startDate": "تاريخ البدء",
+      "endDate": "تاريخ الانتهاء",
+      "selectContact": "تحديد جهة اتصال (اختياري)",
+      "allContacts": "جميع جهات الاتصال",
+      "selectAccount": "تحديد حساب (اختياري)",
+      "selectAccountRequired": "تحديد حساب",
+      "transactionType": "نوع المعاملة",
+      "allTransactionTypes": "الكل",
+      "receiving": "استلام",
+      "sending": "إرسال",
+      "allAccounts": "جميع الحسابات"
+    },
     "alerts": {
-      "selectReportType": "الرجاء تحديد نوع التقرير",
-      "selectContact": "الرجاء تحديد جهة اتصال للتقرير",
-      "realmError": "خطأ في قاعدة البيانات - يرجى إعادة تشغيل التطبيق",
-      "noDataTitle": "لا توجد بيانات متاحة",
-      "noDataMessage": "لم يتم العثور على سجلات للمعايير المحددة",
-      "generateError": "فشل إنشاء التقرير",
+      "selectReportType": "يرجى تحديد نوع التقرير.",
+      "selectContact": "يرجى تحديد جهة اتصال أولاً.",
+      "realmError": "لا يمكن إنشاء التقرير بسبب خطأ في قاعدة البيانات.",
+      "noDataTitle": "لا توجد بيانات",
+      "noDataMessage": "لم يتم العثور على بيانات للمعايير المحددة.",
+      "generateError": "فشل في إنشاء التقرير.",
       "sharingNotAvailableTitle": "المشاركة غير متاحة",
-      "sharingNotAvailableMessage": "هذا الجهاز لا يدعم وظيفة المشاركة",
+      "sharingNotAvailableMessage": "المشاركة غير متاحة على هذا الجهاز.",
       "saveSuccessTitle": "تم حفظ التقرير",
-      "saveSuccessMessage": "تم حفظ التقرير في: {{filePath}}",
-      "saveErrorMessage": "فشل حفظ التقرير"
+      "saveSuccessMessage": "تم حفظ التقرير بنجاح في {{filePath}}",
+      "saveErrorMessage": "فشل في حفظ التقرير."
     },
     "errors": {
-      "contactNotFound": "جهة الاتصال غير موجودة",
-      "invalidReportType": "نوع التقرير غير صالح"
-    },
-    "realmError": "خطأ في قاعدة البيانات - يرجى المحاولة مرة أخرى",
-    "retry": "إعادة المحاولة",
-    "loading": "جارٍ إنشاء التقرير...",
-    "shareDialogTitle": "مشاركة التقرير",
-    "saveDialogTitle": "حفظ التقرير"
+      "contactNotFound": "تعذر العثور على جهة الاتصال المحددة.",
+      "invalidReportType": "تم تحديد نوع تقرير غير صالح."
+    }
   },
-  "reportScreen.reports": "التقارير",
-  "reportScreen.transactionReport": "تقرير المعاملات",
-  "reportScreen.transactionReportDesc": "إنشاء تقرير حسب النطاق الزمني والحساب",
-  "reportScreen.contactReport": "تقرير جهة الاتصال",
-  "reportScreen.contactReportDesc": "إنشاء تقرير حسب جهة الاتصال والنطاق الزمني",
-  "reportScreen.accountSummary": "ملخص الحساب",
-  "reportScreen.accountSummaryDesc": "إنشاء ملخص لجميع الحسابات",
-  "reportScreen.selectContact": "اختر جهة اتصال",
-  "reportScreen.startDate": "تاريخ البدء",
-  "reportScreen.endDate": "تاريخ الانتهاء",
-  "reportScreen.generateAndShare": "إنشاء التقرير ومشاركته",
-  "reportScreen.saveReportLocally": "حفظ التقرير محليًا",
-  "reportScreen.noData": "لم يتم العثور على بيانات للمعايير المحددة.",
-  "reportScreen.generatingReport": "جاري إنشاء التقرير...",
-  "reportScreen.error": "خطأ",
-  "reportScreen.retry": "إعادة المحاولة",
-  "profileScreen.profile": "الملف الشخصي",
   "profileScreen.name": "الاسم",
   "profileScreen.email": "البريد الإلكتروني",
   "profileScreen.password": "كلمة المرور",
@@ -441,5 +440,47 @@
     "errorMessage": "الرجاء ملء جميع الحقول المطلوبة",
     "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه المعاملة؟",
     "selectContactPlaceholder": "اختر جهة الاتصال"
+  },
+  "addNewContactScreen": {
+    "title": "إضافة جهة اتصال جديدة",
+    "formLabels": {
+      "name": "الاسم",
+      "contactNo": "رقم الاتصال",
+      "email": "البريد الإلكتروني",
+      "image": "صورة الملف الشخصي"
+    },
+    "buttons": {
+      "save": "حفظ جهة الاتصال",
+      "pickImage": "اختيار صورة",
+      "takePhoto": "التقاط صورة"
+    },
+    "alerts": {
+      "permissionRequired": "مطلوب إذن للوصول إلى الصور",
+      "saveSuccess": "تم حفظ جهة الاتصال بنجاح",
+      "saveError": "فشل في حفظ جهة الاتصال",
+      "validationError": "يرجى ملء الحقول المطلوبة"
+    },
+    "placeholders": {
+      "name": "أدخل اسم جهة الاتصال",
+      "contactNo": "أدخل رقم الهاتف",
+      "email": "أدخل عنوان البريد الإلكتروني"
+    }
+  },
+  "addNewContact":"إضافة جهة اتصال",
+  "addContact": "إضافة جهة اتصال",
+  "createNewContact":"إنشاء جهة اتصال جديدة",
+  "importFromContact":"استيراد من جهة اتصال",
+  "cancelContact":"إلغاء",
+  "premiumScreen": {
+    "title": "الترقية إلى المميز",
+    "subtitle": "افتح جميع الميزات المميزة",
+    "features": {
+      "advancedReports": "تقارير وتحليلات متقدمة",
+      "unlimitedAccounts": "حسابات وجهات اتصال غير محدودة",
+      "cloudSync": "مزامنة السحابة عبر الأجهزة",
+      "prioritySupport": "دعم العملاء المميز",
+      "createBudget": "إنشاء ميزانية"
+    },
+    "upgradeButton": "ترقية الآن"
   }
 }

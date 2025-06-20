@@ -35,6 +35,7 @@ import BiometricModal from './src/components/BiometricModal';
 import PinModal from './src/components/PinModal';
 import BiometricContext from './src/contexts/BiometricContext';
 import ReportDetailScreen from './src/screens/ReportDetailScreen';
+import PremiumScreen from './src/screens/PremiumScreen';
 import i18n from './src/i18n'; // Import i18n
 import { I18nextProvider, useTranslation } from 'react-i18next'; // Import I18nextProvider
 
@@ -438,6 +439,14 @@ function App({ currentLanguage }) {
                   <Stack.Screen
                     name={screens.ReportDetail}
                     component={ReportDetailScreen}
+                  />
+                  <Stack.Screen
+                    name="PremiumScreen"
+                    component={PremiumScreen}
+                    options={{
+                      headerShown: true,
+                      title: t('premiumScreen.title'),
+                    }}
                   />
                 </Stack.Navigator>
               </NavigationContainer>

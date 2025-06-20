@@ -91,49 +91,64 @@
     "createANewPin": "Crear un nuevo PIN"
   },
   "reportScreen": {
-    "title": "Reportes",
+    "title": "Informes",
     "transactionReport": {
-      "title": "Reporte de Transacciones",
-      "description": "Generar reportes detallados de transacciones"
+      "title": "Informe de Transacciones",
+      "description": "Generar un informe de todas las transacciones dentro de un rango de fechas."
     },
     "contactReport": {
-      "title": "Reporte de Contactos",
-      "description": "Generar reportes para contactos específicos"
+      "title": "Informe por Contacto",
+      "description": "Generar un informe que resume los saldos de cada contacto."
     },
     "accountSummary": {
       "title": "Resumen de Cuenta",
-      "description": "Generar resúmenes de saldos de cuentas"
+      "description": "Un resumen de los saldos de las cuentas."
     },
-    "modal": {
-      "selectContact": "Seleccionar Contacto",
-      "allContacts": "Todos los Contactos",
-      "startDate": "Fecha de Inicio",
-      "endDate": "Fecha de Fin"
+    "accountSummaryByAccount": {
+      "title": "Resumen de Cuenta por Cuenta",
+      "description": "Generar un resumen para una cuenta específica con filtros por tipo de transacción."
     },
+    "summaryOfAllAccounts": {
+      "title": "Resumen de Todas las Cuentas",
+      "description": "Un resumen de todas las cuentas dentro de un rango de fechas."
+    },
+    "loading": "Generando informe...",
+    "realmError": "Error al cargar datos de la base de datos. Por favor, inténtelo de nuevo.",
+    "retry": "Reintentar",
     "generateAndShare": "Generar y Compartir",
-    "saveReportLocally": "Guardar Localmente",
+    "saveReportLocally": "Guardar Informe Localmente",
+    "shareDialogTitle": "Compartir Informe",
+    "saveDialogTitle": "Guardar Informe",
+    "modal": {
+      "title": "Seleccionar Filtros del Informe",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Fin",
+      "selectContact": "Seleccionar Contacto (Opcional)",
+      "allContacts": "Todos los Contactos",
+      "selectAccount": "Seleccionar Cuenta (Opcional)",
+      "selectAccountRequired": "Seleccionar Cuenta",
+      "transactionType": "Tipo de Transacción",
+      "allTransactionTypes": "Todos",
+      "receiving": "Recibiendo",
+      "sending": "Enviando"
+    },
     "alerts": {
-      "selectReportType": "Por favor seleccione un tipo de reporte",
-      "selectContact": "Por favor seleccione un contacto para el reporte",
-      "realmError": "Error de base de datos - por favor reinicie la aplicación",
-      "noDataTitle": "Sin Datos Disponibles",
-      "noDataMessage": "No se encontraron registros para los criterios seleccionados",
-      "generateError": "Error al generar el reporte",
-      "sharingNotAvailableTitle": "Compartir No Disponible",
-      "sharingNotAvailableMessage": "Este dispositivo no soporta la funcionalidad de compartir",
-      "saveSuccessTitle": "Reporte Guardado",
-      "saveSuccessMessage": "Reporte guardado en: {{filePath}}",
-      "saveErrorMessage": "Error al guardar el reporte"
+      "selectReportType": "Por favor, seleccione un tipo de informe.",
+      "selectContact": "Por favor, seleccione primero un contacto.",
+      "realmError": "No se puede generar el informe debido a un error en la base de datos.",
+      "noDataTitle": "Sin Datos",
+      "noDataMessage": "No se encontraron datos para los criterios seleccionados.",
+      "generateError": "Error al generar el informe.",
+      "sharingNotAvailableTitle": "Compartir no disponible",
+      "sharingNotAvailableMessage": "La función de compartir no está disponible en este dispositivo.",
+      "saveSuccessTitle": "Informe Guardado",
+      "saveSuccessMessage": "Informe guardado exitosamente en {{filePath}}",
+      "saveErrorMessage": "Error al guardar el informe."
     },
     "errors": {
-      "contactNotFound": "Contacto no encontrado",
-      "invalidReportType": "Tipo de reporte inválido"
-    },
-    "realmError": "Error de base de datos - por favor intente nuevamente",
-    "retry": "Reintentar",
-    "loading": "Generando reporte...",
-    "shareDialogTitle": "Compartir Reporte",
-    "saveDialogTitle": "Guardar Reporte"
+      "contactNotFound": "No se pudo encontrar el contacto seleccionado.",
+      "invalidReportType": "Tipo de informe seleccionado no válido."
+    }
   },
   "reportScreen.reports": "Informes",
   "reportScreen.transactionReport": "Informe de transacción",
@@ -446,5 +461,47 @@
     "errorMessage": "Por favor, complete todos los campos obligatorios",
     "deleteConfirm": "¿Estás seguro de que quieres eliminar esta transacción?",
     "selectContactPlaceholder": "Seleccionar contacto"
+  },
+  "addNewContactScreen": {
+    "title": "Agregar nuevo contacto",
+    "formLabels": {
+      "name": "Nombre",
+      "contactNo": "Número de contacto",
+      "email": "Correo electrónico",
+      "image": "Imagen de perfil"
+    },
+    "buttons": {
+      "save": "Guardar contacto",
+      "pickImage": "Seleccionar imagen",
+      "takePhoto": "Tomar foto"
+    },
+    "alerts": {
+      "permissionRequired": "Se requiere permiso para acceder a las fotos",
+      "saveSuccess": "Contacto guardado exitosamente",
+      "saveError": "Error al guardar el contacto",
+      "validationError": "Por favor complete los campos requeridos"
+    },
+    "placeholders": {
+      "name": "Ingrese nombre del contacto",
+      "contactNo": "Ingrese número telefónico",
+      "email": "Ingrese dirección de correo"
+    }
+  },
+  "addNewContact":"Agregar nuevo contacto",
+  "addContact": "Agregar contacto",
+  "createNewContact":"Crear nuevo contacto",
+  "importFromContact":"Importar desde contacto",
+  "cancelContact":"Cancelar",
+  "premiumScreen": {
+    "title": "Actualizar a Premium",
+    "subtitle": "Desbloquea todas las funciones premium",
+    "features": {
+      "advancedReports": "Informes avanzados y análisis",
+      "unlimitedAccounts": "Cuentas y contactos ilimitados",
+      "cloudSync": "Sincronización en la nube entre dispositivos",
+      "prioritySupport": "Soporte prioritario al cliente",
+      "createBudget": "Crear presupuestos y seguimiento de gastos"
+    },
+    "upgradeButton": "Actualizar ahora"
   }
 }

@@ -118,9 +118,14 @@ const DashboardScreen = ({ navigation }) => {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.headerText}>
-                    {t('dashboardScreen.myAccounts')}
-                </Text>
+                <View style={styles.headerContainer}>
+                    <Text style={styles.headerText}>
+                        {t('dashboardScreen.myAccounts')}
+                    </Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('PremiumScreen')}>
+                        <Icon name="workspace-premium" size={RFValue(24)} color="#FFD700" />
+                    </TouchableOpacity>
+                </View>
                 <View style={styles.accountsSection}>
                     {accounts.map((account, index) => {
                         // Determine a color for each account. If the account already
@@ -207,12 +212,17 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background
     },
+    headerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: wp(4.5),
+        paddingTop: hp(2.25),
+    },
     headerText: {
         fontSize: RFValue(20),
         fontFamily: 'Sora-Bold',
         color: '#2563eb',
-        paddingTop: hp(2.25), // ~18px on an 800px height screen
-        paddingLeft: wp(4.5), // ~18px on a 400px width screen
     },
     accountsSection: {
         padding: wp(4.5), // ~18px on a 400px width screen

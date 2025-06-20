@@ -23,7 +23,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { Picker } from '@react-native-picker/picker';
 import { useTranslation } from 'react-i18next';
-import {realm} from '../realm';
+import { realm } from '../realm';
 
 const colors = {
     primary: '#1e90ff',
@@ -52,42 +52,79 @@ const ReportScreen = ({ navigation }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [allContacts, setAllContacts] = useState([]);
     const [transactions, setTransactions] = useState([]);
-    const [realmError, setRealmError] = useState(null); // New state for Realm errors
+    const [realmError, setRealmError] = useState(null);
+    const [allAccounts, setAllAccounts] = useState([]);
+    const [transactionTypeFilter, setTransactionTypeFilter] = useState('all');
+    const [accountFilter, setAccountFilter] = useState(null);
     const { t } = useTranslation();
 
     // Load data from Realm
     const loadData = useCallback(() => {
         try {
-            console.log('Loading data from Realm', realm);
+            console.log('Loading data from Realm');
             if (!realm) {
                 throw new Error('Realm instance is not initialized');
             }
 
             // Load users
             const users = getAllObjects('User');
+            console.log('Loaded users:', users?.length || 0);
             if (users && users.length > 0) {
                 setCurrentUser(users[0]);
             }
 
             // Load contacts
             const contacts = getAllObjects('Contact');
+            console.log('Loaded contacts:', contacts?.length || 0);
             setAllContacts(contacts || []);
 
             // Load transactions
-            const transactions = getAllObjects('Transaction');
+            const transactions = realm.objects('Transaction');
+            console.log('Loaded transactions:', transactions?.length || 0);
             setTransactions(transactions || []);
+
+            // Load accounts
+            const accounts = realm.objects('Account');
+            console.log('Raw accounts loaded:', accounts?.length || 0);
+            const accountsArray = Array.from(accounts || []);
+            console.log('Raw accounts loaded:', accountsArray);
+            // Filter accounts to ensure they have a valid identifier
+            setAllAccounts(accountsArray);
+            console.log('loadData - After setAllAccounts. allAccounts count:', accountsArray.length,
+                'First account ID:', accountsArray.length > 0 && accountsArray[0]?._id ? (accountsArray[0]._id.toHexString ? accountsArray[0]._id.toHexString() : accountsArray[0]._id) : 'N/A');
+
+            // Set selectedAccount to the first valid account if not already set
+            if (accountsArray.length > 0 && accountsArray[0]?._id && !selectedAccount) {
+                const firstAccountId = accountsArray[0]._id.toHexString ? accountsArray[0]._id.toHexString() : accountsArray[0]._id.toString();
+                setSelectedAccount(firstAccountId);
+                console.log('loadData - Setting selectedAccount to first account:', firstAccountId);
+            }
 
             // Clear ReportGenerator cache
             if (ReportGenerator.clearCache) {
                 ReportGenerator.clearCache();
             }
 
-            setRealmError(null); // Clear any previous errors
+            setRealmError(null);
         } catch (error) {
             console.error('Failed to load data:', error);
             setRealmError(error.message);
         }
-    }, []);
+    }, [selectedAccount]);
+
+    // Effect to set default selectedAccount when modal opens or reportType changes
+    useEffect(() => {
+        console.log('useEffect [reportType, allAccounts, showModal] triggered.');
+        console.log('  reportType:', reportType, 'allAccounts.length:', allAccounts.length, 'showModal:', showModal);
+        if ((reportType === 'account_summary_by_account' || showModal) && allAccounts.length > 0 && !selectedAccount) {
+            const firstValidAccount = allAccounts.find(acc => acc && acc._id);
+            if (firstValidAccount) {
+                const accountId = firstValidAccount._id?.toHexString ? firstValidAccount._id?.toHexString() : firstValidAccount._id.toString();
+                console.log('  Setting selectedAccount to:', accountId);
+                setSelectedAccount(accountId);
+            }
+        }
+    }, [reportType, allAccounts, showModal, selectedAccount]);
 
     // Set up Realm listener for real-time updates
     useEffect(() => {
@@ -103,7 +140,6 @@ const ReportScreen = ({ navigation }) => {
             loadData();
         });
 
-        // Cleanup listener on component unmount
         return () => {
             transactionCollection.removeAllListeners();
         };
@@ -115,14 +151,9 @@ const ReportScreen = ({ navigation }) => {
         }, [loadData])
     );
 
-    const generatePdf = async () => {
+    const generatePdf = async (share = false) => {
         if (!reportType) {
-            Alert.alert(t('common.validationError'), t('reportScreen.alerts.selectReportType'));
-            return null;
-        }
-
-        if (reportType === 'contact' && !selectedContact?.id) {
-            Alert.alert(t('common.error'), t('reportScreen.alerts.selectContact'));
+            Alert.alert(t('common.error'), t('reportScreen.alerts.selectReportType'));
             return null;
         }
 
@@ -137,22 +168,33 @@ const ReportScreen = ({ navigation }) => {
             const filters = {
                 startDate: dateRange.startDate,
                 endDate: dateRange.endDate,
-                accountId: selectedAccount?.id,
-                contactId: selectedContact?.id,
             };
 
             switch (reportType) {
                 case 'transaction':
+                    console.log('Generating transaction report with filters:', filters);
                     reportData = ReportGenerator.generateTransactionReport(filters);
                     break;
                 case 'contact':
-                    reportData = ReportGenerator.generateContactReport(filters);
-                    if (!reportData.contactInfo) {
+                    const contactFilters = { ...filters, accountId: selectedAccount, contactId: selectedContact?.id };
+                    console.log('Generating contact report with filters:', contactFilters);
+                    reportData = ReportGenerator.generateContactReport(contactFilters);
+                    if (contactFilters.contactId && !reportData.contactInfo) {
                         throw new Error(t('reportScreen.errors.contactNotFound'));
                     }
                     break;
-                case 'account':
-                    reportData = ReportGenerator.generateAccountReport(filters);
+                case 'account_summary_by_account':
+                    const summaryFilters = { ...filters, accountId: selectedAccount, transactionTypeFilter };
+                    console.log('Generating account summary with filters:', summaryFilters);
+                    if (summaryFilters.accountId) {
+                        reportData = ReportGenerator.generateAccountSummaryByAccountReport(summaryFilters);
+                    } else {
+                        reportData = ReportGenerator.generateAllAccountsSummaryReport(summaryFilters);
+                    }
+                    break;
+                case 'all_accounts_summary':
+                    console.log('Generating all accounts summary with filters:', filters);
+                    reportData = ReportGenerator.generateAllAccountsSummaryReport(filters);
                     break;
                 default:
                     throw new Error(t('reportScreen.errors.invalidReportType'));
@@ -167,7 +209,8 @@ const ReportScreen = ({ navigation }) => {
             const { uri } = await Print.printToFileAsync({ html });
             return uri;
         } catch (error) {
-            Alert.alert(t('common.error'), t('reportScreen.alerts.generateError'));
+            console.error('Error generating PDF:', error);
+            Alert.alert(t('common.error'), error.message || t('reportScreen.alerts.generateError'));
             return null;
         } finally {
             setIsLoading(false);
@@ -175,8 +218,34 @@ const ReportScreen = ({ navigation }) => {
     };
 
     const generateReport = async () => {
-        const uri = await generatePdf();
-        if (uri) {
+        try {
+            setIsLoading(true);
+            
+            // Simplified filtering
+            const filteredTransactions = transactions.filter(txn => {
+                const matchesAccount = !accountFilter || txn.accountId === accountFilter;
+                const matchesType = transactionTypeFilter === 'all' || 
+                                  (transactionTypeFilter === 'receiving' && txn.amount > 0) ||
+                                  (transactionTypeFilter === 'sending' && txn.amount < 0);
+                return matchesAccount && matchesType;
+            });
+            
+            if (filteredTransactions.length === 0) {
+                Alert.alert(
+                    t('reportScreen.alerts.noDataTitle'),
+                    t('reportScreen.alerts.noDataMessage')
+                );
+                return;
+            }
+            
+            // Generate report with filtered transactions
+            const reportData = ReportGenerator.generateTransactionReport({
+                startDate: dateRange.startDate,
+                endDate: dateRange.endDate,
+                transactions: filteredTransactions,
+            });
+            const html = ReportGenerator.generateReportHTML(reportData);
+            const { uri } = await Print.printToFileAsync({ html });
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri, {
                     dialogTitle: t('reportScreen.shareDialogTitle'),
@@ -185,6 +254,11 @@ const ReportScreen = ({ navigation }) => {
             } else {
                 Alert.alert(t('reportScreen.alerts.sharingNotAvailableTitle'), t('reportScreen.alerts.sharingNotAvailableMessage'));
             }
+        } catch (error) {
+            console.error('Error generating report:', error);
+            Alert.alert(t('common.error'), error.message || t('reportScreen.alerts.generateError'));
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -231,32 +305,93 @@ const ReportScreen = ({ navigation }) => {
                             ? t('reportScreen.transactionReport.title')
                             : reportType === 'contact'
                                 ? t('reportScreen.contactReport.title')
-                                : t('reportScreen.accountSummary.title')}
+                                : reportType === 'account_summary_by_account'
+                                    ? t('reportScreen.accountSummaryByAccount.title')
+                                    : t('reportScreen.summaryOfAllAccounts.title')}
                     </Text>
 
-                    {reportType === 'contact' && (
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>{t('reportScreen.modal.selectContact')}</Text>
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={selectedContact?.id}
-                                    onValueChange={(itemValue) => {
-                                        const contact = allContacts.find((c) => c.id === itemValue);
-                                        setSelectedContact(contact);
-                                    }}
-                                    style={styles.picker}
-                                >
-                                    <Picker.Item label={t('reportScreen.modal.allContacts')} value={null} />
-                                    {allContacts.map((contact) => (
-                                        <Picker.Item
-                                            key={contact.id}
-                                            label={contact.name}
-                                            value={contact.id}
-                                        />
-                                    ))}
-                                </Picker>
+                    {reportType === 'account_summary_by_account' && (
+                        <>
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.label}>{t('reportScreen.modal.selectAccount')}</Text>
+                                <View style={styles.pickerContainer}>
+                                    <Picker
+                                        selectedValue={accountFilter}
+                                        onValueChange={setAccountFilter}
+                                        style={styles.picker}
+                                    >
+                                        <Picker.Item label={t('reportScreen.modal.allAccounts')} value={null} />
+                                        {allAccounts.map(acc => (
+                                            <Picker.Item 
+                                                key={acc._id}
+                                                label={acc.name || t('reportScreen.common.unnamedAccount')}
+                                                value={acc._id}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
                             </View>
-                        </View>
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.label}>{t('reportScreen.modal.selectTransactionType')}</Text>
+                                <View style={styles.pickerContainer}>
+                                    <Picker
+                                        selectedValue={transactionTypeFilter}
+                                        onValueChange={(itemValue) => setTransactionTypeFilter(itemValue)}
+                                        style={styles.picker}
+                                    >
+                                        <Picker.Item label={t('reportScreen.common.all')} value="all" />
+                                        <Picker.Item label={t('reportScreen.common.receiving')} value="receiving" />
+                                        <Picker.Item label={t('reportScreen.common.sending')} value="sending" />
+                                    </Picker>
+                                </View>
+                            </View>
+                        </>
+                    )}
+
+                    {reportType === 'contact' && (
+                        <>
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.label}>{t('reportScreen.modal.selectAccountOptional')}</Text>
+                                <View style={styles.pickerContainer}>
+                                    <Picker
+                                        selectedValue={selectedAccount}
+                                        onValueChange={(itemValue) => setSelectedAccount(itemValue)}
+                                        style={styles.picker}
+                                    >
+                                        <Picker.Item label={t('reportScreen.modal.allAccounts')} value={null} />
+                                        {allAccounts.map(acc => (
+                                            <Picker.Item
+                                                key={acc._id?.toHexString ? acc._id?.toHexString() : acc._id?.toString()}
+                                                label={acc.name || 'Unnamed Account'}
+                                                value={acc._id?.toHexString ? acc._id?.toHexString() : acc._id?.toString()}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
+                            </View>
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.label}>{t('reportScreen.modal.selectContact')}</Text>
+                                <View style={styles.pickerContainer}>
+                                    <Picker
+                                        selectedValue={selectedContact?.id}
+                                        onValueChange={(itemValue) => {
+                                            const contact = allContacts.find((c) => c.id === itemValue);
+                                            setSelectedContact(contact);
+                                        }}
+                                        style={styles.picker}
+                                    >
+                                        <Picker.Item label={t('reportScreen.modal.allContacts')} value={null} />
+                                        {allContacts.map((contact) => (
+                                            <Picker.Item
+                                                key={contact.id}
+                                                label={contact.name}
+                                                value={contact.id}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
+                            </View>
+                        </>
                     )}
 
                     <TouchableOpacity
@@ -290,15 +425,15 @@ const ReportScreen = ({ navigation }) => {
                     ) : (
                         <>
                             <TouchableOpacity
-                                style={[styles.generateButton, { marginBottom: 15 }]}
+                                style={[styles.button, styles.generateButton]}
                                 onPress={generateReport}
                                 disabled={isLoading || !!realmError}
                             >
-                                <Text style={styles.generateButtonText}>{t('reportScreen.generateAndShare')}</Text>
+                                <Text style={styles.generateButtonText}>{t('reportScreen.generate')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={styles.generateButton}
+                                style={[styles.button, styles.generateButton]}
                                 onPress={saveReportLocally}
                                 disabled={isLoading || !!realmError}
                             >
@@ -326,20 +461,47 @@ const ReportScreen = ({ navigation }) => {
             <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{t('reportScreen.realmError')}</Text>
                 <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-                    <Text style={styles.retryButtonText}>{t('reportScreen.retry')}</Text>
+                    <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
-    if (isLoading) {
+    if (isLoading && !reportType) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>{t('reportScreen.loading')}</Text>
+                <Text style={styles.loadingText}>{t('common.loading')}</Text>
             </View>
         );
     }
+
+    const reportOptions = [
+        {
+            key: 'transaction',
+            title: t('reportScreen.transactionReport.title'),
+            description: t('reportScreen.transactionReport.description'),
+            icon: 'receipt-long',
+        },
+        {
+            key: 'contact',
+            title: t('reportScreen.contactReport.title'),
+            description: t('reportScreen.contactReport.description'),
+            icon: 'people',
+        },
+        {
+            key: 'account_summary_by_account',
+            title: t('reportScreen.accountSummaryByAccount.title'),
+            description: t('reportScreen.accountSummaryByAccount.description'),
+            icon: 'account-balance-wallet',
+        },
+        {
+            key: 'all_accounts_summary',
+            title: t('reportScreen.summaryOfAllAccounts.title'),
+            description: t('reportScreen.summaryOfAllAccounts.description'),
+            icon: 'summarize',
+        },
+    ];
 
     return (
         <View style={styles.container}>
@@ -348,50 +510,26 @@ const ReportScreen = ({ navigation }) => {
                 <View style={styles.placeholder} />
             </View>
             <ScrollView style={styles.content}>
-                <TouchableOpacity
-                    style={styles.reportCard}
-                    onPress={() => {
-                        setReportType('transaction');
-                        setShowModal(true);
-                    }}
-                >
-                    <Icon name="receipt" size={24} color={colors.primary} />
-                    <View style={styles.reportInfo}>
-                        <Text style={styles.reportTitle}>{t('reportScreen.transactionReport.title')}</Text>
-                        <Text style={styles.reportDesc}>{t('reportScreen.transactionReport.description')}</Text>
-                    </View>
-                    <Icon name="chevron-right" size={24} color={colors.gray} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.reportCard}
-                    onPress={() => {
-                        setReportType('contact');
-                        setShowModal(true);
-                    }}
-                >
-                    <Icon name="people" size={24} color={colors.primary} />
-                    <View style={styles.reportInfo}>
-                        <Text style={styles.reportTitle}>{t('reportScreen.contactReport.title')}</Text>
-                        <Text style={styles.reportDesc}>{t('reportScreen.contactReport.description')}</Text>
-                    </View>
-                    <Icon name="chevron-right" size={24} color={colors.gray} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.reportCard}
-                    onPress={() => {
-                        setReportType('account');
-                        setShowModal(true);
-                    }}
-                >
-                    <Icon name="account-balance" size={24} color={colors.primary} />
-                    <View style={styles.reportInfo}>
-                        <Text style={styles.reportTitle}>{t('reportScreen.accountSummary.title')}</Text>
-                        <Text style={styles.reportDesc}>{t('reportScreen.accountSummary.description')}</Text>
-                    </View>
-                    <Icon name="chevron-right" size={24} color={colors.gray} />
-                </TouchableOpacity>
+                {reportOptions.map(report => (
+                    <TouchableOpacity
+                        key={report.key}
+                        style={styles.reportCard}
+                        onPress={() => {
+                            setReportType(report.key);
+                            setShowModal(true);
+                        }}
+                        disabled={report.key === 'account_summary_by_account' && allAccounts.length === 0}
+                    >
+                        <Icon name={report.icon} size={24} color={report.key === 'account_summary_by_account' && allAccounts.length === 0 ? colors.gray : colors.primary} />
+                        <View style={styles.reportInfo}>
+                            <Text style={[styles.reportTitle, { color: report.key === 'account_summary_by_account' && allAccounts.length === 0 ? colors.gray : colors.gray }]}>
+                                {report.title}
+                            </Text>
+                            <Text style={styles.reportDesc}>{report.description}</Text>
+                        </View>
+                        <Icon name="chevron-right" size={24} color={colors.gray} />
+                    </TouchableOpacity>
+                ))}
             </ScrollView>
 
             <ReportModal />
@@ -509,12 +647,18 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 8,
         alignItems: 'center',
-        marginTop: 20,
     },
     generateButtonText: {
         color: colors.white,
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    button: {
+        backgroundColor: colors.primary,
+        padding: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
     },
     cancelButton: {
         padding: 16,
@@ -535,7 +679,6 @@ const styles = StyleSheet.create({
         marginTop: hp(2),
         fontSize: RFValue(16),
         color: colors.gray,
-        fontFamily: 'Sora-Regular',
     },
     inputContainer: {
         marginBottom: 20,
@@ -544,7 +687,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginBottom: 5,
         color: colors.gray,
-        fontFamily: 'Sora-Regular',
     },
     pickerContainer: {
         borderWidth: 1,
@@ -556,6 +698,9 @@ const styles = StyleSheet.create({
     picker: {
         width: '100%',
         height: 44,
+        fontFamily: 'Sora-Regular',
+        fontSize: RFValue(16),
+        color: colors.gray,
     },
     errorContainer: {
         flex: 1,

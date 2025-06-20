@@ -603,7 +603,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         style={styles.addContactButton}
                         onPress={handleAddNewContact}
                     >
-                        <Text style={styles.addContactText}>Add New Contact</Text>
+                        <Text style={styles.addContactText}>{t('addNewContact')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -624,19 +624,19 @@ const NewRecordScreen = ({ navigation, route }) => {
             <View style={styles.bottomSheetContainer}>
                 <View style={styles.bottomSheetContent}>
                     <View style={styles.bottomSheetHandle} />
-                    <Text style={styles.sectionTitle}>Add Contact</Text>
+                    <Text style={styles.sectionTitle}>{t('addContact')}</Text>
                     <TouchableOpacity
                         style={styles.bottomSheetOption}
                         onPress={() => handleContactOptionSelect('create')}
                     >
                         <Icon name="person-add" size={RFValue(20)} color={colors.primary} />
-                        <Text style={styles.bottomSheetText}>Create New Contact</Text>
+                        <Text style={styles.bottomSheetText}>{t('createNewContact')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.bottomSheetOption}
                         onPress={() => handleContactOptionSelect('import')}
                     >
-                        <Text style={styles.bottomSheetText}>Import from Device</Text>
+                        <Text style={styles.bottomSheetText}>{t('importFromContact')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -658,27 +658,27 @@ const NewRecordScreen = ({ navigation, route }) => {
             <View style={styles.bottomSheetContainer}>
                 <View style={styles.bottomSheetContent}>
                     <View style={styles.bottomSheetHandle} />
-                    <Text style={styles.bottomSheetTitle}>Add Contact</Text>
+                    <Text style={styles.bottomSheetTitle}>{t('addContact')}</Text>
 
                     <TouchableOpacity
                         style={styles.bottomSheetOption}
                         onPress={() => handleContactOptionSelect('create')}
                     >
-                        <Text style={styles.bottomSheetText}>Create New Contact</Text>
+                        <Text style={styles.bottomSheetText}>{t('createNewContact')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={styles.bottomSheetOption}
                         onPress={() => handleContactOptionSelect('import')}
                     >
-                        <Text style={styles.bottomSheetText}>Import from Device</Text>
+                        <Text style={styles.bottomSheetText}>{t('importFromContact')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={styles.bottomSheetCancel}
                         onPress={() => setShowContactOptionsModal(false)}
                     >
-                        <Text style={styles.bottomSheetCancelText}>Cancel</Text>
+                        <Text style={styles.bottomSheetCancelText}>{t('cancelContact')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -826,7 +826,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         }}
                                     >
                                         <Icon name="add" size={20} color={colors.primary} />
-                                        <Text style={styles.addContactBtnText}>Add New Contact</Text>
+                                        <Text style={styles.addContactBtnText}>{t('addNewContact')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}

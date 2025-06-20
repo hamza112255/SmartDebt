@@ -94,46 +94,61 @@
     "title": "Rapports",
     "transactionReport": {
       "title": "Rapport de Transactions",
-      "description": "Générer des rapports détaillés de transactions"
+      "description": "Générer un rapport de toutes les transactions dans une plage de dates."
     },
     "contactReport": {
-      "title": "Rapport de Contacts",
-      "description": "Générer des rapports pour des contacts spécifiques"
+      "title": "Rapport par Contact",
+      "description": "Générer un rapport résumant les soldes pour chaque contact."
     },
     "accountSummary": {
-      "title": "Résumé du Compte",
-      "description": "Générer des résumés de soldes de comptes"
+      "title": "Résumé de Compte",
+      "description": "Un résumé des soldes des comptes."
     },
+    "accountSummaryByAccount": {
+      "title": "Résumé de Compte par Compte",
+      "description": "Générer un résumé pour un compte spécifique avec des filtres de type de transaction."
+    },
+    "summaryOfAllAccounts": {
+      "title": "Résumé de Tous les Comptes",
+      "description": "Un résumé de tous les comptes dans une plage de dates."
+    },
+    "loading": "Génération du rapport...",
+    "realmError": "Échec du chargement des données depuis la base de données. Veuillez réessayer.",
+    "retry": "Réessayer",
+    "generateAndShare": "Générer et Partager",
+    "saveReportLocally": "Enregistrer le Rapport Localement",
+    "shareDialogTitle": "Partager le Rapport",
+    "saveDialogTitle": "Enregistrer le Rapport",
     "modal": {
-      "selectContact": "Sélectionner un Contact",
-      "allContacts": "Tous les Contacts",
+      "title": "Sélectionner les Filtres du Rapport",
       "startDate": "Date de Début",
-      "endDate": "Date de Fin"
+      "endDate": "Date de Fin",
+      "selectContact": "Sélectionner un Contact (Facultatif)",
+      "allContacts": "Tous les Contacts",
+      "selectAccount": "Sélectionner un Compte (Facultatif)",
+      "selectAccountRequired": "Sélectionner un Compte",
+      "transactionType": "Type de Transaction",
+      "allTransactionTypes": "Tous",
+      "receiving": "Réception",
+      "sending": "Envoi"
     },
-    "generateAndShare": "Générer & Partager",
-    "saveReportLocally": "Enregistrer Localement",
     "alerts": {
-      "selectReportType": "Veuillez sélectionner un type de rapport",
-      "selectContact": "Veuillez sélectionner un contact pour le rapport",
-      "realmError": "Erreur de base de données - veuillez redémarrer l'application",
-      "noDataTitle": "Aucune Donnée Disponible",
-      "noDataMessage": "Aucun enregistrement trouvé pour les critères sélectionnés",
-      "generateError": "Échec de la génération du rapport",
-      "sharingNotAvailableTitle": "Partage Non Disponible",
-      "sharingNotAvailableMessage": "Cet appareil ne prend pas en charge la fonctionnalité de partage",
+      "selectReportType": "Veuillez sélectionner un type de rapport.",
+      "selectContact": "Veuillez d'abord sélectionner un contact.",
+      "realmError": "Impossible de générer le rapport en raison d'une erreur de base de données.",
+      "noDataTitle": "Aucune Donnée",
+      "noDataMessage": "Aucune donnée trouvée pour les critères sélectionnés.",
+      "generateError": "Échec de la génération du rapport.",
+      "sharingNotAvailableTitle": "Partage non disponible",
+      "sharingNotAvailableMessage": "Le partage n'est pas disponible sur cet appareil.",
       "saveSuccessTitle": "Rapport Enregistré",
-      "saveSuccessMessage": "Rapport enregistré dans : {{filePath}}",
-      "saveErrorMessage": "Échec de l'enregistrement du rapport"
+      "saveSuccessMessage": "Rapport enregistré avec succès dans {{filePath}}",
+      "saveErrorMessage": "Échec de l'enregistrement du rapport."
     },
     "errors": {
-      "contactNotFound": "Contact non trouvé",
-      "invalidReportType": "Type de rapport invalide"
-    },
-    "realmError": "Erreur de base de données - veuillez réessayer",
-    "retry": "Réessayer",
-    "loading": "Génération du rapport...",
-    "shareDialogTitle": "Partager le Rapport",
-    "saveDialogTitle": "Enregistrer le Rapport"
+      "contactNotFound": "Le contact sélectionné n'a pas pu être trouvé.",
+      "invalidReportType": "Type de rapport sélectionné invalide."
+    }
   },
   "reportScreen.reports": "Rapports",
   "reportScreen.transactionReport": "Rapport de transaction",
@@ -436,5 +451,47 @@
     "errorMessage": "Veuillez remplir tous les champs obligatoires",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette transaction?",
     "selectContactPlaceholder": "Sélectionner un contact"
+  },
+  "addNewContactScreen": {
+    "title": "Ajouter un nouveau contact",
+    "formLabels": {
+      "name": "Nom",
+      "contactNo": "Numéro de contact",
+      "email": "Email",
+      "image": "Image de profil"
+    },
+    "buttons": {
+      "save": "Enregistrer le contact",
+      "pickImage": "Sélectionner une image",
+      "takePhoto": "Prendre une photo"
+    },
+    "alerts": {
+      "permissionRequired": "Autorisation requise pour accéder aux photos",
+      "saveSuccess": "Contact enregistré avec succès",
+      "saveError": "Échec de l'enregistrement du contact",
+      "validationError": "Veuillez remplir les champs requis"
+    },
+    "placeholders": {
+      "name": "Entrez le nom du contact",
+      "contactNo": "Entrez le numéro de téléphone",
+      "email": "Entrez l'adresse email"
+    }
+  },
+  "addNewContact":"Ajouter un nouveau contact",
+  "addContact": "Ajouter un contact",
+  "createNewContact":"Créer un nouveau contact",
+  "importFromContact":"Importer depuis contact",
+  "cancelContact":"Annuler",
+  "premiumScreen": {
+    "title": "Passer à Premium",
+    "subtitle": "Débloquez toutes les fonctionnalités premium",
+    "features": {
+      "advancedReports": "Rapports et analyses avancés",
+      "unlimitedAccounts": "Comptes et contacts illimités",
+      "cloudSync": "Synchronisation cloud entre appareils",
+      "prioritySupport": "Support client prioritaire",
+      "createBudget": "Créer des budgets et suivre les dépenses"
+    },
+    "upgradeButton": "Mettre à niveau maintenant"
   }
 }

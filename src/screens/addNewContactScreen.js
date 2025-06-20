@@ -42,14 +42,14 @@ const ContactNameInput = memo(({ contactName, setContactName, t }) => {
     return (
         <View style={styles.inputContainer}>
             <Text style={styles.label}>
-                {t('addNewContactScreen.name')} <Text style={styles.required}>*</Text>
+                {t('addNewContactScreen.formLabels.name')} <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
                 ref={textInputRef}
                 style={styles.input}
                 value={contactName}
                 onChangeText={handleTextChange}
-                placeholder={t('addNewContactScreen.name')}
+                placeholder={t('addNewContactScreen.placeholders.name')}
                 placeholderTextColor={colors.gray}
                 autoFocus={false}
                 returnKeyType="done"
@@ -66,9 +66,9 @@ const SettingRow = ({ titleKey, value, onChangeText, isRequired = false, style, 
     const title = t(titleKey);
 
     const keyboardType = 
-        titleKey === 'addNewContactScreen.contactNo'
+        titleKey === 'addNewContactScreen.formLabels.contactNo'
             ? 'phone-pad'
-            : titleKey === 'addNewContactScreen.email'
+            : titleKey === 'addNewContactScreen.formLabels.email'
                 ? 'email-address'
                 : 'default';
 
@@ -99,11 +99,6 @@ const NewContactScreen = ({ navigation, route }) => {
     const [contactName, setContactName] = useState('');
     const [contactNo, setContactNo] = useState('');
     const [email, setEmail] = useState('');
-    const [homeAddress, setHomeAddress] = useState('');
-    const [postalCode, setPostalCode] = useState('');
-    const [city, setCity] = useState('');
-    const [state, setState] = useState('');
-    const [country, setCountry] = useState('');
     const [imageUri, setImageUri] = useState(null);
     const { t } = useTranslation();
 
@@ -123,14 +118,15 @@ const NewContactScreen = ({ navigation, route }) => {
             if (!result.canceled) {
                 setImageUri(result.assets[0].uri);
             }
-        } catch (e) {
-            console.warn('Image pick error', e);
+        } catch (error) {
+            console.error('Image picker error:', error);
+            alert(t('addNewContactScreen.alerts.saveError'));
         }
     };
 
     const handleAddContact = () => {
         if (!contactName.trim() || !userId) {
-            alert(t('addNewContactScreen.validation.nameRequired'));
+            alert(t('addNewContactScreen.alerts.validationError'));
             return;
         }
 
@@ -156,7 +152,7 @@ const NewContactScreen = ({ navigation, route }) => {
             navigation.goBack();
         } catch (err) {
             console.error('Save contact error', err);
-            alert(t('addNewContactScreen.errors.addFailed', { message: err.message }));
+            alert(t('addNewContactScreen.alerts.saveError', { message: err.message }));
         }
     };
 
@@ -202,17 +198,8 @@ const NewContactScreen = ({ navigation, route }) => {
                             setContactName={setContactName}
                             t={t}
                         />
-                        <SettingRow titleKey="addNewContactScreen.contactNo" value={contactNo} onChangeText={setContactNo} t={t} />
-                        <SettingRow titleKey="addNewContactScreen.email" value={email} onChangeText={setEmail} t={t} />
-                        <SettingRow titleKey="addNewContactScreen.homeAddress" value={homeAddress} onChangeText={setHomeAddress} t={t} />
-                        <View style={styles.row}>
-                            <SettingRow titleKey="addNewContactScreen.postalCode" value={postalCode} onChangeText={setPostalCode} style={{ flex: 1, marginRight: 10 }} t={t} />
-                            <SettingRow titleKey="addNewContactScreen.city" value={city} onChangeText={setCity} style={{ flex: 1 }} t={t} />
-                        </View>
-                        <View style={styles.row}>
-                            <SettingRow titleKey="addNewContactScreen.state" value={state} onChangeText={setState} style={{ flex: 1, marginRight: 10 }} t={t} />
-                            <SettingRow titleKey="addNewContactScreen.country" value={country} onChangeText={setCountry} style={{ flex: 1 }} t={t} />
-                        </View>
+                        <SettingRow titleKey="addNewContactScreen.formLabels.contactNo" value={contactNo} onChangeText={setContactNo} t={t} />
+                        <SettingRow titleKey="addNewContactScreen.formLabels.email" value={email} onChangeText={setEmail} t={t} />
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity
                                 style={[
@@ -223,7 +210,7 @@ const NewContactScreen = ({ navigation, route }) => {
                                 disabled={!contactName.trim()}
                                 activeOpacity={0.85}
                             >
-                                <Text style={styles.buttonText}>{t('addNewContactScreen.buttons.save')}</Text>
+                                <Text style={styles.saveButtonText}>{t('addNewContactScreen.buttons.save')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -357,11 +344,28 @@ const styles = StyleSheet.create({
         backgroundColor: colors.gray,
         opacity: 0.6,
     },
-    buttonText: {
+    saveButtonText: {
         color: colors.white,
         fontSize: RFPercentage(2.2), // ~16px
         fontFamily: 'Sora-Bold',
         textAlign: 'center',
+    },
+    imagePickerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: hp(2),
+    },
+    imagePickerButton: {
+        backgroundColor: colors.primary,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(8), // ~32px
+        alignItems: 'center',
+        width: '45%',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowOffset: { width: wp(0), height: wp(0.25) }, // ~2px
     },
 });
 

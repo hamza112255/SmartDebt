@@ -94,46 +94,71 @@
     "title": "Reports",
     "transactionReport": {
       "title": "Transaction Report",
-      "description": "Generate detailed transaction reports"
+      "description": "Generate a report of all transactions within a date range."
     },
     "contactReport": {
-      "title": "Contact Report",
-      "description": "Generate reports for specific contacts"
+      "title": "Contact-wise Report",
+      "description": "Generate a report summarizing balances for each contact."
     },
     "accountSummary": {
       "title": "Account Summary",
-      "description": "Generate account balance summaries"
+      "description": "A summary of account balances."
     },
-    "modal": {
-      "selectContact": "Select Contact",
-      "allContacts": "All Contacts",
-      "startDate": "Start Date",
-      "endDate": "End Date"
+    "accountSummaryByAccount": {
+      "title": "Account Summary by Account",
+      "description": "Generate a summary for a specific account with transaction type filters."
     },
+    "summaryOfAllAccounts": {
+      "title": "Summary of All Accounts",
+      "description": "A summary of all accounts within a date range."
+    },
+    "loading": "Generating Report...",
+    "realmError": "Failed to load data from the database. Please try again.",
+    "retry": "Retry",
     "generateAndShare": "Generate & Share",
-    "saveReportLocally": "Save Locally",
+    "saveReportLocally": "Save Report Locally",
+    "shareDialogTitle": "Share Report",
+    "saveDialogTitle": "Save Report",
+    "modal": {
+      "title": "Select Report Filters",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "selectContact": "Select Contact (Optional)",
+      "allContacts": "All Contacts",
+      "selectAccount": "Select Account (Optional)",
+      "selectAccountRequired": "Select Account",
+      "transactionType": "Transaction Type",
+      "allTransactionTypes": "All",
+      "receiving": "Receiving",
+      "sending": "Sending",
+      "selectTransactionType": "Select Transaction Type",
+      "allAccounts": "All Accounts"
+    },
     "alerts": {
-      "selectReportType": "Please select a report type",
-      "selectContact": "Please select a contact for the report",
-      "realmError": "Database error - please restart the app",
-      "noDataTitle": "No Data Available",
-      "noDataMessage": "No records found for the selected criteria",
-      "generateError": "Failed to generate report",
-      "sharingNotAvailableTitle": "Sharing Not Available",
-      "sharingNotAvailableMessage": "This device doesn't support sharing functionality",
+      "selectReportType": "Please select a report type.",
+      "selectContact": "Please select a contact first.",
+      "realmError": "Cannot generate report due to a database error.",
+      "noDataTitle": "No Data",
+      "noDataMessage": "No data found for the selected criteria.",
+      "generateError": "Failed to generate report.",
+      "sharingNotAvailableTitle": "Sharing not available",
+      "sharingNotAvailableMessage": "Sharing is not available on this device",
       "saveSuccessTitle": "Report Saved",
-      "saveSuccessMessage": "Report saved to: {{filePath}}",
-      "saveErrorMessage": "Failed to save report"
+      "saveSuccessMessage": "Report saved successfully to {{filePath}}",
+      "saveErrorMessage": "Failed to save report."
     },
     "errors": {
-      "contactNotFound": "Contact not found",
-      "invalidReportType": "Invalid report type"
+      "contactNotFound": "The selected contact could not be found",
+      "invalidReportType": "Invalid report type selected"
     },
-    "realmError": "Database error - please try again",
-    "retry": "Retry",
-    "loading": "Generating report...",
-    "shareDialogTitle": "Share Report",
-    "saveDialogTitle": "Save Report"
+    "common": {
+      "retry": "Retry",
+      "loading": "Loading...",
+      "error": "Error",
+      "all": "All",
+      "receiving": "Receiving",
+      "sending": "Sending"
+    }
   },
   "reportScreen.reports": "Reports",
   "reportScreen.transactionReport": "Transaction Report",
@@ -239,6 +264,10 @@
     "selectTerms": "Select Terms",
     "placeholders": {
       "accountName": "Enter account name"
+    },
+    "success":{
+      "accountAdded": "Account added successfully",
+      "accountUpdated": "Account updated successfully"
     }
   },
   "addNewAccountScreen.accountName": "Account Name",
@@ -410,5 +439,47 @@
     "errorMessage": "Please fill all required fields",
     "deleteConfirm": "Are you sure you want to delete this transaction?",
     "selectContactPlaceholder": "Select Contact"
-  }
+  },
+  "premiumScreen": {
+    "title": "Upgrade to Premium",
+    "subtitle": "Unlock all premium features",
+    "features": {
+      "advancedReports": "Advanced reports and analytics",
+      "unlimitedAccounts": "Unlimited accounts and contacts",
+      "cloudSync": "Cloud sync across devices",
+      "prioritySupport": "Priority customer support",
+      "createBudget": "Create and manage budgets"
+    },
+    "upgradeButton": "Upgrade Now"
+  },
+  "addNewContactScreen": {
+    "title": "Add New Contact",
+    "formLabels": {
+      "name": "Name",
+      "contactNo": "Contact Number",
+      "email": "Email",
+      "image": "Profile Image"
+    },
+    "buttons": {
+      "save": "Save Contact",
+      "pickImage": "Select Image",
+      "takePhoto": "Take Photo"
+    },
+    "alerts": {
+      "permissionRequired": "Permission required to access photos",
+      "saveSuccess": "Contact saved successfully",
+      "saveError": "Failed to save contact",
+      "validationError": "Please fill required fields"
+    },
+    "placeholders": {
+      "name": "Enter contact name",
+      "contactNo": "Enter phone number",
+      "email": "Enter email address"
+    }
+  },
+  "addNewContact":"Add New Contact",
+  "addContact": "Add Contact",
+  "createNewContact":"Create New Contact",
+  "importFromContact":"Import From Contact",
+  "cancelContact":"Cancel"
 }

@@ -41,56 +41,66 @@
   "settingsScreen.cancel": "Annuleren",
   "settingsScreen.confirm": "Bevestigen",
   "settingsScreen.createANewPin": "Maak een nieuwe PIN-code",
-  "reportScreen.reports": "Rapporten",
-  "reportScreen.transactionReport": "Transactierapport",
-  "reportScreen.transactionReport.title": "Transactierapport",
-  "reportScreen.transactionReport.description": "Genereer gedetailleerde transactierapporten",
-  "reportScreen.transactionReportDesc": "Genereer een rapport op basis van datumbereik en account",
-  "reportScreen.contactReport": "Contactrapport",
-  "reportScreen.contactReport.title": "Contactrapport",
-  "reportScreen.contactReport.description": "Genereer rapporten voor specifieke contacten",
-  "reportScreen.contactReportDesc": "Genereer een rapport op basis van contactpersoon en datumbereik",
-  "reportScreen.accountSummary": "Accountoverzicht",
-  "reportScreen.accountSummary.title": "Rekeningoverzicht",
-  "reportScreen.accountSummary.description": "Genereer saldooverzichten van rekeningen",
-  "reportScreen.accountSummaryDesc": "Genereer een overzicht voor alle accounts",
-  "reportScreen.selectContact": "Selecteer contactpersoon",
-  "reportScreen.startDate": "Startdatum",
-  "reportScreen.endDate": "Einddatum",
-  "reportScreen.generateAndShare": "Genereer en deel rapport",
-  "reportScreen.saveReportLocally": "Rapport lokaal opslaan",
-  "reportScreen.noData": "Geen gegevens gevonden voor de geselecteerde criteria.",
-  "reportScreen.generatingReport": "Rapport genereren...",
-  "reportScreen.error": "Fout",
-  "reportScreen.retry": "Opnieuw proberen",
-  "reportScreen.title": "Rapporten",
-  "reportScreen.modal": {
-    "selectContact": "Selecteer Contact",
-    "allContacts": "Alle Contacten",
-    "startDate": "Startdatum",
-    "endDate": "Einddatum"
+  "reportScreen": {
+    "title": "Rapporten",
+    "transactionReport": {
+      "title": "Transactierapport",
+      "description": "Genereer een rapport van alle transacties binnen een datumbereik."
+    },
+    "contactReport": {
+      "title": "Rapport per Contact",
+      "description": "Genereer een rapport met een overzicht van de saldi per contact."
+    },
+    "accountSummary": {
+      "title": "Rekeningoverzicht",
+      "description": "Een overzicht van de rekeningsaldi."
+    },
+    "accountSummaryByAccount": {
+      "title": "Rekeningoverzicht per Rekening",
+      "description": "Genereer een overzicht voor een specifieke rekening met transactietypefilters."
+    },
+    "summaryOfAllAccounts": {
+      "title": "Overzicht van Alle Rekeningen",
+      "description": "Een overzicht van alle rekeningen binnen een datumbereik."
+    },
+    "loading": "Rapport genereren...",
+    "realmError": "Gegevens laden uit de database is mislukt. Probeer het opnieuw.",
+    "retry": "Opnieuw proberen",
+    "generateAndShare": "Genereer en Deel",
+    "saveReportLocally": "Rapport Lokaal Opslaan",
+    "shareDialogTitle": "Rapport Delen",
+    "saveDialogTitle": "Rapport Opslaan",
+    "modal": {
+      "title": "Selecteer Rapportfilters",
+      "startDate": "Startdatum",
+      "endDate": "Einddatum",
+      "selectContact": "Selecteer Contact (Optioneel)",
+      "allContacts": "Alle Contacten",
+      "selectAccount": "Selecteer Rekening (Optioneel)",
+      "selectAccountRequired": "Selecteer Rekening",
+      "transactionType": "Transactietype",
+      "allTransactionTypes": "Alle",
+      "receiving": "Ontvangen",
+      "sending": "Verzenden"
+    },
+    "alerts": {
+      "selectReportType": "Selecteer een rapporttype.",
+      "selectContact": "Selecteer eerst een contact.",
+      "realmError": "Kan rapport niet genereren vanwege een databasefout.",
+      "noDataTitle": "Geen Gegevens",
+      "noDataMessage": "Geen gegevens gevonden voor de geselecteerde criteria.",
+      "generateError": "Rapport genereren mislukt.",
+      "sharingNotAvailableTitle": "Delen niet beschikbaar",
+      "sharingNotAvailableMessage": "Delen is niet beschikbaar op dit apparaat.",
+      "saveSuccessTitle": "Rapport Opgeslagen",
+      "saveSuccessMessage": "Rapport succesvol opgeslagen in {{filePath}}",
+      "saveErrorMessage": "Rapport opslaan mislukt."
+    },
+    "errors": {
+      "contactNotFound": "Het geselecteerde contact kon niet worden gevonden.",
+      "invalidReportType": "Ongeldig rapporttype geselecteerd."
+    }
   },
-  "reportScreen.alerts": {
-    "selectReportType": "Selecteer een rapporttype",
-    "selectContact": "Selecteer een contact voor het rapport",
-    "realmError": "Databasefout - herstart de app",
-    "noDataTitle": "Geen Gegevens Beschikbaar",
-    "noDataMessage": "Geen records gevonden voor de geselecteerde criteria",
-    "generateError": "Rapport genereren mislukt",
-    "sharingNotAvailableTitle": "Delen Niet Beschikbaar",
-    "sharingNotAvailableMessage": "Dit apparaat ondersteunt de delingsfunctionaliteit niet",
-    "saveSuccessTitle": "Rapport Opgeslagen",
-    "saveSuccessMessage": "Rapport opgeslagen in: {{filePath}}",
-    "saveErrorMessage": "Rapport opslaan mislukt"
-  },
-  "reportScreen.errors": {
-    "contactNotFound": "Contact niet gevonden",
-    "invalidReportType": "Ongeldig rapporttype"
-  },
-  "reportScreen.realmError": "Databasefout - probeer het opnieuw",
-  "reportScreen.loading": "Rapport genereren...",
-  "reportScreen.shareDialogTitle": "Rapport Delen",
-  "reportScreen.saveDialogTitle": "Rapport Opslaan",
   "profileScreen.profile": "Profiel",
   "profileScreen.name": "Naam",
   "profileScreen.email": "E-mail",
@@ -406,5 +416,47 @@
     "errorMessage": "Vul alle verplichte velden in",
     "deleteConfirm": "Weet je zeker dat je deze transactie wilt verwijderen?",
     "selectContactPlaceholder": "Contact selecteren"
+  },
+  "addNewContactScreen": {
+    "title": "Nieuw contact toevoegen",
+    "formLabels": {
+      "name": "Naam",
+      "contactNo": "Contactnummer",
+      "email": "E-mail",
+      "image": "Profielfoto"
+    },
+    "buttons": {
+      "save": "Contact opslaan",
+      "pickImage": "Afbeelding selecteren",
+      "takePhoto": "Foto maken"
+    },
+    "alerts": {
+      "permissionRequired": "Toestemming vereist om foto's te openen",
+      "saveSuccess": "Contact succesvol opgeslagen",
+      "saveError": "Fout bij opslaan contact",
+      "validationError": "Vul de verplichte velden in"
+    },
+    "placeholders": {
+      "name": "Voer contactnaam in",
+      "contactNo": "Voer telefoonnummer in",
+      "email": "Voer e-mailadres in"
+    }
+  },
+  "addNewContact":"Voeg een nieuwe contact toe",
+  "addContact": "Voeg contact toe",
+  "createNewContact":"Maak een nieuwe contact",
+  "importFromContact":"Importeer van contact",
+  "cancelContact":"Annuleren",
+  "premiumScreen": {
+    "title": "Upgraden naar Premium",
+    "subtitle": "Ontgrendel alle premium functies",
+    "features": {
+      "advancedReports": "Geavanceerde rapporten en analyses",
+      "unlimitedAccounts": "Onbeperkte accounts en contacten",
+      "cloudSync": "Cloud synchronisatie tussen apparaten",
+      "prioritySupport": "Prioritaire klantenondersteuning",
+      "createBudget": "Budget maken en volgen"
+    },
+    "upgradeButton": "Nu upgraden"
   }
 }

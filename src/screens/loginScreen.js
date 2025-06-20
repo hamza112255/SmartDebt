@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,11 +10,16 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
+    ActivityIndicator,
 } from 'react-native';
+import { supabase } from '../supabase';
+import { realm } from '../realm';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { screens } from '../constant/screens';
 
 const colors = {
     primary: '#2563eb',
@@ -33,14 +38,89 @@ const colors = {
 const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const { t } = useTranslation(); // Initialize useTranslation
+    const [isLoading, setIsLoading] = useState(false);
+    const { t } = useTranslation();
 
-    const handleSignIn = () => {
+    useEffect(() => {
+        GoogleSignin.configure({
+            webClientId: 'YOUR_GOOGLE_WEB_CLIENT_ID', // IMPORTANT: Replace with your actual Web Client ID
+            offlineAccess: true,
+        });
+    }, []);
+
+    const handleSignIn = async () => {
         if (!email.trim() || !password.trim()) {
             Alert.alert(t('common.error'), t('loginScreen.validation.emailPasswordRequired'));
             return;
         }
-        Alert.alert(t('common.success'), t('loginScreen.success.signIn'));
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+            console.log('Login response:', data, error);
+
+            if (error) throw error;
+
+            if (data.user) {
+                navigation.replace('MainTabs');
+            }
+        } catch (error) {
+            Alert.alert(t('common.error'), error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        try {
+            setIsLoading(true);
+            await GoogleSignin.hasPlayServices();
+            const { idToken } = await GoogleSignin.signIn();
+
+            if (idToken) {
+                const { data, error } = await supabase.auth.signInWithIdToken({
+                    provider: 'google',
+                    token: idToken,
+                });
+
+                if (error) throw error;
+
+                if (data.user) {
+                    const existingUser = realm.objectForPrimaryKey('User', data.user.id);
+                    if (!existingUser) {
+                        realm.write(() => {
+                            realm.create('User', {
+                                id: data.user.id,
+                                email: data.user.email,
+                                userType: 'Premium',
+                                emailConfirmed: true,
+                                biometricEnabled: false,
+                                pinEnabled: false,
+                                language: 'en',
+                                isActive: true,
+                                createdOn: new Date(),
+                                updatedOn: new Date(),
+                                syncStatus: 'pending',
+                                needsUpload: true,
+                            });
+                        });
+                    } else {
+                        realm.write(() => {
+                            existingUser.lastLoginAt = new Date();
+                        });
+                    }
+                    navigation.replace('MainTabs');
+                }
+            }
+        } catch (error) {
+            if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
+                Alert.alert('Google Sign-In Error', error.message);
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -87,12 +167,17 @@ const LoginScreen = ({ navigation }) => {
                                     secureTextEntry
                                 />
                             </View>
-                            <TouchableOpacity style={styles.forgotPasswordButton}>
+                            <TouchableOpacity style={styles.forgotPasswordButton} onPress={() => navigation.navigate('ForgotPassword')}>
                                 <Text style={styles.forgotPasswordText}>{t('loginScreen.forgotPassword')}</Text>
                             </TouchableOpacity>
                         </View>
-                        <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-                            <Text style={styles.buttonText}>{t('loginScreen.signInButton')}</Text>
+                        <TouchableOpacity style={[styles.signInButton, isLoading && styles.buttonDisabled]} onPress={handleSignIn} disabled={isLoading}>
+                            {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>{t('loginScreen.signInButton')}</Text>}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={[styles.googleButton, isLoading && styles.buttonDisabled]} onPress={handleGoogleSignIn} disabled={isLoading}>
+                            <Icon name="sc-google" type="evilicon" size={RFValue(20)} color={colors.white} style={styles.googleIcon} />
+                            <Text style={styles.buttonText}>Sign In with Google</Text>
                         </TouchableOpacity>
                         <View style={styles.signUpContainer}>
                             <Text style={styles.signUpText}>{t('loginScreen.noAccountText')}</Text>
@@ -190,7 +275,22 @@ const styles = StyleSheet.create({
         height: hp(6.5),
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: hp(2),
+    },
+    googleButton: {
+        backgroundColor: '#db4437',
+        borderRadius: wp(3),
+        height: hp(6.5),
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'row',
         marginBottom: hp(3),
+    },
+    googleIcon: {
+        marginRight: wp(3),
+    },
+    buttonDisabled: {
+        opacity: 0.7,
     },
     buttonText: {
         fontSize: RFPercentage(2.2),

@@ -4,7 +4,8 @@ import { screens } from '../constant/screens';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import React, { useEffect, useState } from 'react';
-import { getAllObjects, deleteObject } from '../realm';
+import { realm, getAllObjects, deleteObject } from '../realm';
+import { supabase } from '../supabase';
 import { useTranslation } from 'react-i18next';
 
 const colors = {
@@ -50,19 +51,73 @@ const CARD_COLORS = {
 
 const DashboardScreen = ({ navigation }) => {
     const [accounts, setAccounts] = useState([]);
+    const [user, setUser] = useState(null);
     const { t } = useTranslation();
 
     useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const realmUser = realm.objectForPrimaryKey('User', session.user.id);
+                setUser(realmUser);
+                
+                // Fetch current user's data from Supabase
+                try {
+                    const { data: userData, error } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+                    
+                    if (error) {
+                        console.error('Error fetching user data:', error);
+                        return;
+                    }
+                    
+                    console.log('Current user data from Supabase:', userData);
+                    console.log('Current user data from Realm:', realmUser);
+                } catch (err) {
+                    console.error('Exception while fetching users:', err);
+                }
+            }
+        };
+
+        fetchUser();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                const realmUser = realm.objectForPrimaryKey('User', session.user.id);
+                if (realmUser) {
+                    if (session.user.email_confirmed_at && !realmUser.emailConfirmed) {
+                        realm.write(() => {
+                            realmUser.emailConfirmed = true;
+                            realmUser.updatedOn = new Date();
+                        });
+                    }
+                    setUser(realm.objectForPrimaryKey('User', session.user.id));
+                } else {
+                    // This can happen if user signs in with Google for the first time.
+                    // The user is created in loginScreen, so we just need to wait for it to be available.
+                    setUser(null);
+                }
+            } else {
+                setUser(null);
+            }
+        });
+
         const accs = getAllObjects('Account');
         setAccounts([...accs]);
 
-        // live updates
-        accs.addListener((collection, changes) => {
+        const accountsListener = (collection) => {
             setAccounts([...collection]);
-        });
+        };
+        accs.addListener(accountsListener);
 
         return () => {
-            accs.removeAllListeners();
+            if (accs && !accs.isInvalidated) {
+                accs.removeListener(accountsListener);
+            }
+            authListener?.subscription.unsubscribe();
         };
     }, []);
 
@@ -122,9 +177,11 @@ const DashboardScreen = ({ navigation }) => {
                     <Text style={styles.headerText}>
                         {t('dashboardScreen.myAccounts')}
                     </Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('PremiumScreen')}>
-                        <Icon name="workspace-premium" size={RFValue(24)} color="#FFD700" />
-                    </TouchableOpacity>
+                    {user?.userType !== 'Premium' && (
+                        <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+                            <Icon name="workspace-premium" size={RFValue(24)} color={colors.primary} />
+                        </TouchableOpacity>
+                    )}
                 </View>
                 <View style={styles.accountsSection}>
                     {accounts.map((account, index) => {

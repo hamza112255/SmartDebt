@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { supabase } from '../supabase';
+import { realm } from '../realm';
 import {
     SafeAreaView,
     ScrollView,
@@ -32,7 +34,6 @@ const colors = {
 
 const SignupScreen = ({ navigation }) => {
     const [formData, setFormData] = useState({
-        name: '',
         email: '',
         password: '',
         confirmPassword: '',
@@ -52,12 +53,6 @@ const SignupScreen = ({ navigation }) => {
 
     const validateForm = () => {
         const newErrors = {};
-
-        if (!formData.name.trim()) {
-            newErrors.name = t('signupScreen.validation.nameRequired');
-        } else if (formData.name.trim().length < 2) {
-            newErrors.name = t('signupScreen.validation.nameMinLength');
-        }
 
         if (!formData.email.trim()) {
             newErrors.email = t('signupScreen.validation.emailRequired');
@@ -87,20 +82,50 @@ const SignupScreen = ({ navigation }) => {
         if (!validateForm()) return;
 
         setIsLoading(true);
+        const { email, password } = formData;
+
         try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            Alert.alert(
-                t('signupScreen.success.title'),
-                t('signupScreen.success.message'),
-                [
-                    {
-                        text: t('signupScreen.success.signInButton'),
-                        onPress: () => navigation.navigate('Login'),
-                    },
-                ]
-            );
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+            });
+            console.log('Signup response:', data, error);
+
+            if (error) {
+                throw error;
+            }
+
+            if (data.user) {
+                realm.write(() => {
+                    realm.create('User', {
+                        id: data.user.id,
+                        email: data.user.email,
+                        userType: 'Premium',
+                        emailConfirmed: false,
+                        biometricEnabled: false,
+                        pinEnabled: false,
+                        language: 'en', // default language
+                        isActive: true,
+                        createdOn: new Date(),
+                        updatedOn: new Date(),
+                        syncStatus: 'pending',
+                        needsUpload: true,
+                    });
+                });
+
+                Alert.alert(
+                    t('signupScreen.success.title'),
+                    'Please check your email to confirm your account.',
+                    [
+                        {
+                            text: t('common.ok'),
+                            onPress: () => navigation.navigate('Login'),
+                        },
+                    ]
+                );
+            }
         } catch (error) {
-            Alert.alert(t('signupScreen.errors.signupFailed'), t('signupScreen.errors.tryAgain'));
+            Alert.alert(t('signupScreen.errors.signupFailed'), error.message || t('signupScreen.errors.tryAgain'));
         } finally {
             setIsLoading(false);
         }
@@ -131,22 +156,6 @@ const SignupScreen = ({ navigation }) => {
                         <Text style={styles.subtitle}>{t('signupScreen.subtitle')}</Text>
                     </View>
                     <View style={styles.formContainer}>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>{t('signupScreen.fullNameLabel')}</Text>
-                            <View style={[styles.inputWrapper, errors.name && styles.inputError]}>
-                                <Icon name="person" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder={t('signupScreen.placeholders.name')}
-                                    placeholderTextColor={colors.gray}
-                                    value={formData.name}
-                                    onChangeText={(text) => updateFormData('name', text)}
-                                    autoCapitalize="words"
-                                    autoCorrect={false}
-                                />
-                            </View>
-                            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-                        </View>
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>{t('signupScreen.emailAddressLabel')}</Text>
                             <View style={[styles.inputWrapper, errors.email && styles.inputError]}>

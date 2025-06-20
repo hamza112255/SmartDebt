@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RFValue } from 'react-native-responsive-fontsize';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { screens } from '../constant/screens';
 
 const colors = {
     primary: '#2563eb',
@@ -12,7 +13,7 @@ const colors = {
     gold: '#FFD700',
 };
 
-const PremiumScreen = () => {
+const PremiumScreen = ({ navigation }) => {
     const { t } = useTranslation();
 
     return (
@@ -44,7 +45,7 @@ const PremiumScreen = () => {
                 </View>
             </View>
 
-            <TouchableOpacity style={styles.upgradeButton}>
+            <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate(screens.Signup)}>
                 <Text style={styles.upgradeButtonText}>{t('premiumScreen.upgradeButton')}</Text>
             </TouchableOpacity>
         </View>

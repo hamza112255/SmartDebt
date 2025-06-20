@@ -1,5 +1,7 @@
 import 'react-native-get-random-values';
 import 'react-native-gesture-handler';
+import { enableScreens } from 'react-native-screens';
+enableScreens();
 import 'react-native-reanimated';
 import Realm from 'realm';
 Realm.flags.THROW_ON_GLOBAL_REALM = true;
@@ -7,7 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar, View, ActivityIndicator, Alert } from 'react-native';
@@ -16,6 +18,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { realm, getAllObjects, initializeRealm } from './src/realm';
+import { supabase } from './src/supabase';
 
 import DashboardScreen from './src/screens/dashboardScreen';
 import CalendarScreen from './src/screens/calendarScreen';
@@ -38,9 +41,37 @@ import ReportDetailScreen from './src/screens/ReportDetailScreen';
 import PremiumScreen from './src/screens/PremiumScreen';
 import i18n from './src/i18n'; // Import i18n
 import { I18nextProvider, useTranslation } from 'react-i18next'; // Import I18nextProvider
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 
-const Stack = createNativeStackNavigator();
+import { DefaultTheme as PaperDefaultTheme } from 'react-native-paper';
+
+const MyTheme = {
+  ...PaperDefaultTheme,
+  dark: false,
+  colors: {
+    ...PaperDefaultTheme.colors,
+    background: '#ffffff',
+    card: '#ffffff',
+    text: '#1f2937',
+    border: '#e5e7eb',
+    primary: '#2563eb',
+    notification: '#dc2626',
+  },
+  fonts: {
+    regular: { fontFamily: 'System', fontWeight: 'normal' },
+    medium: { fontFamily: 'System', fontWeight: 'normal' },
+    light: { fontFamily: 'System', fontWeight: 'normal' },
+    thin: { fontFamily: 'System', fontWeight: 'normal' },
+  },
+};
+
+const Stack = createStackNavigator();
+
 const Tab = createBottomTabNavigator();
+
+const linking = {
+  prefixes: ['myapp://'],
+};
 
 function MainTabs() {
   const { t } = useTranslation();
@@ -195,6 +226,7 @@ function App({ currentLanguage }) {
   const [storedPin, setStoredPin] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [language, setLanguage] = useState(currentLanguage); // Default language
+  const [session, setSession] = useState(null);
 
   const updateBiometricState = (enabled) => {
     setIsBiometricEnabled(enabled);
@@ -375,6 +407,20 @@ function App({ currentLanguage }) {
     SecureStore.setItemAsync('lastAuthTime', Date.now().toString());
   };
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
   if (!fontsLoaded || !initialRoute) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -395,10 +441,11 @@ function App({ currentLanguage }) {
               translucent={true}
             />
             <BiometricContext.Provider value={{ updateBiometricState, updatePinState }}>
-              <NavigationContainer ref={navigationRef}>
+              <NavigationContainer theme={MyTheme} linking={linking} fallback={<ActivityIndicator />}>
                 <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
                   <Stack.Screen name={screens.Login} component={LoginScreen} />
                   <Stack.Screen name={screens.Signup} component={SignupScreen} />
+                  <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
                   <Stack.Screen name="MainTabs" component={MainTabs} />
                   <Stack.Screen name={screens.CreateProfile} component={CreateProfileScreen} />
                   <Stack.Screen

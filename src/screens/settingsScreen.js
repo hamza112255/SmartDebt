@@ -18,6 +18,7 @@ import { getAllObjects, updateObject, createObject, initializeRealm, realm } fro
 import uuid from 'react-native-uuid';
 import LinearGradient from 'react-native-linear-gradient';
 import BiometricContext from '../../src/contexts/BiometricContext';
+import { supabase } from '../supabase';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PinModal from '../components/PinModal';
 import * as SecureStore from 'expo-secure-store';
@@ -353,6 +354,32 @@ const SettingsScreen = ({ navigation }) => {
                         />
                     </View>
                 )}
+                {/* Logout Button */}
+                <TouchableOpacity
+                    style={{
+                        marginTop: 30,
+                        padding: 15,
+                        backgroundColor: colors.error,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                    }}
+                    onPress={async () => {
+                        try {
+                            await supabase.auth.signOut();
+                            // Optionally clear local user state here if needed
+                            navigation.reset({
+                                index: 0,
+                                routes: [{ name: 'Login' }],
+                            });
+                        } catch (error) {
+                            Alert.alert(t('common.error'), error.message || 'Logout failed');
+                        }
+                    }}
+                >
+                    <Text style={{ color: colors.white, fontSize: RFPercentage(2.2), fontFamily: 'Sora-Bold' }}>
+                        {t('common.logout') || 'Logout'}
+                    </Text>
+                </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     );

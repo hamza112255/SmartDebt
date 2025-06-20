@@ -326,22 +326,38 @@ export class ReportGenerator {
   }
 
   static generateAllAccountsSummaryReport(filters) {
-    const { startDate, endDate } = filters;
+    const { startDate, endDate, transactionTypeFilter } = filters;
     const accounts = realm.objects('Account');
     const summaryData = [];
 
+    const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
+    const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
+
     accounts.forEach(account => {
-      const transactions = realm.objects('Transaction').filtered('accountId == $0 AND transactionDate >= $1 AND transactionDate <= $2', account._id, startDate, endDate);
+      let accountId = account.id || account._id;
+      let transactions = realm.objects('Transaction').filtered(
+        '(accountId == $0 OR accountId == $1) AND transactionDate >= $2 AND transactionDate <= $3',
+        accountId,
+        accountId && accountId.toString ? accountId.toString() : accountId,
+        startDate,
+        endDate
+      );
+
+      // Apply transactionTypeFilter if present
+      if (transactionTypeFilter === 'receiving') {
+        transactions = transactions.filtered('type IN $0', receivingTypes);
+      } else if (transactionTypeFilter === 'sending') {
+        transactions = transactions.filtered('type IN $0', sendingTypes);
+      }
+
       let totalIn = 0;
       let totalOut = 0;
-      const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
-      const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
 
       transactions.forEach(tx => {
         if (receivingTypes.includes(tx.type)) {
-          totalIn += tx.amount;
+          totalIn += Number(tx.amount) || 0;
         } else if (sendingTypes.includes(tx.type)) {
-          totalOut += tx.amount;
+          totalOut += Number(tx.amount) || 0;
         }
       });
 
@@ -574,14 +590,38 @@ export class ReportGenerator {
             </div>
         `;
     } else { // all_accounts_summary
-        const rows = data.map(acc => `
-            <tr>
-                <td>${acc.accountName}</td>
-                <td>${acc.totalIn.toFixed(2)}</td>
-                <td>${acc.totalOut.toFixed(2)}</td>
-                <td>${acc.balance.toFixed(2)}</td>
-            </tr>
-        `).join('');
+        // Show only relevant columns based on transactionTypeFilter
+        let tableHeaders = '<th>Account</th>';
+        let tableRows = '';
+        if (filters.transactionTypeFilter === 'receiving') {
+            tableHeaders += '<th>Total In</th><th>Balance</th>';
+            tableRows = data.map(acc => `
+                <tr>
+                    <td>${acc.accountName}</td>
+                    <td>${acc.totalIn.toFixed(2)}</td>
+                    <td>${acc.balance.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        } else if (filters.transactionTypeFilter === 'sending') {
+            tableHeaders += '<th>Total Out</th><th>Balance</th>';
+            tableRows = data.map(acc => `
+                <tr>
+                    <td>${acc.accountName}</td>
+                    <td>${acc.totalOut.toFixed(2)}</td>
+                    <td>${acc.balance.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        } else {
+            tableHeaders += '<th>Total In</th><th>Total Out</th><th>Balance</th>';
+            tableRows = data.map(acc => `
+                <tr>
+                    <td>${acc.accountName}</td>
+                    <td>${acc.totalIn.toFixed(2)}</td>
+                    <td>${acc.totalOut.toFixed(2)}</td>
+                    <td>${acc.balance.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
 
         body = `
             <h2>${title}</h2>
@@ -589,13 +629,10 @@ export class ReportGenerator {
             <table>
                 <thead>
                     <tr>
-                        <th>Account</th>
-                        <th>Total In</th>
-                        <th>Total Out</th>
-                        <th>Balance</th>
+                        ${tableHeaders}
                     </tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>${tableRows}</tbody>
             </table>
         `;
     }

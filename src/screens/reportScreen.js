@@ -80,6 +80,7 @@ const ReportScreen = ({ navigation }) => {
             // Load transactions
             const transactions = realm.objects('Transaction');
             console.log('Loaded transactions:', transactions?.length || 0);
+            console.log('Raw transactions loaded:', transactions);
             setTransactions(transactions || []);
 
             // Load accounts
@@ -133,14 +134,24 @@ const ReportScreen = ({ navigation }) => {
             return;
         }
 
+        // Listen for changes on all relevant collections
         const transactionCollection = realm.objects('Transaction');
-        transactionCollection.addListener((collection, changes) => {
-            console.log('Transaction collection changed');
+        const accountCollection = realm.objects('Account');
+        const contactCollection = realm.objects('Contact');
+
+        // Fix: Use addListener(callback) not addListener('change', callback)
+        const reload = () => {
             loadData();
-        });
+        };
+
+        transactionCollection.addListener(reload);
+        accountCollection.addListener(reload);
+        contactCollection.addListener(reload);
 
         return () => {
             transactionCollection.removeAllListeners();
+            accountCollection.removeAllListeners();
+            contactCollection.removeAllListeners();
         };
     }, [loadData]);
 
@@ -220,11 +231,12 @@ const ReportScreen = ({ navigation }) => {
         try {
             setIsLoading(true);
 
+            // Ensure correct logic for all accounts summary
             const filters = {
                 startDate: dateRange.startDate,
                 endDate: dateRange.endDate,
-                accountId: selectedAccount,
-                contactId: selectedContact?.id,
+                accountId: selectedAccount ? String(selectedAccount) : null,
+                contactId: selectedContact?.id ? String(selectedContact.id) : null,
                 transactionTypeFilter
             };
 
@@ -239,7 +251,6 @@ const ReportScreen = ({ navigation }) => {
                     if (filters.contactId && !reportData.contactInfo) {
                         throw new Error(t('reportScreen.errors.contactNotFound'));
                     }
-                    // If no data, show alert and close modal
                     if (!reportData.data || (Array.isArray(reportData.data) && reportData.data.length === 0)) {
                         Alert.alert(
                             t('reportScreen.alerts.noDataTitle'),
@@ -255,14 +266,19 @@ const ReportScreen = ({ navigation }) => {
                     }
                     break;
                 case 'account_summary_by_account':
-                    if (selectedAccount) {
-                        reportData = ReportGenerator.generateAccountSummaryByAccountReport(filters);
+                    // If "All Accounts" is selected, show all accounts summary
+                    if (!selectedAccount) {
+                        // Remove accountId and transactionTypeFilter for all accounts summary
+                        const { accountId, transactionTypeFilter, ...restFilters } = filters;
+                        reportData = ReportGenerator.generateAllAccountsSummaryReport(restFilters);
                     } else {
-                        reportData = ReportGenerator.generateAllAccountsSummaryReport(filters);
+                        reportData = ReportGenerator.generateAccountSummaryByAccountReport(filters);
                     }
                     break;
                 case 'all_accounts_summary':
-                    reportData = ReportGenerator.generateAllAccountsSummaryReport(filters);
+                    // Remove accountId and transactionTypeFilter for all accounts summary
+                    const { accountId, transactionTypeFilter, ...restFilters } = filters;
+                    reportData = ReportGenerator.generateAllAccountsSummaryReport(restFilters);
                     break;
                 default:
                     throw new Error(t('reportScreen.errors.invalidReportType'));

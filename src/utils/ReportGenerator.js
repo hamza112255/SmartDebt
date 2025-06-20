@@ -139,7 +139,7 @@ export class ReportGenerator {
   }
 
   static generateTransactionReport(filters) {
-    const transactions = realm.objects('Transaction')
+    let transactions = realm.objects('Transaction')
         .filtered(
             'transactionDate >= $0 && transactionDate <= $1',
             filters.startDate,
@@ -148,6 +148,14 @@ export class ReportGenerator {
 
     if (filters.accountId) {
         transactions = transactions.filtered('accountId == $0', filters.accountId);
+    }
+
+    if (filters.transactionTypeFilter && filters.transactionTypeFilter !== 'all') {
+        const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
+        const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
+        
+        const types = filters.transactionTypeFilter === 'receiving' ? receivingTypes : sendingTypes;
+        transactions = transactions.filtered('type IN $0', types);
     }
 
     return {
@@ -159,8 +167,6 @@ export class ReportGenerator {
   }
 
   static generateContactReport(filters) {
-    console.log('Generating contact report with filters:', filters);
-    
     let transactions = realm.objects('Transaction')
         .filtered(
             'transactionDate >= $0 && transactionDate <= $1',
@@ -169,7 +175,6 @@ export class ReportGenerator {
         );
 
     if (filters.contactId) {
-        console.log('Looking for contact with ID:', filters.contactId);
         transactions = transactions.filtered('contactId == $0', filters.contactId);
     }
 
@@ -177,10 +182,16 @@ export class ReportGenerator {
         transactions = transactions.filtered('accountId == $0', filters.accountId);
     }
 
+    if (filters.transactionTypeFilter && filters.transactionTypeFilter !== 'all') {
+        const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
+        const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
+        
+        const types = filters.transactionTypeFilter === 'receiving' ? receivingTypes : sendingTypes;
+        transactions = transactions.filtered('type IN $0', types);
+    }
+
     const contact = filters.contactId ? 
         realm.objectForPrimaryKey('Contact', filters.contactId) : null;
-        
-    console.log('Found contact:', contact);
 
     return {
         type: 'contact',
@@ -258,21 +269,39 @@ export class ReportGenerator {
       throw new Error('Account name is missing');
     }
 
-    let transactions = realm.objects('Transaction').filtered('accountId == $0 AND transactionDate >= $1 AND transactionDate <= $2', accountId, startDate, endDate);
+    // Ensure accountId type matches Transaction.accountId type
+    let realmAccountId = accountId;
+    // If your Transaction.accountId is stored as string, this is fine.
+    // If it's an ObjectId, you may need to convert:
+    // realmAccountId = new Realm.BSON.ObjectId(accountId);
+
+    let transactions = realm.objects('Transaction').filtered(
+      'accountId == $0 AND transactionDate >= $1 AND transactionDate <= $2',
+      realmAccountId, startDate, endDate
+    );
 
     const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
     const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
 
+    // Filter transactions by type if needed
     if (transactionTypeFilter === 'receiving') {
       transactions = transactions.filtered('type IN $0', receivingTypes);
     } else if (transactionTypeFilter === 'sending') {
       transactions = transactions.filtered('type IN $0', sendingTypes);
     }
 
+    // Defensive: filter again in JS in case Realm filter fails due to type mismatch
+    let txArray = Array.from(transactions);
+    if (transactionTypeFilter === 'receiving') {
+      txArray = txArray.filter(tx => receivingTypes.includes(tx.type));
+    } else if (transactionTypeFilter === 'sending') {
+      txArray = txArray.filter(tx => sendingTypes.includes(tx.type));
+    }
+
     let totalIn = 0;
     let totalOut = 0;
 
-    transactions.forEach(tx => {
+    txArray.forEach(tx => {
       const amount = Number(tx.amount) || 0;
       if (receivingTypes.includes(tx.type)) {
         totalIn += amount;
@@ -289,7 +318,8 @@ export class ReportGenerator {
         totalIn,
         totalOut,
         netFlow: totalIn - totalOut,
-        transactionCount: transactions.length,
+        transactionCount: txArray.length,
+        transactions: txArray
       },
       filters,
     };
@@ -378,13 +408,31 @@ export class ReportGenerator {
     let body;
 
     if (type === 'account_summary_by_account') {
+        // Only show relevant totals based on transactionTypeFilter
+        let totalsHtml = '';
+        if (filters.transactionTypeFilter === 'receiving') {
+            totalsHtml = `
+                <p>Total Receiving: ${data.totalIn.toFixed(2)}</p>
+                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+            `;
+        } else if (filters.transactionTypeFilter === 'sending') {
+            totalsHtml = `
+                <p>Total Sending: ${data.totalOut.toFixed(2)}</p>
+                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+            `;
+        } else {
+            totalsHtml = `
+                <p>Total Receiving: ${data.totalIn.toFixed(2)}</p>
+                <p>Total Sending: ${data.totalOut.toFixed(2)}</p>
+                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+            `;
+        }
+
         body = `
             <h2>${title}</h2>
             <p>From: ${new Date(filters.startDate).toLocaleDateString()} To: ${new Date(filters.endDate).toLocaleDateString()}</p>
             <div class="summary">
-                <p>Total Receiving: ${data.totalIn.toFixed(2)}</p>
-                <p>Total Sending: ${data.totalOut.toFixed(2)}</p>
-                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+                ${totalsHtml}
                 <p>Total Transactions: ${data.transactionCount}</p>
             </div>
         `;
@@ -497,13 +545,31 @@ export class ReportGenerator {
     let body;
 
     if (type === 'account_summary_by_account') {
+        // Only show relevant totals based on transactionTypeFilter
+        let totalsHtml = '';
+        if (filters.transactionTypeFilter === 'receiving') {
+            totalsHtml = `
+                <p>Total Receiving: ${data.totalIn.toFixed(2)}</p>
+                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+            `;
+        } else if (filters.transactionTypeFilter === 'sending') {
+            totalsHtml = `
+                <p>Total Sending: ${data.totalOut.toFixed(2)}</p>
+                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+            `;
+        } else {
+            totalsHtml = `
+                <p>Total Receiving: ${data.totalIn.toFixed(2)}</p>
+                <p>Total Sending: ${data.totalOut.toFixed(2)}</p>
+                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+            `;
+        }
+
         body = `
             <h2>${title}</h2>
             <p>From: ${new Date(filters.startDate).toLocaleDateString()} To: ${new Date(filters.endDate).toLocaleDateString()}</p>
             <div class="summary">
-                <p>Total Receiving: ${data.totalIn.toFixed(2)}</p>
-                <p>Total Sending: ${data.totalOut.toFixed(2)}</p>
-                <p><strong>Net Flow: ${data.netFlow.toFixed(2)}</strong></p>
+                ${totalsHtml}
                 <p>Total Transactions: ${data.transactionCount}</p>
             </div>
         `;

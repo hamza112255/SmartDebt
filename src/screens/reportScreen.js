@@ -55,7 +55,6 @@ const ReportScreen = ({ navigation }) => {
     const [realmError, setRealmError] = useState(null);
     const [allAccounts, setAllAccounts] = useState([]);
     const [transactionTypeFilter, setTransactionTypeFilter] = useState('all');
-    const [accountFilter, setAccountFilter] = useState(null);
     const { t } = useTranslation();
 
     // Load data from Realm
@@ -220,39 +219,83 @@ const ReportScreen = ({ navigation }) => {
     const generateReport = async () => {
         try {
             setIsLoading(true);
-            
-            // Simplified filtering
-            const filteredTransactions = transactions.filter(txn => {
-                const matchesAccount = !accountFilter || txn.accountId === accountFilter;
-                const matchesType = transactionTypeFilter === 'all' || 
-                                  (transactionTypeFilter === 'receiving' && txn.amount > 0) ||
-                                  (transactionTypeFilter === 'sending' && txn.amount < 0);
-                return matchesAccount && matchesType;
-            });
-            
-            if (filteredTransactions.length === 0) {
+
+            const filters = {
+                startDate: dateRange.startDate,
+                endDate: dateRange.endDate,
+                accountId: selectedAccount,
+                contactId: selectedContact?.id,
+                transactionTypeFilter
+            };
+
+            let reportData;
+
+            switch (reportType) {
+                case 'transaction':
+                    reportData = ReportGenerator.generateTransactionReport(filters);
+                    break;
+                case 'contact':
+                    reportData = ReportGenerator.generateContactReport(filters);
+                    if (filters.contactId && !reportData.contactInfo) {
+                        throw new Error(t('reportScreen.errors.contactNotFound'));
+                    }
+                    // If no data, show alert and close modal
+                    if (!reportData.data || (Array.isArray(reportData.data) && reportData.data.length === 0)) {
+                        Alert.alert(
+                            t('reportScreen.alerts.noDataTitle'),
+                            t('reportScreen.alerts.noDataMessage'),
+                            [
+                                {
+                                    text: t('common.ok'),
+                                    onPress: () => setShowModal(false)
+                                }
+                            ]
+                        );
+                        return;
+                    }
+                    break;
+                case 'account_summary_by_account':
+                    if (selectedAccount) {
+                        reportData = ReportGenerator.generateAccountSummaryByAccountReport(filters);
+                    } else {
+                        reportData = ReportGenerator.generateAllAccountsSummaryReport(filters);
+                    }
+                    break;
+                case 'all_accounts_summary':
+                    reportData = ReportGenerator.generateAllAccountsSummaryReport(filters);
+                    break;
+                default:
+                    throw new Error(t('reportScreen.errors.invalidReportType'));
+            }
+
+            if (!reportData || !reportData.data || (Array.isArray(reportData.data) && reportData.data.length === 0)) {
                 Alert.alert(
                     t('reportScreen.alerts.noDataTitle'),
-                    t('reportScreen.alerts.noDataMessage')
+                    t('reportScreen.alerts.noDataMessage'),
+                    [
+                        {
+                            text: t('common.ok'),
+                            onPress: () => setShowModal(false)
+                        }
+                    ]
                 );
                 return;
             }
-            
-            // Generate report with filtered transactions
-            const reportData = ReportGenerator.generateTransactionReport({
-                startDate: dateRange.startDate,
-                endDate: dateRange.endDate,
-                transactions: filteredTransactions,
-            });
+
             const html = ReportGenerator.generateReportHTML(reportData);
             const { uri } = await Print.printToFileAsync({ html });
+
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri, {
                     dialogTitle: t('reportScreen.shareDialogTitle'),
                     mimeType: 'application/pdf',
+                    UTI: 'com.adobe.pdf',
                 });
             } else {
-                Alert.alert(t('reportScreen.alerts.sharingNotAvailableTitle'), t('reportScreen.alerts.sharingNotAvailableMessage'));
+                Alert.alert(
+                    t('reportScreen.alerts.sharingNotAvailableTitle'),
+                    t('reportScreen.alerts.sharingNotAvailableMessage')
+                );
             }
         } catch (error) {
             console.error('Error generating report:', error);
@@ -316,16 +359,16 @@ const ReportScreen = ({ navigation }) => {
                                 <Text style={styles.label}>{t('reportScreen.modal.selectAccount')}</Text>
                                 <View style={styles.pickerContainer}>
                                     <Picker
-                                        selectedValue={accountFilter}
-                                        onValueChange={setAccountFilter}
+                                        selectedValue={selectedAccount}
+                                        onValueChange={value => setSelectedAccount(value === 'all' ? null : value)}
                                         style={styles.picker}
                                     >
-                                        <Picker.Item label={t('reportScreen.modal.allAccounts')} value={null} />
+                                        <Picker.Item label={t('reportScreen.modal.allAccounts')} value="all" />
                                         {allAccounts.map(acc => (
-                                            <Picker.Item 
-                                                key={acc._id}
+                                            <Picker.Item
+                                                key={acc.id || acc._id}
                                                 label={acc.name || t('reportScreen.common.unnamedAccount')}
-                                                value={acc._id}
+                                                value={acc.id || acc._id}
                                             />
                                         ))}
                                     </Picker>
@@ -336,7 +379,7 @@ const ReportScreen = ({ navigation }) => {
                                 <View style={styles.pickerContainer}>
                                     <Picker
                                         selectedValue={transactionTypeFilter}
-                                        onValueChange={(itemValue) => setTransactionTypeFilter(itemValue)}
+                                        onValueChange={setTransactionTypeFilter}
                                         style={styles.picker}
                                     >
                                         <Picker.Item label={t('reportScreen.common.all')} value="all" />
@@ -355,15 +398,15 @@ const ReportScreen = ({ navigation }) => {
                                 <View style={styles.pickerContainer}>
                                     <Picker
                                         selectedValue={selectedAccount}
-                                        onValueChange={(itemValue) => setSelectedAccount(itemValue)}
+                                        onValueChange={setSelectedAccount}
                                         style={styles.picker}
                                     >
                                         <Picker.Item label={t('reportScreen.modal.allAccounts')} value={null} />
                                         {allAccounts.map(acc => (
                                             <Picker.Item
-                                                key={acc._id?.toHexString ? acc._id?.toHexString() : acc._id?.toString()}
+                                                key={acc.id || acc._id}
                                                 label={acc.name || 'Unnamed Account'}
-                                                value={acc._id?.toHexString ? acc._id?.toHexString() : acc._id?.toString()}
+                                                value={acc.id || acc._id}
                                             />
                                         ))}
                                     </Picker>

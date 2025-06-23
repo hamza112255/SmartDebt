@@ -124,15 +124,15 @@ const NewContactScreen = ({ navigation, route }) => {
         }
     };
 
-    const handleAddContact = () => {
+    const handleAddContact = async () => {
         if (!contactName.trim() || !userId) {
             alert(t('addNewContactScreen.alerts.validationError'));
             return;
         }
 
         try {
-            realm.write(() => {
-                realm.create('Contact', {
+            await realm.write(() => {
+                const newContact = realm.create('Contact', {
                     id: new Realm.BSON.UUID().toString(),
                     name: contactName,
                     phone: contactNo,
@@ -147,6 +147,17 @@ const NewContactScreen = ({ navigation, route }) => {
                     syncStatus: 'pending',
                     lastSyncAt: null,
                     needsUpload: true,
+                });
+
+                realm.create('SyncLog', {
+                    id: Date.now().toString() + '_log',
+                    userId: userId,
+                    tableName: 'contacts',
+                    recordId: newContact.id,
+                    operation: 'create',
+                    status: 'pending',
+                    createdOn: new Date(),
+                    processedAt: null
                 });
             });
             navigation.goBack();

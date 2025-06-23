@@ -67,40 +67,42 @@ const AccountNameInput = memo(({ accountName, setAccountName, t }) => {
 const AddAccountScreen = ({ navigation, route }) => {
     const { t } = useTranslation();
     const [accountName, setAccountName] = useState('');
-    const [currency, setCurrency] = useState({ code: 'USD', name: t('currencies.usd.name'), flag: '🇺🇸', country: t('currencies.usd.country') });
+    const [currency, setCurrency] = useState('USD');
     const [terms, setTerms] = useState('cash_in_out');
     const [showCurrencySheet, setShowCurrencySheet] = useState(false);
     const [showTermsSheet, setShowTermsSheet] = useState(false);
+    const [currencies, setCurrencies] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        // Fetch currencies from Realm
+        const currencyElements = getAllObjects('CodeListElement')
+            .filtered('codeListName == "currencies" && active == true')
+            .sorted('sortOrder');
+        
+        setCurrencies(Array.from(currencyElements));
+        
+        // Realm change listener
+        const listener = () => {
+            const updatedCurrencies = getAllObjects('CodeListElement')
+                .filtered('codeListName == "currencies" && active == true')
+                .sorted('sortOrder');
+            setCurrencies(Array.from(updatedCurrencies));
+        };
+        
+        currencyElements.addListener(listener);
+        return () => currencyElements.removeListener(listener);
+    }, []);
 
     const existingAccount = route?.params?.account ?? null;
 
     useEffect(() => {
         if (existingAccount) {
             setAccountName(existingAccount.name);
-            const foundCurrency = currencies.find(c => c.code === existingAccount.currency);
-            if (foundCurrency) setCurrency(foundCurrency);
+            setCurrency(existingAccount.currency || 'USD');
             setTerms(existingAccount.type);
         }
     }, [existingAccount]);
-
-    const currencies = [
-        { code: 'USD', name: t('currencies.usd.name'), flag: '🇺🇸', country: t('currencies.usd.country') },
-        { code: 'EUR', name: t('currencies.eur.name'), flag: '🇪🇺', country: t('currencies.eur.country') },
-        { code: 'GBP', name: t('currencies.gbp.name'), flag: '🇬🇧', country: t('currencies.gbp.country') },
-        { code: 'JPY', name: t('currencies.jpy.name'), flag: '🇯🇵', country: t('currencies.jpy.country') },
-        { code: 'AUD', name: t('currencies.aud.name'), flag: '🇦🇺', country: t('currencies.aud.country') },
-        { code: 'CAD', name: t('currencies.cad.name'), flag: '🇨🇦', country: t('currencies.cad.country') },
-        { code: 'CHF', name: t('currencies.chf.name'), flag: '🇨🇭', country: t('currencies.chf.country') },
-        { code: 'CNY', name: t('currencies.cny.name'), flag: '🇨🇳', country: t('currencies.cny.country') },
-        { code: 'SEK', name: t('currencies.sek.name'), flag: '🇸🇪', country: t('currencies.sek.country') },
-        { code: 'NZD', name: t('currencies.nzd.name'), flag: '🇳🇿', country: t('currencies.nzd.country') },
-        { code: 'MXN', name: t('currencies.mxn.name'), flag: '🇲🇽', country: t('currencies.mxn.country') },
-        { code: 'SGD', name: t('currencies.sgd.name'), flag: '🇸🇬', country: t('currencies.sgd.country') },
-        { code: 'HKD', name: t('currencies.hkd.name'), flag: '🇭🇰', country: t('currencies.hkd.country') },
-        { code: 'NOK', name: t('currencies.nok.name'), flag: '🇳🇴', country: t('currencies.nok.country') },
-        { code: 'PKR', name: t('currencies.pkr.name'), flag: '🇵🇰', country: t('currencies.pkr.country') },
-        { code: 'INR', name: t('currencies.inr.name'), flag: '🇮🇳', country: t('currencies.inr.country') },
-    ];
 
     const termOptions = [
         {code: 'cash_in_out', display: t('terms.cashInCashOut')},
@@ -114,76 +116,96 @@ const AddAccountScreen = ({ navigation, route }) => {
         return term ? term.display : t('terms.cashInCashOut');
     };
 
-    const handleAddAccount = () => {
-        if (!accountName.trim()) return;
+    const handleAddAccount = useCallback(async () => {
+        if (isLoading) return;
+        setIsLoading(true);
 
-        const now = new Date();
-        // Determine current user id (create default user if none)
-        const users = getAllObjects('User');
-        let currentUserId = users.length > 0 ? users[0].id : 'localUser';
+        try {
+            const now = new Date();
+            // Determine current user id (create default user if none)
+            const users = getAllObjects('User');
+            let currentUserId = users.length > 0 ? users[0].id : 'localUser';
 
-        const data = {
-            id: existingAccount ? existingAccount.id : uuid.v4(),
-            name: accountName.trim(),
-            currency: currency.code,
-            type: terms,
-            userId: currentUserId,
-            isPrimary: existingAccount ? existingAccount.isPrimary : false,
-            currentBalance: existingAccount ? existingAccount.currentBalance : 0,
-            language: t('settingsScreen.language'),
-            // Initialize all type-based amounts to 0
-            cashIn: existingAccount ? existingAccount.cashIn : 0,
-            cashOut: existingAccount ? existingAccount.cashOut : 0,
-            debit: existingAccount ? existingAccount.debit : 0,
-            credit: existingAccount ? existingAccount.credit : 0,
-            receive: existingAccount ? existingAccount.receive : 0,
-            sendOut: existingAccount ? existingAccount.sendOut : 0,
-            borrow: existingAccount ? existingAccount.borrow : 0,
-            lend: existingAccount ? existingAccount.lend : 0,
-            isActive: true,
-            createdOn: existingAccount ? existingAccount.createdOn : now,
-            updatedOn: now,
-            syncStatus: 'pending',
-            needsUpload: true,
-        };
-
-        // Ensure a local user profile exists when working offline
-        if (users.length === 0) {
-            const userData = {
-                id: currentUserId,
-                firstName: null,
-                lastName: null,
-                email: null,
-                emailConfirmed: false,
-                biometricEnabled: false,
-                pinEnabled: false,
-                pinCode: null,
-                language: null,
-                passwordHash: null,
-                userType: 'free',
-                profilePictureUrl: null,
-                timezone: null,
+            const data = {
+                id: existingAccount ? existingAccount.id : uuid.v4(),
+                name: accountName.trim(),
+                currency: currency,
+                type: terms,
+                userId: currentUserId,
+                isPrimary: existingAccount ? existingAccount.isPrimary : false,
+                currentBalance: existingAccount ? existingAccount.currentBalance : 0,
+                language: t('settingsScreen.language'),
+                // Initialize all type-based amounts to 0
+                cashIn: existingAccount ? existingAccount.cashIn : 0,
+                cashOut: existingAccount ? existingAccount.cashOut : 0,
+                debit: existingAccount ? existingAccount.debit : 0,
+                credit: existingAccount ? existingAccount.credit : 0,
+                receive: existingAccount ? existingAccount.receive : 0,
+                sendOut: existingAccount ? existingAccount.sendOut : 0,
+                borrow: existingAccount ? existingAccount.borrow : 0,
+                lend: existingAccount ? existingAccount.lend : 0,
                 isActive: true,
-                lastLoginAt: null,
-                createdOn: now,
+                createdOn: existingAccount ? existingAccount.createdOn : now,
                 updatedOn: now,
                 syncStatus: 'pending',
-                lastSyncAt: null,
                 needsUpload: true,
             };
-            createObject('User', userData);
-        }
 
-        if (existingAccount) {
-            updateObject('Account', data.id, data);
-            Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
-        } else {
-            createObject('Account', data);
-            Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
-        }
+            // Ensure a local user profile exists when working offline
+            if (users.length === 0) {
+                const userData = {
+                    id: currentUserId,
+                    firstName: null,
+                    lastName: null,
+                    email: null,
+                    emailConfirmed: false,
+                    biometricEnabled: false,
+                    pinEnabled: false,
+                    pinCode: null,
+                    language: null,
+                    passwordHash: null,
+                    userType: 'free',
+                    profilePictureUrl: null,
+                    timezone: null,
+                    isActive: true,
+                    lastLoginAt: null,
+                    createdOn: now,
+                    updatedOn: now,
+                    syncStatus: 'pending',
+                    lastSyncAt: null,
+                    needsUpload: true,
+                };
+                createObject('User', userData);
+            }
 
-        navigation.goBack();
-    };
+            if (existingAccount) {
+                updateObject('Account', data.id, data);
+                Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
+            } else {
+                createObject('Account', data);
+
+                // Create sync log
+                createObject('SyncLog', {
+                    id: Date.now().toString() + '_log',
+                    userId: currentUserId,
+                    tableName: 'accounts',
+                    recordId: data.id,
+                    operation: 'create',
+                    status: 'pending',
+                    createdOn: new Date(),
+                    processedAt: null
+                });
+
+                Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
+            }
+
+            navigation.goBack();
+        } catch (error) {
+            Alert.alert('Error', 'Failed to create account: ' + error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isLoading, accountName, currency, terms, existingAccount, navigation]);
 
     const BottomSheet = ({ visible, onClose, title, children }) => (
         <Modal
@@ -205,25 +227,17 @@ const AddAccountScreen = ({ navigation, route }) => {
         </Modal>
     );
 
-    const CurrencyItem = ({ item }) => (
+    const renderCurrencyItem = ({ item }) => (
         <TouchableOpacity
-            style={[
-                styles.sheetOption,
-                currency.code === item.code && { backgroundColor: colors.lightGray }
-            ]}
+            style={styles.currencyItem}
             onPress={() => {
-                setCurrency(item);
+                console.log('Selected currency:', item.element);
+                setCurrency(item.element);
                 setShowCurrencySheet(false);
             }}
         >
-            <Text style={styles.currencyFlag}>{item.flag}</Text>
-            <View style={styles.currencyInfo}>
-                <Text style={styles.sheetOptionText}>{item.code}</Text>
-                <Text style={styles.currencyName}>{item.name}</Text>
-            </View>
-            {currency.code === item.code && (
-                <Icon name="check" size={RFValue(22)} color={colors.primary} />
-            )}
+            <Text style={styles.currencyCode}>{item.element}</Text>
+            <Text style={styles.currencyName}>{item.description}</Text>
         </TouchableOpacity>
     );
 
@@ -247,6 +261,9 @@ const AddAccountScreen = ({ navigation, route }) => {
     const CurrencyIcon = () => (
         <Text style={styles.currencyFlag}>{currency.flag}</Text>
     );
+
+    // Find the selected currency object
+    const selectedCurrency = currencies.find(c => c.element === currency) || { element: 'USD' };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -285,7 +302,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                                 <View style={styles.settingsContainer}>
                                     <SettingRow
                                         title={t('addNewAccountScreen.currency')}
-                                        value={currency.code}
+                                        value={selectedCurrency.element}
                                         onPress={() => setShowCurrencySheet(true)}
                                         isRequired={true}
                                         icon={<CurrencyIcon />}
@@ -354,9 +371,9 @@ const AddAccountScreen = ({ navigation, route }) => {
                 >
                     <FlatList
                         data={currencies}
-                        keyExtractor={(item) => item.code}
-                        renderItem={({ item }) => <CurrencyItem item={item} />}
-                        showsVerticalScrollIndicator={false}
+                        renderItem={renderCurrencyItem}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={styles.currencyList}
                     />
                 </BottomSheet>
             </KeyboardAvoidingView>
@@ -545,6 +562,44 @@ const styles = StyleSheet.create({
         color: colors.gray,
         marginTop: hp(0.25), // ~2px
         fontFamily: 'Sora-Regular',
+    },
+    currencyItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(2), // ~8px
+        borderRadius: wp(2.5), // ~10px
+        marginBottom: hp(0.75), // ~6px
+    },
+    currencyCode: {
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
+        color: colors.primary,
+    },
+    currencyList: {
+        paddingHorizontal: wp(6), // ~24px
+        paddingVertical: hp(3), // ~24px
+    },
+    selectInput: {
+        backgroundColor: colors.white,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(4), // ~16px
+        marginBottom: hp(1.75), // ~14px
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
+        borderWidth: 1,
+        borderColor: colors.border,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    selectInputText: {
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
+        color: colors.text,
     },
 });
 

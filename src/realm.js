@@ -5,26 +5,26 @@ export const UserSchema = {
   primaryKey: "id",
   properties: {
     id: "string",
+    supabaseId: "string?",
+    email: "string",
     firstName: "string?",
     lastName: "string?",
-    email: "string?",
-    emailConfirmed: "bool",
-    biometricEnabled: "bool",
-    pinEnabled: "bool",
-    pinCode: "string?",
     passwordHash: "string?",
-    userType: "string", // 'free' or 'paid'
-    profilePictureUrl: "string?",
     language: "string",
     timezone: "string?",
+    profilePictureUrl: "string?",
+    pinCode: "string?",
+    pinEnabled: "bool",
+    biometricEnabled: "bool",
     isActive: "bool",
-    lastLoginAt: "date?",
+    emailConfirmed: "bool",
+    userType: "string",
     createdOn: "date",
     updatedOn: "date",
-    // Sync fields
-    syncStatus: "string", // 'synced', 'pending', 'conflict'
+    lastLoginAt: "date?",
     lastSyncAt: "date?",
-    needsUpload: "bool",
+    syncStatus: "string",
+    needsUpload: "bool"
   },
 };
 
@@ -182,6 +182,22 @@ export const ReportSchema = {
   },
 };
 
+export const SyncLogSchema = {
+  name: 'SyncLog',
+  primaryKey: 'id',
+  properties: {
+    id: 'string',
+    userId: 'string',
+    tableName: 'string',
+    recordId: 'string',
+    operation: 'string', // 'create', 'update', 'delete'
+    status: 'string', // 'pending', 'completed', 'failed'
+    error: 'string?',
+    createdOn: 'date',
+    processedAt: 'date?',
+  },
+};
+
 // ---------------- Realm Instance ---------------- //
 let realm = new Realm({
   schema: [
@@ -192,7 +208,8 @@ let realm = new Realm({
     CodeListSchema,
     CodeListElementSchema,
     UserCodeListElementSchema,
-    ReportSchema, // Add ReportSchema
+    ReportSchema,
+    SyncLogSchema, // Add SyncLogSchema
   ],
   schemaVersion: 1,
 });
@@ -211,7 +228,8 @@ export const initializeRealm = async () => {
           CodeListSchema,
           CodeListElementSchema,
           UserCodeListElementSchema,
-          ReportSchema, // Add ReportSchema
+          ReportSchema,
+          SyncLogSchema, // Add SyncLogSchema
         ],
         schemaVersion: 1,
       });
@@ -247,5 +265,48 @@ export const deleteObject = (modelName, primaryKey) => {
 export const deleteAll = () => {
   realm.write(() => {
     realm.deleteAll();
+  });
+};
+
+export const createSyncLog = (logData) => {
+  return realm.write(() => {
+    return realm.create('SyncLog', {
+      id: Date.now().toString(),
+      userId: logData.userId,
+      tableName: logData.tableName,
+      recordId: logData.recordId,
+      operation: logData.operation,
+      status: logData.status || 'pending',
+      error: logData.error || null,
+      createdOn: new Date(),
+      processedAt: null,
+    });
+  });
+};
+
+export const getPendingSyncLogs = (userId) => {
+  return realm.objects('SyncLog').filtered('userId == $0 && status == "pending"', userId);
+};
+
+export const updateSyncLogStatus = (logId, status, error = null) => {
+  return realm.write(() => {
+    const log = realm.objectForPrimaryKey('SyncLog', logId);
+    if (log) {
+      log.status = status;
+      log.processedAt = new Date();
+      if (error) log.error = error;
+    }
+    return log;
+  });
+};
+
+export const deleteSyncLog = (logId) => {
+  return realm.write(() => {
+    const log = realm.objectForPrimaryKey('SyncLog', logId);
+    if (log) {
+      realm.delete(log);
+      return true;
+    }
+    return false;
   });
 };

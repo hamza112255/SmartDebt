@@ -19,6 +19,7 @@ import * as SecureStore from 'expo-secure-store';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { realm, getAllObjects, initializeRealm } from './src/realm';
 import { supabase } from './src/supabase';
+import { fetchAndStoreCodeLists } from './src/supabase';
 
 import DashboardScreen from './src/screens/dashboardScreen';
 import CalendarScreen from './src/screens/calendarScreen';
@@ -227,6 +228,9 @@ function App({ currentLanguage }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [language, setLanguage] = useState(currentLanguage); // Default language
   const [session, setSession] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  console.log('sync logs', realm.objects('SyncLog'))
+  console.log('accounts', realm.objects('Account'))
 
   const updateBiometricState = (enabled) => {
     setIsBiometricEnabled(enabled);
@@ -357,10 +361,14 @@ function App({ currentLanguage }) {
           setNeedsAuth(true);
         }
 
+        await fetchAndStoreCodeLists();
+
         setInitialRoute(hasUser ? 'MainTabs' : screens.CreateProfile);
       } catch (error) {
         setInitialRoute('MainTabs');
         setFontsLoaded(true);
+      } finally {
+        setIsLoading(false);
       }
     }
 
@@ -421,7 +429,7 @@ function App({ currentLanguage }) {
     };
   }, []);
 
-  if (!fontsLoaded || !initialRoute) {
+  if (isLoading || !fontsLoaded || !initialRoute) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />

@@ -66,12 +66,12 @@ const ImportContactsScreen = ({ navigation, route }) => {
     );
   };
 
-  const saveSelectedContacts = () => {
+  const saveSelectedContacts = async () => {
     if (!selectedContacts.length || !userId) return;
 
     try {
       const savedContacts = [];
-      realm.write(() => {
+      await realm.write(() => {
         selectedContacts.forEach(contactId => {
           const contact = contacts.find(c => c.id === contactId);
           if (contact) {
@@ -92,6 +92,17 @@ const ImportContactsScreen = ({ navigation, route }) => {
               needsUpload: true,
             });
             savedContacts.push(newContact);
+
+            realm.create('SyncLog', {
+              id: Date.now().toString() + '_' + newContact.id,
+              userId: userId,
+              tableName: 'contacts',
+              recordId: newContact.id,
+              operation: 'create',
+              status: 'pending',
+              createdOn: new Date(),
+              processedAt: null
+            });
           }
         });
       });

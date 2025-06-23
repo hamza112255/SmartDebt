@@ -16,6 +16,7 @@ import {
     ActivityIndicator,
     Image,
     Dimensions,
+    FlatList
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -27,7 +28,6 @@ import { realm } from '../realm';
 import * as ImagePicker from 'expo-image-picker';
 import moment from 'moment';
 import { useFocusEffect } from '@react-navigation/native';
-const { width, height } = Dimensions.get('window');
 import { useTranslation } from 'react-i18next';
 
 const colors = {
@@ -88,7 +88,6 @@ const NewRecordScreen = ({ navigation, route }) => {
         transactionId,
         accountId,
         userId,
-        onSave,
         sourceScreen // 'account' or 'calendar'
     } = route.params || {};
     const [type, setType] = useState('');
@@ -119,6 +118,10 @@ const NewRecordScreen = ({ navigation, route }) => {
     const [isRemarksFocused, setIsRemarksFocused] = useState(false);
     const [showContactOptionsModal, setShowContactOptionsModal] = useState(false);
     const [showContactDropdown, setShowContactDropdown] = useState(false);
+    const [purposes, setPurposes] = useState([]);
+    const [showPurposeModal, setShowPurposeModal] = useState(false);
+    const [newPurpose, setNewPurpose] = useState('');
+    const [showNewPurposeModal, setShowNewPurposeModal] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(hp(50))).current;
@@ -209,6 +212,37 @@ const NewRecordScreen = ({ navigation, route }) => {
         return () => realm.objects('Contact').removeListener(contactListener);
     }, [userId, contactPerson]);
 
+    // Purpose fetching from Realm
+    useEffect(() => {
+        // Fetch purposes from Realm
+        const systemPurposes = realm.objects('CodeListElement')
+            .filtered('codeListName == "transaction_purposes" && active == true')
+            .sorted('sortOrder');
+        const userPurposes = realm.objects('UserCodeListElement')
+            .filtered('codeListName == "transaction_purposes" && active == true && userId == $0', userId)
+            .sorted('sortOrder');
+        const allPurposes = [...Array.from(systemPurposes), ...Array.from(userPurposes)];
+        setPurposes(allPurposes);
+        
+        // Realm change listener
+        const listener = () => {
+            const updatedSystem = realm.objects('CodeListElement')
+                .filtered('codeListName == "transaction_purposes" && active == true')
+                .sorted('sortOrder');
+            const updatedUser = realm.objects('UserCodeListElement')
+                .filtered('codeListName == "transaction_purposes" && active == true && userId == $0', userId)
+                .sorted('sortOrder');
+            setPurposes([...Array.from(updatedSystem), ...Array.from(updatedUser)]);
+        };
+        
+        systemPurposes.addListener(listener);
+        userPurposes.addListener(listener);
+        return () => {
+            systemPurposes.removeListener(listener);
+            userPurposes.removeListener(listener);
+        };
+    }, [userId]);
+
     const loadTransactionData = useCallback(() => {
         try {
             const transaction = realm.objectForPrimaryKey('Transaction', transactionId);
@@ -246,21 +280,10 @@ const NewRecordScreen = ({ navigation, route }) => {
 
     const handleSave = useCallback(async () => {
         if (isLoading) return;
-        if (!contactPerson) {
-            safeAlert('Error', 'Please select a contact person.');
-            return;
-        }
-        if (!purpose) {
-            safeAlert('Error', 'Please enter a purpose.');
-            return;
-        }
-        if (!amount || isNaN(parseFloat(amount))) {
-            safeAlert('Error', 'Please enter a valid amount.');
-            return;
-        }
         setIsLoading(true);
+
         try {
-            realm.write(() => {
+            await realm.write(() => {
                 const transactionAmount = parseFloat(amount) || 0;
                 const account = realm.objectForPrimaryKey('Account', accountId);
 
@@ -340,38 +363,33 @@ const NewRecordScreen = ({ navigation, route }) => {
                     needsUpload: true
                 };
 
-                if (isEditing && originalTransaction) {
-                    realm.create('Transaction', transactionData, 'modified');
-                } else {
-                    realm.create('Transaction', transactionData);
-                }
+                const transaction = realm.create('Transaction', transactionData);
 
-                // Remove the alert from here
+                realm.create('SyncLog', {
+                    id: Date.now().toString() + '_log',
+                    userId: userId,
+                    tableName: 'transactions',
+                    recordId: transaction.id,
+                    operation: isEditing ? 'update' : 'create',
+                    status: 'pending',
+                    createdOn: new Date(),
+                    processedAt: null
+                });
+
+                if (sourceScreen === 'calendar') {
+                    navigation.navigate(screens.Calendar);
+                } else {
+                    navigation.goBack();
+                }
             });
 
-            // Call onSave first
-            onSave?.();
-            Alert.alert(
-                'Success',
-                'Transaction saved successfully',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            setTimeout(() => {
-                                navigation.goBack();
-                            }, 100);
-                        }
-                    }
-                ]
-            );
-
+            setIsLoading(false);
         } catch (error) {
             safeAlert('Error', 'Failed to save transaction: ' + error.message);
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, amount, type, accountId, userId, transactionId, originalTransaction, isEditing, contactPerson, transactionDate, remarks, purpose, imageUri, onSave, navigation, sourceScreen]);
+    }, [isLoading, amount, type, accountId, userId, transactionId, originalTransaction, isEditing, contactPerson, transactionDate, remarks, purpose, imageUri, navigation, sourceScreen]);
 
     const handleDelete = useCallback(async () => {
         if (isLoading || !isEditing || !originalTransaction) return;
@@ -420,7 +438,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                             });
 
                             safeAlert('Success', 'Transaction deleted successfully.');
-                            onSave?.();
                             navigation.goBack();
                         } catch (error) {
                             console.error('Failed to delete transaction:', error);
@@ -432,7 +449,26 @@ const NewRecordScreen = ({ navigation, route }) => {
                 },
             ]
         );
-    }, [isLoading, isEditing, originalTransaction, onSave, navigation]);
+    }, [isLoading, isEditing, originalTransaction, navigation]);
+
+    const handleCancel = useCallback(() => {
+        navigation.goBack();
+    }, [navigation]);
+
+    useEffect(() => {
+        navigation.setOptions({
+            headerLeft: () => (
+                <TouchableOpacity onPress={handleCancel}>
+                    <Text style={styles.headerButton}>{t('common.cancel')}</Text>
+                </TouchableOpacity>
+            ),
+            headerRight: () => (
+                <TouchableOpacity onPress={handleSave}>
+                    <Text style={styles.headerButton}>{t('common.save')}</Text>
+                </TouchableOpacity>
+            )
+        });
+    }, [navigation, handleSave, handleCancel]);
 
     useEffect(() => {
         Animated.spring(slideAnim, {
@@ -690,6 +726,61 @@ const NewRecordScreen = ({ navigation, route }) => {
         Alert.alert(title, message);
     };
 
+    const handleAddNewPurpose = () => {
+        if (!newPurpose.trim()) {
+            Alert.alert('Error', 'Please enter a purpose');
+            return;
+        }
+
+        try {
+            realm.write(() => {
+                const newPurposeItem = realm.create('UserCodeListElement', {
+                    id: Date.now().toString(),
+                    codeListName: 'transaction_purposes',
+                    element: newPurpose.trim(),
+                    description: newPurpose.trim(),
+                    active: true,
+                    userId: userId,
+                    sortOrder: 1000,
+                    createdOn: new Date(),
+                    updatedOn: new Date(),
+                    syncStatus: 'pending',
+                    needsUpload: true
+                });
+
+                // Create sync log
+                realm.create('SyncLog', {
+                    id: Date.now().toString() + '_log',
+                    userId: userId,
+                    tableName: 'user_code_list_elements',
+                    recordId: newPurposeItem.id,
+                    operation: 'create',
+                    status: 'pending',
+                    createdOn: new Date(),
+                    processedAt: null
+                });
+            });
+
+            setPurpose(newPurpose.trim());
+            setNewPurpose('');
+            setShowNewPurposeModal(false);
+            Alert.alert('Success', 'Purpose added successfully');
+        } catch (error) {
+            console.error('Error saving new purpose:', error);
+            Alert.alert('Error', 'Failed to save new purpose');
+        }
+    };
+
+    useEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <TouchableOpacity onPress={handleSave}>
+                    <Text style={styles.headerButton}>{t('common.save')}</Text>
+                </TouchableOpacity>
+            )
+        });
+    }, [navigation, handleSave]);
+
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
@@ -834,19 +925,15 @@ const NewRecordScreen = ({ navigation, route }) => {
 
                         <View style={styles.cardContainer}>
                             <Text style={styles.sectionTitle}>{t('newRecordScreen.purposeLabel')}</Text>
-                            <View style={[styles.inputWrapper, isPurposeFocused && styles.inputWrapperFocused]}>
-                                <Icon name="description" size={RFValue(20)} color={colors.primary} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder={t('newRecordScreen.purposePlaceholder')}
-                                    placeholderTextColor={colors.textSecondary}
-                                    value={purpose}
-                                    onChangeText={setPurpose}
-                                    onFocus={() => setIsPurposeFocused(true)}
-                                    onBlur={() => setIsPurposeFocused(false)}
-                                    editable={!isLoading}
-                                />
-                            </View>
+                            <TouchableOpacity 
+                                style={styles.selectInput}
+                                onPress={() => setShowPurposeModal(true)}
+                            >
+                                <Text style={purpose ? styles.selectInputText : styles.selectInputPlaceholder}>
+                                    {purpose || t('newRecordScreen.selectPurpose')}
+                                </Text>
+                                <Icon name="arrow-drop-down" size={24} color={colors.gray} />
+                            </TouchableOpacity>
                         </View>
 
                         <View style={styles.cardContainer}>
@@ -937,7 +1024,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                             <View style={styles.floatingButtons}>
                                 <TouchableOpacity
                                     style={[styles.floatingButton, styles.cancelButton]}
-                                    onPress={() => navigation.goBack()}
+                                    onPress={handleCancel}
                                     activeOpacity={0.8}
                                     disabled={isLoading}
                                 >
@@ -1014,6 +1101,81 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </Animated.View>
                     </Modal>
                     <ContactOptionsModal />
+                    <Modal
+                        visible={showPurposeModal}
+                        animationType="slide"
+                        transparent={true}
+                        onRequestClose={() => setShowPurposeModal(false)}
+                    >
+                        <TouchableOpacity 
+                            style={styles.modalBackdrop}
+                            activeOpacity={1}
+                            onPress={() => setShowPurposeModal(false)}
+                        >
+                            <TouchableWithoutFeedback>
+                                <View style={styles.modalContent}>
+                                    <Text style={styles.modalTitle}>Select Purpose</Text>
+                                    <FlatList
+                                        data={purposes}
+                                        keyExtractor={item => item.id}
+                                        renderItem={({item}) => (
+                                            <TouchableOpacity 
+                                                style={styles.modalItem}
+                                                onPress={() => {
+                                                    setPurpose(item.element);
+                                                    setShowPurposeModal(false);
+                                                }}
+                                            >
+                                                <Text>{item.description}</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    />
+                                    <TouchableOpacity 
+                                        style={styles.addNewButton}
+                                        onPress={() => {
+                                            setShowPurposeModal(false);
+                                            setShowNewPurposeModal(true);
+                                        }}
+                                    >
+                                        <Text style={styles.addNewText}>+ Add New Purpose</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </TouchableOpacity>
+                    </Modal>
+                    <Modal
+                        visible={showNewPurposeModal}
+                        animationType="slide"
+                        transparent={true}
+                        onRequestClose={() => setShowNewPurposeModal(false)}
+                    >
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalContent}>
+                                <Text style={styles.modalTitle}>Add New Purpose</Text>
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder="Enter purpose name"
+                                    value={newPurpose}
+                                    onChangeText={setNewPurpose}
+                                    autoFocus={true}
+                                />
+                                <View style={styles.modalButtonContainer}>
+                                    <TouchableOpacity 
+                                        style={[styles.modalButton, styles.cancelButton]}
+                                        onPress={() => setShowNewPurposeModal(false)}
+                                    >
+                                        <Text style={styles.modalButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.modalButton, styles.saveButton]}
+                                        onPress={handleAddNewPurpose}
+                                    >
+                                        <Text style={styles.modalButtonText}>Save</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
                 </Animated.View>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -1340,6 +1502,8 @@ const styles = StyleSheet.create({
     modalBackdrop: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     modalContainer: {
         flex: 1,
@@ -1534,7 +1698,90 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         color: colors.primary,
         fontWeight: '500',
-    }
+    },
+    selectInput: {
+        backgroundColor: colors.white,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(4), // ~16px
+        flexDirection: 'row',
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    selectInputText: {
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
+        color: colors.textPrimary,
+        flex: 1,
+    },
+    selectInputPlaceholder: {
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
+        color: colors.textSecondary,
+        flex: 1,
+    },
+    modalItem: {
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    addNewButton: {
+        padding: 16,
+        backgroundColor: colors.background,
+        alignItems: 'center',
+    },
+    addNewText: {
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Bold',
+        color: colors.primary,
+    },
+    modalInput: {
+        height: hp(12.5), // ~100px
+        textAlignVertical: 'top',
+        padding: 16,
+        backgroundColor: colors.white,
+        borderRadius: wp(3), // ~12px
+        paddingVertical: hp(1.75), // ~14px
+        paddingHorizontal: wp(4), // ~16px
+        fontSize: RFPercentage(2.2), // ~16px
+        fontFamily: 'Sora-Regular',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    modalButtonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+    },
+    modalButton: {
+        paddingVertical: hp(1.5),
+        paddingHorizontal: wp(5),
+        borderRadius: wp(2),
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: wp(30),
+    },
+    cancelButton: {
+        backgroundColor: colors.errorLight,
+    },
+    saveButton: {
+        backgroundColor: colors.successLight,
+    },
+    modalButtonText: {
+        color: colors.white,
+        fontSize: RFPercentage(2),
+        fontFamily: 'Sora-SemiBold',
+    },
 });
 
 export default NewRecordScreen;

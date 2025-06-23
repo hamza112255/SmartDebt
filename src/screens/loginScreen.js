@@ -11,15 +11,15 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
+    Modal,
 } from 'react-native';
-import { supabase } from '../supabase';
+import { supabase, syncPendingChanges } from '../supabase';
 import { realm } from '../realm';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
-import { screens } from '../constant/screens';
+import { RFPercentage } from 'react-native-responsive-fontsize';
+import { useTranslation } from 'react-i18next';
 
 const colors = {
     primary: '#2563eb',
@@ -39,6 +39,9 @@ const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncProgress, setSyncProgress] = useState(0);
+    const [syncMessage, setSyncMessage] = useState('');
     const { t } = useTranslation();
 
     useEffect(() => {
@@ -48,26 +51,44 @@ const LoginScreen = ({ navigation }) => {
         });
     }, []);
 
-    const handleSignIn = async () => {
-        if (!email.trim() || !password.trim()) {
+    const handleLogin = async () => {
+        if (!email || !password) {
             Alert.alert(t('common.error'), t('loginScreen.validation.emailPasswordRequired'));
             return;
         }
+
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-            console.log('Login response:', data, error);
+            console.log('[LOGIN] Attempting login for:', email);
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
             if (error) throw error;
 
-            if (data.user) {
+            if (data?.user) {
+                console.log('[LOGIN] Success, supabase user ID:', data.user.id);
+                
+                const realmUsers = realm.objects('User').filtered('email == $0', email);
+                if (realmUsers.length > 0) {
+                    const realmUser = realmUsers[0];
+                    console.log('[LOGIN] Found matching Realm user:', realmUser.id);
+                    
+                    await realm.write(() => {
+                        if (realmUser.supabaseId !== data.user.id) {
+                            realmUser.supabaseId = data.user.id;
+                            console.log('[LOGIN] Updated supabaseId:', realmUser.supabaseId);
+                        }
+                    });
+                    
+                    await handleSync(realmUser.id);
+                } else {
+                    console.log('[LOGIN] No matching Realm user found');
+                }
+                
                 navigation.replace('MainTabs');
             }
         } catch (error) {
-            Alert.alert(t('common.error'), error.message);
+            console.error('[LOGIN] Error:', error);
+            Alert.alert(t('common.error'), error.message || t('loginScreen.errors.signInFailed'));
         } finally {
             setIsLoading(false);
         }
@@ -93,48 +114,97 @@ const LoginScreen = ({ navigation }) => {
                         realm.write(() => {
                             realm.create('User', {
                                 id: data.user.id,
+                                supabaseId: data.user.id,
                                 email: data.user.email,
-                                userType: 'Premium',
-                                emailConfirmed: true,
-                                biometricEnabled: false,
-                                pinEnabled: false,
+                                firstName: data.user.user_metadata?.full_name?.split(' ')[0] || '',
+                                lastName: data.user.user_metadata?.full_name?.split(' ')[1] || '',
                                 language: 'en',
+                                pinEnabled: false,
+                                biometricEnabled: false,
                                 isActive: true,
+                                emailConfirmed: true,
+                                userType: 'free',
                                 createdOn: new Date(),
                                 updatedOn: new Date(),
-                                syncStatus: 'pending',
-                                needsUpload: true,
+                                syncStatus: 'synced',
+                                needsUpload: false,
                             });
                         });
-                    } else {
-                        realm.write(() => {
-                            existingUser.lastLoginAt = new Date();
-                        });
                     }
+                    await handleSync(data.user.id);
                     navigation.replace('MainTabs');
                 }
             }
         } catch (error) {
             if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
-                Alert.alert('Google Sign-In Error', error.message);
+                console.error('Google Sign-In Error:', error);
+                Alert.alert(t('common.error'), 'Google Sign-In failed. Please try again.');
             }
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleSync = async (userId) => {
+        console.log('[SYNC] Starting sync process for user:', userId);
+        setIsSyncing(true);
+        setSyncMessage(t('loginScreen.sync.starting', 'Preparing to sync...'));
+        setSyncProgress(0);
+
+        try {
+            const onProgress = ({ current, total, tableName }) => {
+                const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+                setSyncProgress(percentage);
+                setSyncMessage(t('loginScreen.sync.progress', { current, total, table: tableName || 'records' }));
+            };
+
+            const result = await syncPendingChanges(userId, onProgress);
+
+            if (result.total > 0) {
+                setSyncMessage(t('loginScreen.sync.complete', 'Sync complete!'));
+                setSyncProgress(100);
+            } else {
+                setSyncMessage(t('loginScreen.sync.nothingToSync', 'Everything is up to date.'));
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+        } catch (error) {
+            console.error('[SYNC] Sync process failed:', error);
+            setSyncMessage(t('loginScreen.sync.error', 'Sync failed. Please try again.'));
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        } finally {
+            console.log('[SYNC] Finalizing sync process');
+            setIsSyncing(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
+            <Modal
+                transparent={true}
+                animationType="fade"
+                visible={isSyncing}
+                onRequestClose={() => {}}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalContainer}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={styles.modalText}>{syncMessage}</Text>
+                        <View style={styles.syncProgressContainer}>
+                            <View style={[styles.syncProgress, { width: `${syncProgress}%` }]} />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardView}
-            >
+                style={styles.keyboardView}>
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                >
+                    keyboardShouldPersistTaps="handled">
                     <View style={styles.header}>
-                        <Icon name="account-balance-wallet" size={RFValue(48)} color={colors.primary} />
                         <Text style={styles.title}>{t('loginScreen.title')}</Text>
                         <Text style={styles.subtitle}>{t('loginScreen.subtitle')}</Text>
                     </View>
@@ -142,11 +212,10 @@ const LoginScreen = ({ navigation }) => {
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>{t('loginScreen.emailLabel')}</Text>
                             <View style={styles.inputWrapper}>
-                                <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="email" size={20} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder={t('loginScreen.emailLabel')}
-                                    placeholderTextColor={colors.gray}
+                                    placeholder={t('loginScreen.placeholders.email', 'Enter your email')}
                                     value={email}
                                     onChangeText={setEmail}
                                     keyboardType="email-address"
@@ -157,28 +226,28 @@ const LoginScreen = ({ navigation }) => {
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>{t('loginScreen.passwordLabel')}</Text>
                             <View style={styles.inputWrapper}>
-                                <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
+                                <Icon name="lock" size={20} color={colors.gray} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder={t('loginScreen.passwordLabel')}
-                                    placeholderTextColor={colors.gray}
+                                    placeholder={t('loginScreen.placeholders.password', 'Enter your password')}
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry
                                 />
                             </View>
-                            <TouchableOpacity style={styles.forgotPasswordButton} onPress={() => navigation.navigate('ForgotPassword')}>
+                            <TouchableOpacity style={styles.forgotPasswordButton}>
                                 <Text style={styles.forgotPasswordText}>{t('loginScreen.forgotPassword')}</Text>
                             </TouchableOpacity>
                         </View>
-                        <TouchableOpacity style={[styles.signInButton, isLoading && styles.buttonDisabled]} onPress={handleSignIn} disabled={isLoading}>
+                        <TouchableOpacity style={[styles.signInButton, (isLoading || isSyncing) && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading || isSyncing}>
                             {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>{t('loginScreen.signInButton')}</Text>}
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={[styles.googleButton, isLoading && styles.buttonDisabled]} onPress={handleGoogleSignIn} disabled={isLoading}>
-                            <Icon name="sc-google" type="evilicon" size={RFValue(20)} color={colors.white} style={styles.googleIcon} />
-                            <Text style={styles.buttonText}>Sign In with Google</Text>
+                        <TouchableOpacity style={[styles.googleButton, (isLoading || isSyncing) && styles.buttonDisabled]} onPress={handleGoogleSignIn} disabled={isLoading || isSyncing}>
+                            <Icon name="sc-google" size={22} color={colors.white} style={styles.googleIcon} />
+                            <Text style={styles.buttonText}>{t('loginScreen.googleSignInButton', 'Sign In with Google')}</Text>
                         </TouchableOpacity>
+
                         <View style={styles.signUpContainer}>
                             <Text style={styles.signUpText}>{t('loginScreen.noAccountText')}</Text>
                             <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
@@ -310,6 +379,47 @@ const styles = StyleSheet.create({
         fontSize: RFPercentage(2),
         color: colors.primary,
         fontWeight: '600',
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        backgroundColor: colors.white,
+        borderRadius: wp(4),
+        padding: wp(6),
+        alignItems: 'center',
+        width: '80%',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalText: {
+        marginTop: hp(2),
+        marginBottom: hp(2),
+        fontSize: RFPercentage(2.2),
+        color: colors.text,
+        textAlign: 'center',
+    },
+    syncProgressContainer: {
+        height: 8,
+        width: '100%',
+        borderRadius: 4,
+        backgroundColor: colors.lightGray,
+        overflow: 'hidden',
+        marginTop: hp(1),
+    },
+    syncProgress: {
+        height: '100%',
+        backgroundColor: colors.primary,
+        borderRadius: 4,
     },
 });
 

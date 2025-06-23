@@ -16,6 +16,7 @@ import { getAllObjects, createObject, updateObject } from '../realm';
 import uuid from 'react-native-uuid';
 import { useTranslation } from 'react-i18next';
 import { Picker } from '@react-native-picker/picker';
+import { realm } from '../realm';
 
 const colors = {
     primary: '#2563eb',
@@ -33,7 +34,7 @@ export default function CreateProfileScreen({ navigation, route }) {
     const { mode = 'create', initialValues = {}, onSaveKey } = route.params || {}; // mode: 'create' | 'edit'
 
     const existingUser = (() => {
-        const users = getAllObjects('User');
+        const users = realm.objects('User');
         return users.length > 0 ? users[0] : null;
     })();
 
@@ -51,6 +52,28 @@ export default function CreateProfileScreen({ navigation, route }) {
         };
     });
 
+    const [languages, setLanguages] = useState([]);
+
+    useEffect(() => {
+        // Fetch languages from Realm
+        const languageElements = realm.objects('CodeListElement')
+            .filtered('codeListName == "languages" && active == true')
+            .sorted('sortOrder');
+
+        setLanguages(Array.from(languageElements));
+
+        // Realm change listener
+        const listener = () => {
+            const updatedLanguages = realm.objects('CodeListElement')
+                .filtered('codeListName == "languages" && active == true')
+                .sorted('sortOrder');
+            setLanguages(Array.from(updatedLanguages));
+        };
+
+        languageElements.addListener(listener);
+        return () => languageElements.removeListener(listener);
+    }, []);
+
     const updateField = (field, value) => {
         setForm(prev => ({
             ...prev,
@@ -58,7 +81,7 @@ export default function CreateProfileScreen({ navigation, route }) {
         }));
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const { firstName, lastName, email, language } = form;
 
         // Required field validation
@@ -79,66 +102,73 @@ export default function CreateProfileScreen({ navigation, route }) {
             return;
         }
 
-        // Save to Realm first
-        const now = new Date();
-        const deviceTimezone = Intl?.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        try {
+            await realm.write(() => {
+                if (existingUser && mode === 'edit') {
+                    existingUser.firstName = firstName;
+                    existingUser.lastName = lastName;
+                    existingUser.email = email;
+                    existingUser.language = language;
+                    existingUser.updatedOn = new Date();
+                    existingUser.syncStatus = 'pending';
+                    existingUser.needsUpload = true;
+                } else {
+                    const newUser = realm.create('User', {
+                        id: Date.now().toString(),
+                        firstName,
+                        lastName,
+                        email,
+                        language,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                        userType: 'free',
+                        emailConfirmed: false,
+                        biometricEnabled: false,
+                        pinEnabled: false,
+                        pinCode: '',
+                        isActive: true,
+                        createdOn: new Date(),
+                        updatedOn: new Date(),
+                        syncStatus: 'pending',
+                        lastSyncAt: null,
+                        needsUpload: true,
+                    });
 
-        if (existingUser && mode === 'edit') {
-            updateObject('User', existingUser.id, {
-                firstName,
-                lastName,
-                email,
-                language,
-                timezone: deviceTimezone,
-                updatedOn: now,
-                syncStatus: 'pending',
-                needsUpload: true,
+                    realm.create('SyncLog', {
+                        id: Date.now().toString() + '_log',
+                        userId: newUser.id,
+                        tableName: 'users',
+                        recordId: newUser.id,
+                        operation: 'create',
+                        status: 'pending',
+                        createdOn: new Date(),
+                        processedAt: null
+                    });
+                }
             });
-        } else {
-            const newId = uuid.v4();
-            createObject('User', {
-                id: newId,
-                firstName,
-                lastName,
-                email,
-                language,
-                timezone: deviceTimezone,
-                userType: 'free',
-                emailConfirmed: false,
-                biometricEnabled: false,
-                pinEnabled: false,
-                pinCode: '',
-                isActive: true,
-                createdOn: now,
-                updatedOn: now,
-                syncStatus: 'pending',
-                lastSyncAt: null,
-                needsUpload: true,
-            });
-        }
 
-        // Only change language after successful save
-        if (i18n.language !== language) {
-            i18n.changeLanguage(language);
-        }
+            // Only change language after successful save
+            if (language !== i18n.language) {
+                i18n.changeLanguage(language);
+            }
 
-        if (onSaveKey) {
-            navigation.goBack();
-        } else {
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' }],
-            });
+            if (onSaveKey) {
+                navigation.goBack();
+            } else {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainTabs' }],
+                });
+            }
+        } catch (error) {
+            console.error('Error saving profile:', error);
+            Alert.alert(t('common.error'), t('createProfileScreen.error.saveFailed') + ': ' + error.message);
         }
     };
 
-    const languageOptions = [
-        { label: t('languages.en'), value: 'en' },
-        { label: t('languages.fr'), value: 'fr' },
-        { label: t('languages.es'), value: 'es' },
-        { label: t('languages.ar'), value: 'ar' },
-        { label: t('languages.nl'), value: 'nl' },
-    ];
+    const languageOptions = languages.map(lang => ({
+        label: lang.description,
+        value: lang.element
+    }));
 
     return (
         <SafeAreaView style={styles.container}>

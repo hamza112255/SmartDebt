@@ -3,6 +3,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { realm } from './realm';
+import { v4 as uuidv4 } from 'uuid';
 
 const SUPABASE_URL = 'https://luovxmspvxafbckbtkck.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1b3Z4bXNwdnhhZmJja2J0a2NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAzMjYxNjAsImV4cCI6MjA2NTkwMjE2MH0.qvNmONh5i7iMaNdLBmyrGTBlfgfqpmSUY8GX5XnCSoY';
@@ -57,7 +58,6 @@ const transformKeysToSnakeCase = (obj) => {
     return obj.map(v => transformKeysToSnakeCase(v));
   } else if (obj !== null && obj.constructor === Object) {
     return Object.keys(obj).reduce((result, key) => {
-      // Special handling for account type - map to 'type' not 'account_type'
       if (key === 'type' || key === 'account_type') {
         result['type'] = transformAccountType(obj[key]);
       } else {
@@ -81,16 +81,22 @@ const transformKeysToCamelCase = (obj) => {
   return obj;
 };
 
+// Helper for 500ms delay
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper to check if a string is a UUID
+const isUUID = (str) => {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
 // Function to fetch and store code lists from Supabase
 export const fetchAndStoreCodeLists = async () => {
   try {
-    // Clear existing code lists first
     realm.write(() => {
       realm.delete(realm.objects('CodeList'));
       realm.delete(realm.objects('CodeListElement'));
     });
-    
-    // Fetch code lists
+
     const { data: codeLists, error: listsError } = await supabase
       .from('code_lists')
       .select('*')
@@ -98,7 +104,6 @@ export const fetchAndStoreCodeLists = async () => {
 
     if (listsError) throw listsError;
 
-    // Process each code list sequentially
     for (const list of codeLists) {
       const { data: elements, error: elementsError } = await supabase
         .from('code_list_elements')
@@ -110,7 +115,6 @@ export const fetchAndStoreCodeLists = async () => {
       if (elementsError) throw elementsError;
 
       realm.write(() => {
-        // Store code list
         realm.create('CodeList', {
           name: list.name,
           description: list.description,
@@ -119,7 +123,6 @@ export const fetchAndStoreCodeLists = async () => {
           updatedOn: new Date(list.updated_on)
         });
 
-        // Store elements
         elements.forEach(element => {
           realm.create('CodeListElement', {
             id: element.id,
@@ -134,7 +137,7 @@ export const fetchAndStoreCodeLists = async () => {
         });
       });
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error fetching and storing code lists:', error);
@@ -142,216 +145,398 @@ export const fetchAndStoreCodeLists = async () => {
   }
 };
 
-export const processSyncLog = async (syncLog, supabaseUserId, schemaName) => {
+export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapping = {}) => {
   console.log(`[SYNC-PROCESS] ==> Processing Log ID: ${syncLog.id}`);
   console.log(`[SYNC-PROCESS] Operation: ${syncLog.operation} for table: ${syncLog.tableName} (Schema: ${schemaName})`);
   console.log(`[SYNC-PROCESS] Record ID: ${syncLog.recordId}`);
   console.log(`[SYNC-PROCESS] Supabase User ID: ${supabaseUserId}`);
-  console.log('[SYNC-PROCESS] Starting sync for log:', syncLog.id, 'with supabaseUserId:', supabaseUserId);
+
+  // Ensure idMapping has all required structures
+  idMapping.users = idMapping.users || {};
+  idMapping.accounts = idMapping.accounts || {};
+  idMapping.contacts = idMapping.contacts || {};
+  idMapping.transactions = idMapping.transactions || {};
+
+  console.log(`[SYNC-PROCESS] Current ID mappings state:`, JSON.stringify(idMapping, null, 2));
+
   try {
     const { tableName, recordId, operation } = syncLog;
     console.log(`[SYNC-PROCESS] Fetching local record from Realm: ${schemaName} with ID: ${recordId}`);
-    console.log(`[SYNC-PROCESS] Processing ${operation} for ${schemaName} (${tableName}) with local ID ${recordId}`);
 
     const record = realm.objectForPrimaryKey(schemaName, recordId);
 
-  if (!record && operation !== 'delete') {
-    console.error(`[SYNC-PROCESS] CRITICAL: Record with ID ${recordId} not found in Realm schema ${schemaName} for a non-delete operation.`);
-    // throw new Error(`Record not found: ${recordId}`);
-    return; // Exit if no record to process
-  }
     if (!record && operation !== 'delete') {
-      throw new Error(`Record not found in Realm: ${schemaName}/${recordId}`);
+      console.error(`[SYNC-PROCESS] CRITICAL: Record with ID ${recordId} not found in Realm schema ${schemaName} for a non-delete operation.`);
+      return false;
     }
 
     const data = record ? { ...record.toJSON() } : {};
-    delete data._id; // Ensure internal Realm fields are not sent
-
-    // Remove Realm-specific fields that are not in Supabase
+    delete data._id;
     delete data.needsUpload;
     delete data.syncStatus;
     delete data.supabaseId;
-    delete data.passwordHash; // Only relevant for User schema, but safe to have here
-    
+    delete data.passwordHash;
+
     const snakeCaseData = transformKeysToSnakeCase(data);
-  console.log('[SYNC-PROCESS] Original data (camelCase):', JSON.stringify(data, null, 2));
-  console.log('[SYNC-PROCESS] Transformed data for Supabase (snake_case):', JSON.stringify(snakeCaseData, null, 2));
+    // Ensure parent_transaction_id is null if empty string
+    if (snakeCaseData.parent_transaction_id === '') {
+      snakeCaseData.parent_transaction_id = null;
+    }
+    if (snakeCaseData.remind_to_contact_type === '') {
+      snakeCaseData.remind_to_contact_type = null;
+    }
+    if (snakeCaseData.remind_me_type === '') {
+      snakeCaseData.remind_me_type = null;
+    }
+    console.log('[SYNC-PROCESS] Original data (camelCase):', JSON.stringify(data, null, 2));
+    console.log('[SYNC-PROCESS] Transformed data for Supabase (snake_case):', JSON.stringify(snakeCaseData, null, 2));
 
     let result;
-    
+
     switch (operation) {
       case 'create':
-        // Special handling for users - update existing with proper UUID
         if (tableName === 'users') {
           console.log(`[SYNC-PROCESS] Handling user as UPDATE for ID: ${supabaseUserId}`);
-          
-          // Remove the numeric ID and use Supabase UUID
           delete snakeCaseData.id;
-          
+
+          const updateData = {
+            ...snakeCaseData,
+            user_type: 'paid',
+            email_confirmed: true
+          };
+
+          await delay(500); // 500ms delay
           result = await supabase.from(tableName)
-            .update(snakeCaseData)
+            .update(updateData)
             .eq('id', supabaseUserId)
             .select()
             .single();
-            
+
           if (result.error) throw result.error;
-          
-          // Delete old Realm record and create fresh one
+
           realm.write(() => {
             const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
             if (oldRecord) realm.delete(oldRecord);
-            
+
             const freshData = {
               ...transformKeysToCamelCase(result.data),
+              id: supabaseUserId,
+              supabaseId: supabaseUserId,
               syncStatus: 'synced',
               lastSyncAt: new Date(),
               needsUpload: false
             };
-            realm.create(schemaName, freshData);
+            realm.create(schemaName, freshData, Realm.UpdateMode.Modified);
+            console.log(`[SYNC-PROCESS] Replaced local User ${recordId} with Supabase ID ${supabaseUserId}`);
           });
+
+          // Store the user ID mapping
+          idMapping.users[recordId] = supabaseUserId;
+          console.log(`[SYNC-PROCESS] User ID mapping: ${recordId} -> ${supabaseUserId}`);
+
           return true;
         } else {
           console.log(`[SYNC-PROCESS] Sending CREATE request to Supabase table: ${tableName}`);
-          result = await supabase.from(tableName).insert(snakeCaseData).select().single();
-        }
-        console.log('[SYNC-PROCESS] Supabase CREATE response:', JSON.stringify(result, null, 2));
+          const oldId = snakeCaseData.id;
 
-        if (result.error) {
-          console.error('[SYNC-PROCESS] Supabase CREATE failed:', result.error.message);
-          console.error('Request Body was:', JSON.stringify(snakeCaseData, null, 2));
-          throw result.error;
-        }
-        if (!result.data) throw new Error('Create operation did not return data from Supabase.');
+          // For transactions, generate a proper UUID instead of timestamp ID
+          if (tableName === 'transactions') {
+            const newTransactionId = uuidv4();
+            console.log(`[SYNC-PROCESS] Generated new transaction ID: ${newTransactionId}`);
 
-        console.log('[SYNC-PROCESS] Supabase create result:', result.data);
-        const newRealmData = transformKeysToCamelCase(result.data);
+            // Validate required fields with clear error messages
+            if (!snakeCaseData.account_id) {
+              throw new Error('Transaction sync failed: Missing account_id');
+            }
+            if (!snakeCaseData.type) {
+              throw new Error('Transaction sync failed: Missing transaction type');
+            }
+            if (!snakeCaseData.amount) {
+              throw new Error('Transaction sync failed: Missing amount');
+            }
+            // Transform transaction type to match Supabase enum
+            snakeCaseData.type = snakeCaseData.type
 
-        realm.write(() => {
-          const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
-          if (oldRecord) {
-            realm.delete(oldRecord);
+            // Map account_id using idMapping
+            if (snakeCaseData.account_id) {
+              const mappedAccountId = idMapping.accounts[snakeCaseData.account_id];
+              if (mappedAccountId) {
+                console.log(`[SYNC-PROCESS] Mapping account ID: ${snakeCaseData.account_id} -> ${mappedAccountId}`);
+                snakeCaseData.account_id = mappedAccountId;
+              } else {
+                // Check if the account_id is already a Supabase ID (UUID format)
+                if (!isUUID(snakeCaseData.account_id)) {
+                  console.error(`[SYNC-PROCESS] Account ID mapping not found for: ${snakeCaseData.account_id}`);
+                  console.error(`[SYNC-PROCESS] Available account mappings:`, JSON.stringify(idMapping.accounts, null, 2));
+                  throw new Error(`Account ID ${snakeCaseData.account_id} not found in ID mapping`);
+                }
+                // If it's already a UUID, assume it's already been mapped
+                console.log(`[SYNC-PROCESS] Account ID appears to be already mapped: ${snakeCaseData.account_id}`);
+              }
+            } else {
+              throw new Error('Transaction sync failed: Missing account_id');
+            }
+
+            // Map contact_id using idMapping if exists
+            if (snakeCaseData.contact_id) {
+              const mappedContactId = idMapping.contacts[snakeCaseData.contact_id];
+              if (mappedContactId) {
+                console.log(`[SYNC-PROCESS] Mapping contact ID: ${snakeCaseData.contact_id} -> ${mappedContactId}`);
+                snakeCaseData.contact_id = mappedContactId;
+              } else {
+                // Check if the contact_id is already a Supabase ID (UUID format)
+                if (!isUUID(snakeCaseData.contact_id)) {
+                  console.warn(`[SYNC-PROCESS] Contact ID mapping not found for: ${snakeCaseData.contact_id} - removing contact reference`);
+                  delete snakeCaseData.contact_id;
+                } else {
+                  console.log(`[SYNC-PROCESS] Contact ID appears to be already mapped: ${snakeCaseData.contact_id}`);
+                }
+              }
+            }
+
+            // Set the new ID
+            snakeCaseData.id = newTransactionId;
+          } else {
+            delete snakeCaseData.id; // Let Supabase generate the new ID
           }
-          const finalData = {
-            ...newRealmData,
-            syncStatus: 'synced',
-            lastSyncAt: new Date(),
-            needsUpload: false,
-          };
-          realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
-          console.log(`[SYNC-PROCESS] Successfully replaced local record ${recordId} with new Supabase record ${finalData.id}`);
-        });
-        return true;
-        
+
+          // Update foreign keys using ID mapping
+          if (tableName === 'accounts' || tableName === 'contacts' || tableName === 'transactions') {
+            snakeCaseData.user_id = supabaseUserId;
+          }
+
+          // For non-transaction tables, handle ID mapping here
+          if (tableName === 'accounts' || tableName === 'contacts') {
+            // No additional ID mapping needed for accounts/contacts during creation
+            console.log(`[SYNC-PROCESS] Creating ${tableName} with user_id: ${supabaseUserId}`);
+          }
+
+          await delay(500); // 500ms delay
+          result = await supabase.from(tableName).insert(snakeCaseData).select().single();
+
+          if (result.error) {
+            console.error('[SYNC-PROCESS] Supabase CREATE failed:', result.error.message);
+            console.error('Request Body was:', JSON.stringify(snakeCaseData, null, 2));
+            throw result.error;
+          }
+          if (!result.data) throw new Error('Create operation did not return data from Supabase.');
+
+          console.log('[SYNC-PROCESS] Supabase create result:', result.data);
+          const newRealmData = transformKeysToCamelCase(result.data);
+
+          realm.write(() => {
+            const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
+            if (oldRecord) realm.delete(oldRecord);
+
+            const finalData = {
+              ...newRealmData,
+              syncStatus: 'synced',
+              lastSyncAt: new Date(),
+              needsUpload: false,
+            };
+            realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
+            console.log(`[SYNC-PROCESS] Successfully replaced local record ${recordId} with new Supabase record ${finalData.id}`);
+          });
+
+          // Store the ID mapping for future reference
+          const newSupabaseId = result.data.id;
+          if (tableName === 'accounts') {
+            idMapping.accounts[oldId] = newSupabaseId;
+            console.log(`[SYNC-PROCESS] Account ID mapping: ${oldId} -> ${newSupabaseId}`);
+          } else if (tableName === 'contacts') {
+            idMapping.contacts[oldId] = newSupabaseId;
+            console.log(`[SYNC-PROCESS] Contact ID mapping: ${oldId} -> ${newSupabaseId}`);
+          } else if (tableName === 'transactions') {
+            idMapping.transactions[oldId] = newSupabaseId;
+            console.log(`[SYNC-PROCESS] Transaction ID mapping: ${oldId} -> ${newSupabaseId}`);
+          }
+
+          return true;
+        }
+
       case 'update':
         console.log(`[SYNC-PROCESS] Sending UPDATE request to Supabase table: ${tableName} for ID: ${recordId}`);
-        result = await supabase.from(tableName).update(snakeCaseData).eq('id', recordId);
-        console.log('[SYNC-PROCESS] Supabase UPDATE response:', JSON.stringify(result, null, 2));
+
+        // Update foreign keys using ID mapping
+        if (tableName === 'accounts' || tableName === 'contacts' || tableName === 'transactions') {
+          snakeCaseData.user_id = supabaseUserId;
+        }
+
+        if (tableName === 'transactions') {
+          // Map account_id using idMapping
+          if (snakeCaseData.account_id) {
+            const mappedAccountId = idMapping.accounts[snakeCaseData.account_id];
+            if (mappedAccountId) {
+              console.log(`[SYNC-PROCESS] Mapping account ID for update: ${snakeCaseData.account_id} -> ${mappedAccountId}`);
+              snakeCaseData.account_id = mappedAccountId;
+            } else if (!isUUID(snakeCaseData.account_id)) {
+              console.error(`[SYNC-PROCESS] Account ID mapping not found for update: ${snakeCaseData.account_id}`);
+              console.error(`[SYNC-PROCESS] Available account mappings:`, JSON.stringify(idMapping.accounts, null, 2));
+              throw new Error(`Account ID ${snakeCaseData.account_id} not found in ID mapping for update`);
+            }
+          }
+
+          // Map contact_id using idMapping if exists
+          if (snakeCaseData.contact_id) {
+            const mappedContactId = idMapping.contacts[snakeCaseData.contact_id];
+            if (mappedContactId) {
+              console.log(`[SYNC-PROCESS] Mapping contact ID for update: ${snakeCaseData.contact_id} -> ${mappedContactId}`);
+              snakeCaseData.contact_id = mappedContactId;
+            } else if (!isUUID(snakeCaseData.contact_id)) {
+              console.warn(`[SYNC-PROCESS] Contact ID mapping not found for update: ${snakeCaseData.contact_id} - removing contact reference`);
+              delete snakeCaseData.contact_id;
+            }
+          }
+        }
+
+        await delay(500); // 500ms delay
+        result = await supabase.from(tableName).update(snakeCaseData).eq('id', recordId).select().single();
+
         if (result.error) {
           console.error('[SYNC-PROCESS] Supabase UPDATE failed:', result.error.message);
           console.error('Request Body was:', JSON.stringify(snakeCaseData, null, 2));
           throw result.error;
         }
-        console.log('[SYNC-PROCESS] Update successful');
+
+        realm.write(() => {
+          const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
+          if (oldRecord) realm.delete(oldRecord);
+
+          const finalData = {
+            ...transformKeysToCamelCase(result.data),
+            syncStatus: 'synced',
+            lastSyncAt: new Date(),
+            needsUpload: false,
+          };
+          realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
+          console.log(`[SYNC-PROCESS] Updated local record ${recordId} with Supabase data`);
+        });
         return true;
-        
+
       case 'delete':
         console.log('[SYNC-PROCESS] Deleting record from Supabase with ID:', recordId);
+        await delay(500); // 500ms delay
         result = await supabase.from(tableName).delete().eq('id', recordId);
+
         if (result.error) {
           console.error('[SYNC-PROCESS] Supabase DELETE failed:', result.error.message);
           throw result.error;
         }
-        console.log('[SYNC-PROCESS] Supabase DELETE response:', JSON.stringify(result, null, 2));
-        console.log('[SYNC-PROCESS] Delete successful');
+
+        realm.write(() => {
+          const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
+          if (oldRecord) realm.delete(oldRecord);
+          console.log(`[SYNC-PROCESS] Deleted local record ${recordId}`);
+        });
         return true;
-        
+
       default:
         throw new Error(`Unknown operation: ${operation}`);
     }
   } catch (error) {
     console.error(`[SYNC-PROCESS] Error processing ${syncLog.tableName}/${syncLog.recordId}:`, error);
-    throw error;
+    return false;
   }
 };
 
-export const syncPendingChanges = async (realmUserId, onProgress = () => {}) => {
+export const syncPendingChanges = async (realmUserId, onProgress = () => { }) => {
   console.log(`[SYNC] ===== Starting Full Sync for Realm User ID: ${realmUserId} =====`);
-  console.log('[SYNC] Starting sync for Realm user:', realmUserId);
-  
+
+  // First check if there are any pending/failed sync logs
+  const pendingLogsPlain = realm.objects('SyncLog').filtered(
+    '(status == "pending" OR status == "failed") AND userId == $0',
+    realmUserId
+  ).sorted('createdOn');
+
+  console.log('[SYNC] Found pending/failed logs:', pendingLogsPlain.length, pendingLogsPlain.slice(0, 5).map(log => ({ id: log.id, status: log.status, tableName: log.tableName })));
+
+  if (pendingLogsPlain.length === 0) {
+    console.log('[SYNC] DEBUG: pendingLogsPlain is empty, nothing to sync.');
+    console.log('[SYNC] No pending or failed sync logs found - nothing to sync');
+    return { total: 0, success: 0, failed: 0 };
+  }
+
   const realmUser = realm.objectForPrimaryKey('User', realmUserId);
   if (!realmUser || !realmUser.supabaseId) {
     console.log('[SYNC] No matching Realm user found or user is missing supabaseId.');
     return { total: 0, success: 0, failed: 0 };
   }
-  
-  console.log('[SYNC] Found matching Realm user with supabaseId:', realmUser.supabaseId);
 
-  const pendingLogsPlain = realm.objects('SyncLog').filtered(
-    'status == "pending" && userId == $0',
-    realmUser.id
-  ).sorted('createdOn');
-
+  // Sort logs by table dependency order: users -> accounts -> contacts -> transactions
   const pendingLogs = Array.from(pendingLogsPlain).map(log => log.toJSON());
+  const tablePriority = { users: 0, accounts: 1, contacts: 2, transactions: 3 };
+  pendingLogs.sort((a, b) => {
+    const priorityA = tablePriority[a.tableName] || 999;
+    const priorityB = tablePriority[b.tableName] || 999;
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    // If same table, sort by operation: create -> update -> delete
+    const opPriority = { create: 0, update: 1, delete: 2 };
+    return (opPriority[a.operation] || 999) - (opPriority[b.operation] || 999);
+  });
 
   const total = pendingLogs.length;
   let successCount = 0;
   let failedCount = 0;
 
-  console.log(`[SYNC] Found ${total} pending logs.`);
-  if (total > 0) {
-    console.log('[SYNC] Pending Log IDs:', pendingLogs.map(p => p.id));
-  }
-
-  if (total === 0) {
-    onProgress({ current: 0, total: 0, tableName: 'N/A' });
-    return { total: 0, success: 0, failed: 0 };
-  }
+  // ID mapping to track old->new ID relationships
+  const idMapping = {
+    users: {},
+    accounts: {},
+    contacts: {},
+    transactions: {}
+  };
 
   for (let i = 0; i < total; i++) {
-    const log = pendingLogs[i]; // log is now a plain object
+    const log = pendingLogs[i];
     const current = i + 1;
     const schemaName = getModelNameForTableName(log.tableName);
 
-    console.log(`[SYNC] ---------> Processing Log ${current}/${total}: ID ${log.id} | ${log.operation.toUpperCase()} on ${log.tableName} <---------`);
-    onProgress({ current, total, tableName: log.tableName });
-
     try {
-      const success = await processSyncLog(log, realmUser.supabaseId, schemaName);
-      if (success) {
-        console.log(`[SYNC] Successfully processed Log ID: ${log.id}`);
+      onProgress({ current, total, message: `Processing ${log.tableName} (${log.operation})` });
+      console.log(`[SYNC] Processing ${current}/${total}: ${log.tableName} (${log.operation}) - Record ID: ${log.recordId}`);
+
+      const result = await processSyncLog(log, realmUser.supabaseId, schemaName, idMapping);
+
+      if (result === true) {
         const logToUpdate = realm.objectForPrimaryKey('SyncLog', log.id);
         if (logToUpdate) {
           realm.write(() => {
             logToUpdate.status = 'completed';
-            logToUpdate.processedAt = new Date();
-
-            if (log.operation === 'update') {
-              const updatedRecord = realm.objectForPrimaryKey(schemaName, log.recordId);
-              if (updatedRecord) {
-                updatedRecord.syncStatus = 'synced';
-                updatedRecord.lastSyncAt = new Date();
-                updatedRecord.needsUpload = false;
-              }
-            }
+            logToUpdate.lastSyncAt = new Date();
           });
         }
         successCount++;
+        console.log(`[SYNC] ✅ Successfully processed ${log.tableName}/${log.recordId}`);
+        console.log(`[SYNC] Updated ID mappings after processing ${log.tableName}:`, JSON.stringify(idMapping, null, 2));
       } else {
-        throw new Error('Sync process returned a non-true value without throwing an error.');
+        console.warn(`[SYNC] ❌ Failed to process Log ID: ${log.id}, marking as failed`);
+        failedCount++;
+        const logToUpdate = realm.objectForPrimaryKey('SyncLog', log.id);
+        if (logToUpdate) {
+          realm.write(() => {
+            logToUpdate.status = 'failed';
+            logToUpdate.error = 'Sync process failed';
+          });
+        }
       }
     } catch (error) {
-      console.error(`[SYNC] FAILED to process Log ID: ${log.id}. Error:`, error);
+      console.error(`[SYNC] ❌ FAILED to process Log ID: ${log.id}. Error:`, error);
       failedCount++;
       const logToUpdate = realm.objectForPrimaryKey('SyncLog', log.id);
       if (logToUpdate) {
         realm.write(() => {
           logToUpdate.status = 'failed';
-          logToUpdate.error = String(error.message || error);
+          logToUpdate.error = error.message;
         });
       }
     }
   }
 
-  console.log(`[SYNC] Finished. Total: ${total}, Success: ${successCount}, Failed: ${failedCount}`);
-  return { total, success: successCount, failed: failedCount };
+  console.log(`[SYNC] ===== Sync Complete =====`);
+  console.log(`[SYNC] Total: ${total}, Success: ${successCount}, Failed: ${failedCount}`);
+  console.log(`[SYNC] Final ID Mappings:`, JSON.stringify(idMapping, null, 2));
+
+  return { total, success: successCount, failed: failedCount, idMapping };
 };

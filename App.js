@@ -16,6 +16,7 @@ import { StatusBar, View, ActivityIndicator, Alert } from 'react-native';
 import * as Font from 'expo-font';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
+import NetInfo from '@react-native-community/netinfo';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { realm, getAllObjects, initializeRealm } from './src/realm';
 import { supabase } from './src/supabase';
@@ -231,6 +232,11 @@ function App({ currentLanguage }) {
   const [isLoading, setIsLoading] = useState(true);
   console.log('sync logs', realm.objects('SyncLog'))
   console.log('accounts', realm.objects('Account'))
+  console.log('transactions', realm.objects('Transaction'))
+  //clear Transaction from realm
+  // realm.write(() => {
+  //   realm.delete(realm.objects('Transaction'));
+  // });
 
   const updateBiometricState = (enabled) => {
     setIsBiometricEnabled(enabled);
@@ -426,6 +432,36 @@ function App({ currentLanguage }) {
 
     return () => {
       listener?.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const checkConnectivityAndSync = async () => {
+      const netInfoState = await NetInfo.fetch();
+      if (netInfoState.isConnected) {
+        try {
+          const users = realm.objects('User');
+          const syncLogs = realm.objects('SyncLog');
+          
+          if (users.length > 0 && users[0].userType === 'paid' && syncLogs.length > 0) {
+            // Call supabase sync function with user ID
+            const userId = users[0].id;
+            await fetchAndStoreCodeLists(userId);
+          }
+        } catch (error) {
+          console.error('Sync error:', error);
+        }
+      }
+    };
+
+    // Initial check
+    checkConnectivityAndSync();
+    
+    // Set up connectivity listener
+    const unsubscribe = NetInfo.addEventListener(checkConnectivityAndSync);
+    
+    return () => {
+      unsubscribe();
     };
   }, []);
 

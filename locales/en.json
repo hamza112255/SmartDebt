@@ -365,15 +365,15 @@
     "currentBalance": "Current Balance"
   },
   "terms": {
-    "cashIn": "Cash In",
-    "cashOut": "Cash Out",
+    "cash_in": "Cash In",
+    "cash_out": "Cash Out",
     "debit": "Debit",
     "credit": "Credit",
     "receive": "Receive",
-    "sendOut": "Send Out",
+    "send_out": "Send Out",
     "borrow": "Borrow",
     "lend": "Lend",
-    "cashInCashOut": "Cash In - Cash Out",
+    "cash_inCashOut": "Cash In - Cash Out",
     "debitCredit": "Debit - Credit",
     "receiveSendOut": "Receive - Send Out",
     "borrowLend": "Borrow - Lend"

@@ -65,7 +65,7 @@ const AccountNameInput = memo(({ accountName, setAccountName, t }) => {
 });
 
 const AddAccountScreen = ({ navigation, route }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [accountName, setAccountName] = useState('');
     const [currency, setCurrency] = useState('USD');
     const [terms, setTerms] = useState('cash_in_out');
@@ -105,7 +105,7 @@ const AddAccountScreen = ({ navigation, route }) => {
     }, [existingAccount]);
 
     const termOptions = [
-        {code: 'cash_in_out', display: t('terms.cashInCashOut')},
+        {code: 'cash_in_out', display: t('terms.cash_inCashOut')},
         {code: 'debit_credit', display: t('terms.debitCredit')},
         {code: 'receive_send', display: t('terms.receiveSendOut')},
         {code: 'borrow_lend', display: t('terms.borrowLend')}
@@ -113,7 +113,7 @@ const AddAccountScreen = ({ navigation, route }) => {
 
     const getTranslatedTerm = (typeCode) => {
         const term = termOptions.find(t => t.code === typeCode);
-        return term ? term.display : t('terms.cashInCashOut');
+        return term ? term.display : t('terms.cash_inCashOut');
     };
 
     const handleAddAccount = useCallback(async () => {
@@ -134,14 +134,14 @@ const AddAccountScreen = ({ navigation, route }) => {
                 userId: currentUserId,
                 isPrimary: existingAccount ? existingAccount.isPrimary : false,
                 currentBalance: existingAccount ? existingAccount.currentBalance : 0,
-                language: t('settingsScreen.language'),
+                language: i18n.language,
                 // Initialize all type-based amounts to 0
-                cashIn: existingAccount ? existingAccount.cashIn : 0,
-                cashOut: existingAccount ? existingAccount.cashOut : 0,
+                cash_in: existingAccount ? existingAccount.cash_in : 0,
+                cash_out: existingAccount ? existingAccount.cash_out : 0,
                 debit: existingAccount ? existingAccount.debit : 0,
                 credit: existingAccount ? existingAccount.credit : 0,
                 receive: existingAccount ? existingAccount.receive : 0,
-                sendOut: existingAccount ? existingAccount.sendOut : 0,
+                send_out: existingAccount ? existingAccount.send_out : 0,
                 borrow: existingAccount ? existingAccount.borrow : 0,
                 lend: existingAccount ? existingAccount.lend : 0,
                 isActive: true,

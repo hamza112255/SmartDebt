@@ -129,7 +129,7 @@ const DashboardScreen = ({ navigation }) => {
 
     const getTranslatedAccountType = (typeCode) => {
         switch(typeCode) {
-            case 'cash_in_out': return t('terms.cashInCashOut');
+            case 'cash_in_out': return t('terms.cash_inCashOut');
             case 'debit_credit': return t('terms.debitCredit');
             case 'receive_send': return t('terms.receiveSendOut');
             case 'borrow_lend': return t('terms.borrowLend');
@@ -177,7 +177,7 @@ const DashboardScreen = ({ navigation }) => {
                     <Text style={styles.headerText}>
                         {t('dashboardScreen.myAccounts')}
                     </Text>
-                    {user?.userType !== 'Premium' && (
+                    {user?.userType !== 'paid' && (
                         <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
                             <Icon name="workspace-premium" size={RFValue(24)} color={colors.primary} />
                         </TouchableOpacity>

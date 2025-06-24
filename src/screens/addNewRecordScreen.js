@@ -56,13 +56,13 @@ const getAvailableTransactionTypes = (accountType) => {
     switch (accountType) {
         case 'Cash In - Cash Out':
             return [
-                { label: 'Cash In', value: 'cashIn' },
-                { label: 'Cash Out', value: 'cashOut' }
+                { label: 'Cash In', value: 'cash_in' },
+                { label: 'Cash Out', value: 'cash_out' }
             ];
         case 'Receive - Send Out':
             return [
                 { label: 'Receive', value: 'receive' },
-                { label: 'Send Out', value: 'sendOut' }
+                { label: 'Send Out', value: 'send_out' }
             ];
         case 'Borrow - Lend':
             return [
@@ -76,8 +76,8 @@ const getAvailableTransactionTypes = (accountType) => {
             ];
         default:
             return [
-                { label: 'Cash In', value: 'cashIn' },
-                { label: 'Cash Out', value: 'cashOut' }
+                { label: 'Cash In', value: 'cash_in' },
+                { label: 'Cash Out', value: 'cash_out' }
             ];
     }
 };
@@ -92,8 +92,8 @@ const NewRecordScreen = ({ navigation, route }) => {
     } = route.params || {};
     const [type, setType] = useState('');
     const [availableTypes, setAvailableTypes] = useState([
-        { label: 'Cash In', value: 'cashIn' },
-        { label: 'Cash Out', value: 'cashOut' }
+        { label: 'Cash In', value: 'cash_in' },
+        { label: 'Cash Out', value: 'cash_out' }
     ]);
     const [transactionDate, setTransactionDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -295,19 +295,19 @@ const NewRecordScreen = ({ navigation, route }) => {
                         const originalAmount = parseFloat(originalTransaction.amount) || 0;
                         if (Math.abs(transactionAmount - originalAmount) > 0.01) {
                             balanceChange = transactionAmount - originalAmount;
-                            if (['cashIn', 'receive', 'borrow', 'credit'].includes(originalTransaction.type)) {
+                            if (['cash_in', 'receive', 'borrow', 'credit'].includes(originalTransaction.type)) {
                                 typeChange = transactionAmount - originalAmount;
                             } else {
                                 typeChange = originalAmount - transactionAmount;
                             }
-                            if (['cashOut', 'sendOut', 'lend', 'debit'].includes(originalTransaction.type)) {
+                            if (['cash_out', 'send_out', 'lend', 'debit'].includes(originalTransaction.type)) {
                                 balanceChange = -balanceChange;
                             }
                         }
                     } else {
                         balanceChange = transactionAmount;
                         typeChange = transactionAmount;
-                        if (['cashOut', 'sendOut', 'lend', 'debit'].includes(type)) {
+                        if (['cash_out', 'send_out', 'lend', 'debit'].includes(type)) {
                             balanceChange = -balanceChange;
                             typeChange = -typeChange;
                         }
@@ -319,10 +319,10 @@ const NewRecordScreen = ({ navigation, route }) => {
                             currentBalance: (account.currentBalance || 0) + balanceChange,
                             updatedOn: new Date()
                         };
-                        if (type === 'cashIn') updatedAccount.cashIn = (account.cashIn || 0) + typeChange;
-                        else if (type === 'cashOut') updatedAccount.cashOut = (account.cashOut || 0) - typeChange;
+                        if (type === 'cash_in') updatedAccount.cash_in = (account.cash_in || 0) + typeChange;
+                        else if (type === 'cash_out') updatedAccount.cash_out = (account.cash_out || 0) - typeChange;
                         else if (type === 'receive') updatedAccount.receive = (account.receive || 0) + typeChange;
-                        else if (type === 'sendOut') updatedAccount.sendOut = (account.sendOut || 0) - typeChange;
+                        else if (type === 'send_out') updatedAccount.send_out = (account.send_out || 0) - typeChange;
                         else if (type === 'borrow') updatedAccount.borrow = (account.borrow || 0) + typeChange;
                         else if (type === 'lend') updatedAccount.lend = (account.lend || 0) - typeChange;
                         else if (type === 'debit') updatedAccount.debit = (account.debit || 0) - typeChange;
@@ -412,7 +412,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     const amount = parseFloat(originalTransaction.amount) || 0;
                                     let balanceChange = amount;
 
-                                    if (['cashOut', 'sendOut', 'lend', 'debit'].includes(originalTransaction.type)) {
+                                    if (['cash_out', 'send_out', 'lend', 'debit'].includes(originalTransaction.type)) {
                                         balanceChange = -balanceChange;
                                     }
 
@@ -422,10 +422,10 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         updatedOn: new Date()
                                     };
 
-                                    if (originalTransaction.type === 'cashIn') updatedAccount.cashIn = (account.cashIn || 0) - amount;
-                                    else if (originalTransaction.type === 'cashOut') updatedAccount.cashOut = (account.cashOut || 0) - amount;
+                                    if (originalTransaction.type === 'cash_in') updatedAccount.cash_in = (account.cash_in || 0) - amount;
+                                    else if (originalTransaction.type === 'cash_out') updatedAccount.cash_out = (account.cash_out || 0) - amount;
                                     else if (originalTransaction.type === 'receive') updatedAccount.receive = (account.receive || 0) - amount;
-                                    else if (originalTransaction.type === 'sendOut') updatedAccount.sendOut = (account.sendOut || 0) - amount;
+                                    else if (originalTransaction.type === 'send_out') updatedAccount.send_out = (account.send_out || 0) - amount;
                                     else if (originalTransaction.type === 'borrow') updatedAccount.borrow = (account.borrow || 0) - amount;
                                     else if (originalTransaction.type === 'lend') updatedAccount.lend = (account.lend || 0) - amount;
                                     else if (originalTransaction.type === 'debit') updatedAccount.debit = (account.debit || 0) - amount;

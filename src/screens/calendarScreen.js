@@ -44,8 +44,8 @@ const CalendarScreen = ({ navigation, route }) => {
     const [selectedAccount, setSelectedAccount] = useState(null);
     const [accountMap, setAccountMap] = useState({});
     const [stats, setStats] = useState({
-        debit: 0, credit: 0, balance: 0, cashIn: 0, cashOut: 0,
-        receive: 0, sendOut: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+        debit: 0, credit: 0, balance: 0, cash_in: 0, cash_out: 0,
+        receive: 0, send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
     });
     const { t } = useTranslation();
 
@@ -58,10 +58,10 @@ const CalendarScreen = ({ navigation, route }) => {
             type: acc.type,
             currentBalance: acc.currentBalance || 0,
             userId: acc.userId,
-            cashIn: acc.cashIn || 0,
-            cashOut: acc.cashOut || 0,
+            cash_in: acc.cash_in || 0,
+            cash_out: acc.cash_out || 0,
             receive: acc.receive || 0,
-            sendOut: acc.sendOut || 0,
+            send_out: acc.send_out || 0,
             borrow: acc.borrow || 0,
             lend: acc.lend || 0,
             debit: acc.debit || 0,
@@ -95,8 +95,8 @@ const CalendarScreen = ({ navigation, route }) => {
         if (!accountId) {
             setTransactions({});
             setStats({
-                debit: 0, credit: 0, balance: 0, cashIn: 0, cashOut: 0,
-                receive: 0, sendOut: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+                debit: 0, credit: 0, balance: 0, cash_in: 0, cash_out: 0,
+                receive: 0, send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
             });
             return;
         }
@@ -122,7 +122,7 @@ const CalendarScreen = ({ navigation, route }) => {
                     type: tx.type,
                     amount: tx.amount || 0,
                     date,
-                    color: ['cashIn', 'receive', 'borrow', 'credit'].includes(tx.type) ? colors.success : colors.error,
+                    color: ['cash_in', 'receive', 'borrow', 'credit'].includes(tx.type) ? colors.success : colors.error,
                     contactName,
                     contactId: tx.contactId || '',
                 };
@@ -234,17 +234,17 @@ const CalendarScreen = ({ navigation, route }) => {
 
     const renderTransactionType = (transaction, account) => {
         if (account?.type === 'Cash In - Cash Out') {
-            return transaction.type === 'cashIn' ? 'Cash In' : 'Cash Out';
+            return transaction.type === 'cash_in' ? 'Cash In' : 'Cash Out';
         } else if (account?.type === 'Receive - Send Out') {
             return transaction.type === 'receive' ? 'Receive' : 'Send Out';
         } else if (account?.type === 'Borrow - Lend') {
             return transaction.type === 'borrow' ? 'Borrow' : 'Lend';
         }
         switch (transaction.type) {
-            case 'cashIn': return 'Cash In';
-            case 'cashOut': return 'Cash Out';
+            case 'cash_in': return 'Cash In';
+            case 'cash_out': return 'Cash Out';
             case 'receive': return 'Receive';
-            case 'sendOut': return 'Send Out';
+            case 'send_out': return 'Send Out';
             case 'borrow': return 'Borrow';
             case 'lend': return 'Lend';
             case 'credit': return 'Credit';
@@ -257,23 +257,23 @@ const CalendarScreen = ({ navigation, route }) => {
         const baseBalance = account?.currentBalance || 0;
         const transactionStats = transArr.reduce((acc, transaction) => {
             const amount = parseFloat(transaction.amount) || 0;
-            if (['cashIn', 'receive', 'borrow', 'credit'].includes(transaction.type)) {
+            if (['cash_in', 'receive', 'borrow', 'credit'].includes(transaction.type)) {
                 acc.credit += amount;
-            } else if (['cashOut', 'sendOut', 'lend', 'debit'].includes(transaction.type)) {
+            } else if (['cash_out', 'send_out', 'lend', 'debit'].includes(transaction.type)) {
                 acc.debit += amount;
             }
-            if (transaction.type === 'cashIn') acc.cashIn += amount;
-            else if (transaction.type === 'cashOut') acc.cashOut += amount;
+            if (transaction.type === 'cash_in') acc.cash_in += amount;
+            else if (transaction.type === 'cash_out') acc.cash_out += amount;
             else if (transaction.type === 'receive') acc.receive += amount;
-            else if (transaction.type === 'sendOut') acc.sendOut += amount;
+            else if (transaction.type === 'send_out') acc.send_out += amount;
             else if (transaction.type === 'borrow') acc.borrow += amount;
             else if (transaction.type === 'lend') acc.lend += amount;
             else if (transaction.type === 'credit') acc.creditType += amount;
             else if (transaction.type === 'debit') acc.debitType += amount;
             return acc;
         }, {
-            credit: 0, debit: 0, cashIn: 0, cashOut: 0, receive: 0,
-            sendOut: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+            credit: 0, debit: 0, cash_in: 0, cash_out: 0, receive: 0,
+            send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
         });
         return { ...transactionStats, balance: baseBalance };
     };
@@ -296,10 +296,10 @@ const CalendarScreen = ({ navigation, route }) => {
 
     const getStatValue = (side, account, stats) => {
         if (account?.type === 'Cash In - Cash Out') {
-            return side === 'left' ? stats.cashOut : stats.cashIn;
+            return side === 'left' ? stats.cash_out : stats.cash_in;
         }
         if (account?.type === 'Receive - Send Out') {
-            return side === 'left' ? stats.sendOut : stats.receive;
+            return side === 'left' ? stats.send_out : stats.receive;
         }
         if (account?.type === 'Borrow - Lend') {
             return side === 'left' ? stats.lend : stats.borrow;
@@ -386,10 +386,10 @@ const CalendarScreen = ({ navigation, route }) => {
                                         {(() => {
                                             const transactions = safeGetTransactions(date.dateString);
                                             const hasReceive = transactions.some(t =>
-                                                ['cashIn', 'receive', 'borrow', 'credit'].includes(t.type)
+                                                ['cash_in', 'receive', 'borrow', 'credit'].includes(t.type)
                                             );
                                             const hasSend = transactions.some(t =>
-                                                ['cashOut', 'sendOut', 'lend', 'debit'].includes(t.type)
+                                                ['cash_out', 'send_out', 'lend', 'debit'].includes(t.type)
                                             );
 
                                             return (
@@ -477,7 +477,7 @@ const CalendarScreen = ({ navigation, route }) => {
                                     { backgroundColor: safeGet(transaction, 'color', colors.lightGray) + '20' }
                                 ]}>
                                     <Icon
-                                        name={['cashIn', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? "arrow-downward" : "arrow-upward"}
+                                        name={['cash_in', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? "arrow-downward" : "arrow-upward"}
                                         size={RFValue(16)}
                                         color={safeGet(transaction, 'color', colors.lightGray)}
                                     />
@@ -496,7 +496,7 @@ const CalendarScreen = ({ navigation, route }) => {
                                         { color: safeGet(transaction, 'color', colors.lightGray) }
                                     ]}
                                 >
-                                    {['cashIn', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? '+' : '-'}
+                                    {['cash_in', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? '+' : '-'}
                                     {currency} {Number(safeGet(transaction, 'amount', 0)).toFixed(2)}
                                 </Text>
                             </TouchableOpacity>

@@ -370,15 +370,15 @@
     "currentBalance": "الرصيد الحالي"
   },
   "terms": {
-    "cashIn": "إيداع نقدي",
-    "cashOut": "سحب نقدي",
+    "cash_in": "إيداع نقدي",
+    "cash_out": "سحب نقدي",
     "debit": "مدين",
     "credit": "دائن",
     "receive": "استلام",
-    "sendOut": "إرسال",
+    "send_out": "إرسال",
     "borrow": "اقتراض",
     "lend": "إقراض",
-    "cashInCashOut": "إيداع - سحب نقدي",
+    "cash_inCashOut": "إيداع - سحب نقدي",
     "debitCredit": "مدين - دائن",
     "receiveSendOut": "استلام - إرسال",
     "borrowLend": "اقتراض - إقراض"

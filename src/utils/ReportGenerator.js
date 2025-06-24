@@ -97,7 +97,7 @@ export class ReportGenerator {
 
         transactions.forEach(tx => {
           const amount = Number(tx.amount) || 0;
-          if (['cashOut', 'sendOut', 'lend', 'debit'].includes(tx.type)) {
+          if (['cash_out', 'send_out', 'lend', 'debit'].includes(tx.type)) {
             totalOwed += amount;
           } else {
             totalOwing += amount;
@@ -151,8 +151,8 @@ export class ReportGenerator {
     }
 
     if (filters.transactionTypeFilter && filters.transactionTypeFilter !== 'all') {
-        const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
-        const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
+        const receivingTypes = ['cash_in', 'receive', 'credit', 'borrow'];
+        const sendingTypes = ['cash_out', 'send_out', 'debit', 'lend'];
         
         const types = filters.transactionTypeFilter === 'receiving' ? receivingTypes : sendingTypes;
         transactions = transactions.filtered('type IN $0', types);
@@ -183,8 +183,8 @@ export class ReportGenerator {
     }
 
     if (filters.transactionTypeFilter && filters.transactionTypeFilter !== 'all') {
-        const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
-        const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
+        const receivingTypes = ['cash_in', 'receive', 'credit', 'borrow'];
+        const sendingTypes = ['cash_out', 'send_out', 'debit', 'lend'];
         
         const types = filters.transactionTypeFilter === 'receiving' ? receivingTypes : sendingTypes;
         transactions = transactions.filtered('type IN $0', types);
@@ -233,7 +233,7 @@ export class ReportGenerator {
 
     transactions.forEach(tx => {
       const amount = Number(tx.amount) || 0;
-      if (['cashIn', 'receive', 'credit', 'refund'].includes(tx.type)) {
+      if (['cash_in', 'receive', 'credit', 'refund'].includes(tx.type)) {
         totalCredits += amount;
       } else {
         totalDebits += amount;
@@ -280,8 +280,8 @@ export class ReportGenerator {
       realmAccountId, startDate, endDate
     );
 
-    const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
-    const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
+    const receivingTypes = ['cash_in', 'receive', 'credit', 'borrow'];
+    const sendingTypes = ['cash_out', 'send_out', 'debit', 'lend'];
 
     // Filter transactions by type if needed
     if (transactionTypeFilter === 'receiving') {
@@ -330,8 +330,8 @@ export class ReportGenerator {
     const accounts = realm.objects('Account');
     const summaryData = [];
 
-    const receivingTypes = ['cashIn', 'receive', 'credit', 'borrow'];
-    const sendingTypes = ['cashOut', 'sendOut', 'debit', 'lend'];
+    const receivingTypes = ['cash_in', 'receive', 'credit', 'borrow'];
+    const sendingTypes = ['cash_out', 'send_out', 'debit', 'lend'];
 
     accounts.forEach(account => {
       let accountId = account.id || account._id;

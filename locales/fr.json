@@ -377,15 +377,15 @@
     "currentBalance": "Solde actuel"
   },
   "terms": {
-    "cashIn": "Entrée d'argent",
-    "cashOut": "Sortie d'argent",
+    "cash_in": "Entrée d'argent",
+    "cash_out": "Sortie d'argent",
     "debit": "Débit",
     "credit": "Crédit",
     "receive": "Recevoir",
-    "sendOut": "Envoyer",
+    "send_out": "Envoyer",
     "borrow": "Emprunter",
     "lend": "Prêter",
-    "cashInCashOut": "Entrée - Sortie d'argent",
+    "cash_inCashOut": "Entrée - Sortie d'argent",
     "debitCredit": "Débit - Crédit",
     "receiveSendOut": "Recevoir - Envoyer",
     "borrowLend": "Emprunter - Prêter"

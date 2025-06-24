@@ -275,10 +275,10 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 type: account.type,
                 color: account.color,
                 currentBalance: account.currentBalance,
-                cashIn: account.cashIn,
-                cashOut: account.cashOut,
+                cash_in: account.cash_in,
+                cash_out: account.cash_out,
                 receive: account.receive,
-                sendOut: account.sendOut,
+                send_out: account.send_out,
                 borrow: account.borrow,
                 lend: account.lend,
                 credit: account.credit,
@@ -323,7 +323,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
 
             transactions.forEach(tx => {
                 if (
-                    tx.type === 'cashIn' ||
+                    tx.type === 'cash_in' ||
                     tx.type === 'credit' ||
                     tx.type === 'receive' ||
                     tx.type === 'borrow'
@@ -504,7 +504,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
     // Update: Show up/down arrow based on type
     const getTransactionIcon = (type) => {
         if (
-            type === 'cashIn' ||
+            type === 'cash_in' ||
             type === 'credit' ||
             type === 'receive' ||
             type === 'borrow'
@@ -517,7 +517,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
     // Update: Green for + types, red for - types
     const getTransactionColor = (type) => {
         if (
-            type === 'cashIn' ||
+            type === 'cash_in' ||
             type === 'credit' ||
             type === 'receive' ||
             type === 'borrow'
@@ -537,12 +537,12 @@ const AccountDetailScreen = ({ navigation, route }) => {
         const iconName = getTransactionIcon(type);
 
         const typeTextMap = {
-            cashIn: t('terms.cashIn'),
-            cashOut: t('terms.cashOut'),
+            cash_in: t('terms.cash_in'),
+            cash_out: t('terms.cash_out'),
             debit: t('terms.debit'),
             credit: t('terms.credit'),
             receive: t('terms.receive'),
-            sendOut: t('terms.sendOut'),
+            send_out: t('terms.send_out'),
             borrow: t('terms.borrow'),
             lend: t('terms.lend'),
         };
@@ -572,7 +572,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
                             { color: transactionColor }
                         ]}
                     >
-                        {['cashIn', 'credit', 'receive', 'borrow'].includes(type) ? '+' : '-'}
+                        {['cash_in', 'credit', 'receive', 'borrow'].includes(type) ? '+' : '-'}
                         {formatAmount(amount, accountData?.currency)}
                     </Text>
                     <Text style={dynamicStyles.transactionType}>{typeText}</Text>
@@ -592,11 +592,11 @@ const AccountDetailScreen = ({ navigation, route }) => {
     const getTypeAmount = (account, direction) => {
         switch(account.type) {
             case 'cash_in_out': 
-                return direction === 'in' ? account.cashIn : account.cashOut;
+                return direction === 'in' ? account.cash_in : account.cash_out;
             case 'debit_credit': 
                 return direction === 'in' ? account.credit : account.debit;
             case 'receive_send_out': 
-                return direction === 'in' ? account.receive : account.sendOut;
+                return direction === 'in' ? account.receive : account.send_out;
             case 'borrow_lend': 
                 return direction === 'in' ? account.borrow : account.lend;
             default: return 0;

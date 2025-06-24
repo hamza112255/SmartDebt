@@ -12,14 +12,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StatusBar, View, ActivityIndicator, Alert } from 'react-native';
+import { StatusBar, View, ActivityIndicator, Alert, Text } from 'react-native';
 import * as Font from 'expo-font';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { realm, getAllObjects, initializeRealm } from './src/realm';
-import { supabase } from './src/supabase';
+import { supabase, syncPendingChanges } from './src/supabase';
 import { fetchAndStoreCodeLists } from './src/supabase';
 
 import DashboardScreen from './src/screens/dashboardScreen';
@@ -230,6 +230,8 @@ function App({ currentLanguage }) {
   const [language, setLanguage] = useState(currentLanguage); // Default language
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncMessage, setSyncMessage] = useState('');
   console.log('sync logs', realm.objects('SyncLog'))
   console.log('accounts', realm.objects('Account'))
   console.log('transactions', realm.objects('Transaction'))
@@ -438,26 +440,40 @@ function App({ currentLanguage }) {
   useEffect(() => {
     const checkConnectivityAndSync = async () => {
       const netInfoState = await NetInfo.fetch();
+      console.log('netInfoState', netInfoState);
       if (netInfoState.isConnected) {
         try {
           const users = realm.objects('User');
           const syncLogs = realm.objects('SyncLog');
           
           if (users.length > 0 && users[0].userType === 'paid' && syncLogs.length > 0) {
-            // Call supabase sync function with user ID
-            const userId = users[0].id;
-            await fetchAndStoreCodeLists(userId);
+            setSyncMessage('Preparing to sync...');
+            setSyncProgress(0);
+            
+            const onProgress = ({ current, total, tableName }) => {
+              const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+              setSyncProgress(percentage);
+              setSyncMessage(`Syncing ${tableName || 'records'} (${current}/${total})`);
+            };
+            
+            const result = await syncPendingChanges(users[0].id, onProgress);
+            
+            if (result.total > 0) {
+              setSyncMessage('Sync complete!');
+              setSyncProgress(100);
+            } else {
+              setSyncMessage('Everything is up to date');
+            }
           }
         } catch (error) {
           console.error('Sync error:', error);
+          setSyncMessage('Sync failed');
         }
       }
     };
 
-    // Initial check
     checkConnectivityAndSync();
     
-    // Set up connectivity listener
     const unsubscribe = NetInfo.addEventListener(checkConnectivityAndSync);
     
     return () => {
@@ -555,6 +571,34 @@ function App({ currentLanguage }) {
                 onEmergencyReset={isPinEnabled && storedPin ? handleEmergencyReset : null}
                 isPinCreationFlow={!isPinEnabled || !storedPin}
               />
+              {syncProgress > 0 && (
+                <View style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: '#2563eb',
+                  padding: 16,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ color: '#ffffff' }}>{syncMessage}</Text>
+                  <View style={{
+                    width: '100%',
+                    height: 4,
+                    backgroundColor: '#ffffff',
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                  }}>
+                    <View style={{
+                      width: `${syncProgress}%`,
+                      height: 4,
+                      backgroundColor: '#2563eb',
+                    }} />
+                  </View>
+                </View>
+              )}
             </BiometricContext.Provider>
           </SafeAreaView>
         </SafeAreaProvider>

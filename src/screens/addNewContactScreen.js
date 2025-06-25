@@ -19,6 +19,8 @@ import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import Realm from 'realm';
 import { realm } from '../realm';
 import { useTranslation } from 'react-i18next';
+import NetInfo from '@react-native-community/netinfo';
+import { createContactInSupabase } from '../supabase';
 
 const colors = {
     primary: '#2563eb',
@@ -124,42 +126,105 @@ const NewContactScreen = ({ navigation, route }) => {
         }
     };
 
+    // Helper to get user object from Realm
+    const getUser = useCallback(() => {
+        try {
+            return realm.objectForPrimaryKey('User', userId);
+        } catch {
+            return null;
+        }
+    }, [userId]);
+
+    // Helper to check network status
+    const isOnline = async () => {
+        try {
+            const state = await NetInfo.fetch();
+            return state.isConnected && state.isInternetReachable;
+        } catch {
+            return false;
+        }
+    };
+
     const handleAddContact = async () => {
         if (!contactName.trim() || !userId) {
             alert(t('addNewContactScreen.alerts.validationError'));
             return;
         }
 
-        try {
-            await realm.write(() => {
-                const newContact = realm.create('Contact', {
-                    id: new Realm.BSON.UUID().toString(),
-                    name: contactName,
-                    phone: contactNo,
-                    email: email,
-                    photoUrl: imageUri || '',
-                    userId,
-                    totalOwed: 0,
-                    totalOwing: 0,
-                    isActive: true,
-                    createdOn: new Date(),
-                    updatedOn: new Date(),
-                    syncStatus: 'pending',
-                    lastSyncAt: null,
-                    needsUpload: true,
-                });
+        const user = getUser();
+        const paid = user && (user.isPaid || user.userType === 'paid');
+        const contactData = {
+            id: new Realm.BSON.UUID().toString(),
+            name: contactName,
+            phone: contactNo,
+            email: email,
+            photoUrl: imageUri || '',
+            userId,
+            totalOwed: 0,
+            totalOwing: 0,
+            isActive: true,
+            createdOn: new Date(),
+            updatedOn: new Date(),
+            syncStatus: 'pending',
+            lastSyncAt: null,
+            needsUpload: true,
+        };
 
-                realm.create('SyncLog', {
-                    id: Date.now().toString() + '_log',
-                    userId: userId,
-                    tableName: 'contacts',
-                    recordId: newContact.id,
-                    operation: 'create',
-                    status: 'pending',
-                    createdOn: new Date(),
-                    processedAt: null
+        try {
+            let addedContact = null;
+            let netOn = await isOnline();
+
+            if (netOn && paid) {
+                // Try to add to Supabase first
+                try {
+                    const supaContact = await createContactInSupabase({
+                        ...contactData,
+                        userId: user.supabaseId || userId
+                    });
+                    // Save Supabase record in Realm
+                    realm.write(() => {
+                        addedContact = realm.create('Contact', {
+                            ...contactData,
+                            id: supaContact.id,
+                            syncStatus: 'synced',
+                            needsUpload: false,
+                            lastSyncAt: new Date(),
+                            createdOn: supaContact.created_on ? new Date(supaContact.created_on) : new Date(),
+                            updatedOn: supaContact.updated_on ? new Date(supaContact.updated_on) : new Date(),
+                        }, Realm.UpdateMode.Modified);
+                    });
+                } catch (err) {
+                    // If Supabase fails, fallback to local + SyncLog
+                    realm.write(() => {
+                        addedContact = realm.create('Contact', contactData);
+                        realm.create('SyncLog', {
+                            id: Date.now().toString() + '_' + contactData.id,
+                            userId: userId,
+                            tableName: 'contacts',
+                            recordId: contactData.id,
+                            operation: 'create',
+                            status: 'pending',
+                            createdOn: new Date(),
+                            processedAt: null
+                        });
+                    });
+                }
+            } else {
+                // Offline or not paid: add to Realm + SyncLog
+                realm.write(() => {
+                    addedContact = realm.create('Contact', contactData);
+                    realm.create('SyncLog', {
+                        id: Date.now().toString() + '_' + contactData.id,
+                        userId: userId,
+                        tableName: 'contacts',
+                        recordId: contactData.id,
+                        operation: 'create',
+                        status: 'pending',
+                        createdOn: new Date(),
+                        processedAt: null
+                    });
                 });
-            });
+            }
             navigation.goBack();
         } catch (err) {
             console.error('Save contact error', err);

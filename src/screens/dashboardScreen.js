@@ -53,6 +53,7 @@ const DashboardScreen = ({ navigation }) => {
     const [accounts, setAccounts] = useState([]);
     const [user, setUser] = useState(null);
     const { t } = useTranslation();
+    console.log('transactions',realm.objects('Transaction'))
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -153,11 +154,6 @@ const DashboardScreen = ({ navigation }) => {
                 })
             },
             {
-                text: t('common.delete'),
-                style: 'destructive',
-                onPress: () => deleteObject('Account', account.id)
-            },
-            {
                 text: t('common.cancel'),
                 style: 'cancel'
             },
@@ -185,9 +181,6 @@ const DashboardScreen = ({ navigation }) => {
                 </View>
                 <View style={styles.accountsSection}>
                     {accounts.map((account, index) => {
-                        // Determine a color for each account. If the account already
-                        // has a .color property use it, otherwise rotate through our
-                        // predefined palette so that every card gets a different color.
                         const palette = ['green', 'yellow', 'blue', 'red'];
                         const computedColorKey = account.color ?? palette[index % palette.length];
                         const cardColors = CARD_COLORS[computedColorKey] || CARD_COLORS.default;
@@ -212,7 +205,7 @@ const DashboardScreen = ({ navigation }) => {
                                         ]}>
                                             {account.name}
                                         </Text>
-                                        {account.id === 1 && (
+                                        {account.isPrimary && (
                                             <Text style={[
                                                 styles.primaryTag,
                                                 { backgroundColor: '#fefcbf', color: cardColors.text }

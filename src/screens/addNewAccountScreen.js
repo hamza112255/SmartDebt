@@ -21,6 +21,8 @@ import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { createObject, updateObject, getAllObjects } from '../realm';
 import uuid from 'react-native-uuid';
 import { useTranslation } from 'react-i18next';
+import NetInfo from '@react-native-community/netinfo';
+import { createAccountInSupabase, updateAccountInSupabase, deleteAccountInSupabase } from '../supabase';
 
 const colors = {
     primary: '#2563eb',
@@ -73,6 +75,9 @@ const AddAccountScreen = ({ navigation, route }) => {
     const [showTermsSheet, setShowTermsSheet] = useState(false);
     const [currencies, setCurrencies] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [userType, setUserType] = useState('free');
+    const [supabaseUserId, setSupabaseUserId] = useState(null);
+    const [initialAmount, setInitialAmount] = useState('');
 
     useEffect(() => {
         // Fetch currencies from Realm
@@ -101,8 +106,22 @@ const AddAccountScreen = ({ navigation, route }) => {
             setAccountName(existingAccount.name);
             setCurrency(existingAccount.currency || 'USD');
             setTerms(existingAccount.type);
+            setInitialAmount(
+                typeof existingAccount.initial_amount === 'number'
+                    ? existingAccount.initial_amount.toString()
+                    : (existingAccount.initial_amount || '').toString()
+            );
         }
     }, [existingAccount]);
+
+    useEffect(() => {
+        // Get user type and supabaseId from Realm
+        const users = getAllObjects('User');
+        if (users.length > 0) {
+            setUserType(users[0].userType || 'free');
+            setSupabaseUserId(users[0].supabaseId || null);
+        }
+    }, []);
 
     const termOptions = [
         {code: 'cash_in_out', display: t('terms.cash_inCashOut')},
@@ -122,24 +141,34 @@ const AddAccountScreen = ({ navigation, route }) => {
 
         try {
             const now = new Date();
-            // Determine current user id (create default user if none)
             const users = getAllObjects('User');
             let currentUserId = users.length > 0 ? users[0].id : 'localUser';
-
-            // Check number of accounts in Realm
             const accounts = getAllObjects('Account');
             const isFirstAccount = accounts.length === 0;
 
-            const data = {
-                id: existingAccount ? existingAccount.id : uuid.v4(),
+            // Parse initial amount, default to 0 if not entered or invalid
+            let parsedInitialAmount = 0;
+            if (initialAmount && !isNaN(Number(initialAmount))) {
+                parsedInitialAmount = Number(initialAmount);
+            }
+
+            // Only set isPrimary true if first account and not editing
+            let isPrimaryValue = false;
+            if (!existingAccount && isFirstAccount) {
+                isPrimaryValue = true;
+            } else if (existingAccount) {
+                isPrimaryValue = existingAccount.isPrimary;
+            }
+
+            let data = {
+                // id will be set below
                 name: accountName.trim(),
                 currency: currency,
                 type: terms,
                 userId: currentUserId,
-                isPrimary: existingAccount ? existingAccount.isPrimary : isFirstAccount, // <-- updated logic
+                isPrimary: isPrimaryValue,
                 currentBalance: existingAccount ? existingAccount.currentBalance : 0,
                 language: i18n.language,
-                // Initialize all type-based amounts to 0
                 cash_in: existingAccount ? existingAccount.cash_in : 0,
                 cash_out: existingAccount ? existingAccount.cash_out : 0,
                 debit: existingAccount ? existingAccount.debit : 0,
@@ -153,6 +182,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                 updatedOn: now,
                 syncStatus: 'pending',
                 needsUpload: true,
+                initial_amount: parsedInitialAmount,
             };
 
             // Ensure a local user profile exists when working offline
@@ -182,34 +212,183 @@ const AddAccountScreen = ({ navigation, route }) => {
                 createObject('User', userData);
             }
 
-            if (existingAccount) {
-                updateObject('Account', data.id, data);
-                Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
+            // Check network status
+            const netState = await NetInfo.fetch();
+            const isOnline = netState.isConnected && netState.isInternetReachable;
+
+            // --- PAID USER + ONLINE: Always use Supabase, then save response in Realm ---
+            if (userType === 'paid' && isOnline) {
+                if (!supabaseUserId) throw new Error('Supabase user ID missing.');
+
+                if (existingAccount) {
+                    // Update in Supabase
+                    const supabaseAccountId = existingAccount.id;
+                    const supabaseResult = await updateAccountInSupabase(supabaseAccountId, {
+                        ...data,
+                        userId: supabaseUserId
+                    });
+                    // Save Supabase response in Realm (update)
+                    updateObject('Account', supabaseAccountId, {
+                        ...supabaseResult,
+                        id: supabaseResult.id,
+                        userId: supabaseUserId,
+                        isPrimary: typeof supabaseResult.is_primary !== 'undefined'
+                            ? !!supabaseResult.is_primary
+                            : (typeof supabaseResult.isPrimary !== 'undefined'
+                                ? !!supabaseResult.isPrimary
+                                : !!data.isPrimary),
+                        syncStatus: 'synced',
+                        needsUpload: false,
+                        updatedOn: new Date(),
+                        // Ensure currentBalance is set
+                        currentBalance: typeof supabaseResult.current_balance !== 'undefined'
+                            ? supabaseResult.current_balance
+                            : (typeof supabaseResult.currentBalance !== 'undefined'
+                                ? supabaseResult.currentBalance
+                                : (typeof data.currentBalance !== 'undefined'
+                                    ? data.currentBalance
+                                    : parsedInitialAmount)),
+                        // Ensure isActive is set
+                        isActive: typeof supabaseResult.is_active !== 'undefined'
+                            ? supabaseResult.is_active
+                            : (typeof supabaseResult.isActive !== 'undefined'
+                                ? supabaseResult.isActive
+                                : true),
+                    });
+                    Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
+                } else {
+                    // Create in Supabase
+                    const supabaseResult = await createAccountInSupabase({
+                        ...data,
+                        userId: supabaseUserId
+                    });
+                    // Save Supabase response in Realm (create)
+                    createObject('Account', {
+                        ...supabaseResult,
+                        id: supabaseResult.id,
+                        userId: supabaseUserId,
+                        isPrimary: typeof supabaseResult.is_primary !== 'undefined'
+                            ? !!supabaseResult.is_primary
+                            : (typeof supabaseResult.isPrimary !== 'undefined'
+                                ? !!supabaseResult.isPrimary
+                                : !!data.isPrimary),
+                        syncStatus: 'synced',
+                        needsUpload: false,
+                        createdOn: new Date(supabaseResult.created_on || now),
+                        updatedOn: new Date(supabaseResult.updated_on || now),
+                        // Ensure currentBalance is set
+                        currentBalance: typeof supabaseResult.current_balance !== 'undefined'
+                            ? supabaseResult.current_balance
+                            : (typeof supabaseResult.currentBalance !== 'undefined'
+                                ? supabaseResult.currentBalance
+                                : (typeof data.currentBalance !== 'undefined'
+                                    ? data.currentBalance
+                                    : parsedInitialAmount)),
+                        // Ensure isActive is set
+                        isActive: typeof supabaseResult.is_active !== 'undefined'
+                            ? supabaseResult.is_active
+                            : (typeof supabaseResult.isActive !== 'undefined'
+                                ? supabaseResult.isActive
+                                : true),
+                    });
+                    Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
+                }
             } else {
-                createObject('Account', data);
-
-                // Create sync log
-                createObject('SyncLog', {
-                    id: Date.now().toString() + '_log',
-                    userId: currentUserId,
-                    tableName: 'accounts',
-                    recordId: data.id,
-                    operation: 'create',
-                    status: 'pending',
-                    createdOn: new Date(),
-                    processedAt: null
-                });
-
-                Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
+                // --- FREE USER or OFFLINE: Add to SyncLog as before ---
+                if (existingAccount) {
+                    updateObject('Account', existingAccount.id, {
+                        ...data,
+                        id: existingAccount.id,
+                        updatedOn: now,
+                        syncStatus: 'pending',
+                        needsUpload: true,
+                    });
+                    Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
+                } else {
+                    const newId = uuid.v4();
+                    createObject('Account', {
+                        ...data,
+                        id: newId,
+                        createdOn: now,
+                        updatedOn: now,
+                        syncStatus: 'pending',
+                        needsUpload: true,
+                    });
+                    // Create sync log
+                    createObject('SyncLog', {
+                        id: Date.now().toString() + '_log',
+                        userId: currentUserId,
+                        tableName: 'accounts',
+                        recordId: newId,
+                        operation: 'create',
+                        status: 'pending',
+                        createdOn: new Date(),
+                        processedAt: null
+                    });
+                    Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
+                }
             }
 
             navigation.goBack();
         } catch (error) {
-            Alert.alert('Error', 'Failed to create account: ' + error.message);
+            Alert.alert('Error', 'Failed to create/update account: ' + error.message);
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, accountName, currency, terms, existingAccount, navigation]);
+    }, [
+        isLoading, accountName, currency, terms, initialAmount, existingAccount, navigation,
+        userType, supabaseUserId, i18n.language
+    ]);
+
+    // Add this function for deleting an account
+    const handleDeleteAccount = useCallback(async () => {
+        if (!existingAccount) return;
+        setIsLoading(true);
+        try {
+            const netState = await NetInfo.fetch();
+            const isOnline = netState.isConnected && netState.isInternetReachable;
+
+            if (userType === 'paid' && isOnline) {
+                // Delete from Supabase first
+                await deleteAccountInSupabase(existingAccount.id);
+                // Delete from Realm (remove the object safely)
+                const realmAccounts = getAllObjects('Account');
+                const accountObj = realmAccounts.filtered('id == $0', existingAccount.id)[0];
+                if (accountObj && accountObj.realm) {
+                    accountObj.realm.write(() => {
+                        accountObj.realm.delete(accountObj);
+                    });
+                } else if (accountObj) {
+                    // fallback if .realm is not available
+                    const RealmLib = require('../realm');
+                    if (RealmLib && RealmLib.realm) {
+                        RealmLib.realm.write(() => {
+                            RealmLib.realm.delete(accountObj);
+                        });
+                    }
+                }
+            } else {
+                // Mark as deleted in Realm and add to SyncLog (offline or free user)
+                updateObject('Account', existingAccount.id, { isActive: false, syncStatus: 'pending', needsUpload: true, updatedOn: new Date() });
+                createObject('SyncLog', {
+                    id: Date.now().toString() + '_log',
+                    userId: existingAccount.userId,
+                    tableName: 'accounts',
+                    recordId: existingAccount.id,
+                    operation: 'delete',
+                    status: 'pending',
+                    createdOn: new Date(),
+                    processedAt: null
+                });
+            }
+            Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountDeleted'));
+            navigation.goBack();
+        } catch (error) {
+            Alert.alert('Error', 'Failed to delete account: ' + (error?.message || error));
+        } finally {
+            setIsLoading(false);
+        }
+    }, [existingAccount, navigation, userType]);
 
     const BottomSheet = ({ visible, onClose, title, children }) => (
         <Modal
@@ -303,6 +482,22 @@ const AddAccountScreen = ({ navigation, route }) => {
                                     setAccountName={setAccountName}
                                     t={t}
                                 />
+                                {/* Initial Amount Field */}
+                                <View style={styles.inputContainer}>
+                                    <Text style={styles.label}>
+                                        {t('addNewAccountScreen.initialAmount') || 'Initial Amount'}
+                                        <Text style={styles.optionalText}> ({t('addNewAccountScreen.optional') || 'optional'})</Text>
+                                    </Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={initialAmount}
+                                        onChangeText={setInitialAmount}
+                                        placeholder={t('addNewAccountScreen.placeholders.initialAmount') || 'Enter initial amount'}
+                                        placeholderTextColor={colors.gray}
+                                        keyboardType="numeric"
+                                        returnKeyType="done"
+                                    />
+                                </View>
                                 <View style={styles.settingsContainer}>
                                     <SettingRow
                                         title={t('addNewAccountScreen.currency')}
@@ -330,12 +525,21 @@ const AddAccountScreen = ({ navigation, route }) => {
                                     >
                                         <Text style={styles.buttonText}>{existingAccount ? t('addNewAccountScreen.updateAccount') : t('addNewAccountScreen.addAccount')}</Text>
                                     </TouchableOpacity>
+                                    {existingAccount && (
+                                        <TouchableOpacity
+                                            style={[styles.saveButton, { backgroundColor: colors.error, marginTop: 12 }]}
+                                            onPress={handleDeleteAccount}
+                                            disabled={isLoading}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Text style={styles.buttonText}>{t('addNewAccountScreen.deleteAccount')}</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
                             </View>
                         </ScrollView>
                     </View>
                 </TouchableWithoutFeedback>
-
                 {/* Terms Bottom Sheet */}
                 <BottomSheet
                     visible={showTermsSheet}
@@ -366,7 +570,6 @@ const AddAccountScreen = ({ navigation, route }) => {
                         </TouchableOpacity>
                     ))}
                 </BottomSheet>
-
                 {/* Currency Bottom Sheet */}
                 <BottomSheet
                     visible={showCurrencySheet}
@@ -396,87 +599,70 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: hp(2), // ~16px
-        backgroundColor: colors.white,
+        justifyContent: 'space-between',
+        paddingVertical: hp(2),
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
-        width: '100%',
     },
     backButton: {
-        width: wp(10), // ~40px
-        height: wp(10), // ~40px
-        borderRadius: wp(5), // ~20px
-        backgroundColor: colors.lightGray,
-        justifyContent: 'center',
-        alignItems: 'center',
+        padding: 8,
     },
     headerTitle: {
-        fontSize: RFPercentage(2.8), // ~20px
+        fontSize: RFValue(18),
         fontFamily: 'Sora-Bold',
-        color: colors.primary,
-        marginLeft: wp(3), // ~12px
-        flex: 1,
-        textAlign: 'center',
+        color: colors.text,
     },
     placeholder: {
-        width: wp(10), // ~40px
+        width: 24,
     },
     formWrapper: {
         width: '100%',
-        paddingHorizontal: wp(4.5), // ~18px
-        alignSelf: 'center',
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        padding: wp(4),
+        elevation: 2,
+        shadowColor: colors.black,
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        marginBottom: hp(2),
     },
     inputContainer: {
-        backgroundColor: colors.white,
-        borderRadius: wp(3), // ~12px
-        paddingVertical: hp(1.75), // ~14px
-        paddingHorizontal: wp(4), // ~16px
-        marginBottom: hp(1.75), // ~14px
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
-        borderWidth: 1,
-        borderColor: colors.border,
+        marginBottom: hp(2),
     },
     label: {
-        fontSize: RFPercentage(2), // ~14px
-        fontFamily: 'Sora-SemiBold',
-        color: colors.gray,
-        marginBottom: hp(0.75), // ~6px
+        fontSize: RFValue(14),
+        fontFamily: 'Sora-Medium',
+        color: colors.text,
+        marginBottom: 4,
     },
     required: {
         color: colors.error,
-        fontFamily: 'Sora-Bold',
-        fontSize: RFPercentage(2), // ~14px
     },
     input: {
-        backgroundColor: colors.white,
-        borderRadius: wp(2), // ~8px
-        paddingVertical: hp(1.25), // ~10px
-        paddingHorizontal: wp(2.5), // ~10px
-        fontSize: RFPercentage(2.2), // ~16px
-        fontFamily: 'Sora-Regular',
+        height: hp(12),
         borderWidth: 1,
         borderColor: colors.border,
+        borderRadius: 8,
+        paddingHorizontal: wp(3),
+        fontSize: RFValue(16),
+        fontFamily: 'Sora-Regular',
         color: colors.text,
+        backgroundColor: colors.white,
     },
     settingsContainer: {
-        paddingTop: 0,
-        marginBottom: hp(1.25), // ~10px
+        marginTop: hp(2),
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        paddingTop: hp(2),
     },
     settingRow: {
-        backgroundColor: colors.white,
-        borderRadius: wp(3), // ~12px
-        paddingVertical: hp(1.75), // ~14px
-        paddingHorizontal: wp(4), // ~16px
-        marginBottom: hp(1.75), // ~14px
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
-        borderWidth: 1,
-        borderColor: colors.border,
+        paddingVertical: hp(1.5),
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
     },
     settingContent: {
         flexDirection: 'row',
@@ -489,121 +675,94 @@ const styles = StyleSheet.create({
     settingValue: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 4,
     },
     iconContainer: {
-        marginRight: wp(3), // ~12px
+        marginRight: 8,
+    },
+    sheetOption: {
+        paddingVertical: hp(1.5),
+        paddingHorizontal: wp(3),
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     sheetOptionText: {
-        fontSize: RFPercentage(2.2), // ~16px
+        fontSize: RFValue(16),
         fontFamily: 'Sora-Regular',
+        color: colors.text,
+    },
+    currencyItem: {
+        paddingVertical: hp(1.5),
+        paddingHorizontal: wp(3),
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    currencyCode: {
+        fontSize: RFValue(18),
+        fontFamily: 'Sora-Bold',
         color: colors.primary,
+        marginRight: 8,
+    },
+    currencyName: {
+        fontSize: RFValue(16),
+        fontFamily: 'Sora-Regular',
+        color: colors.text,
+    },
+    currencyFlag: {
+        fontSize: RFValue(24),
+        marginRight: 8,
     },
     buttonContainer: {
-        marginTop: hp(2), // ~16px
-        marginBottom: hp(3), // ~24px
-        alignItems: 'center',
+        marginTop: hp(3),
     },
     saveButton: {
         backgroundColor: colors.primary,
-        borderRadius: wp(3), // ~12px
-        paddingVertical: hp(1.75), // ~14px
-        paddingHorizontal: wp(8), // ~32px
+        borderRadius: 8,
+        paddingVertical: hp(2),
         alignItems: 'center',
-        width: '100%',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
+        justifyContent: 'center',
     },
     disabledButton: {
-        backgroundColor: colors.gray,
-        opacity: 0.6,
+        backgroundColor: colors.lightGray,
     },
     buttonText: {
-        color: colors.white,
-        fontSize: RFPercentage(2.2), // ~16px
+        fontSize: RFValue(16),
         fontFamily: 'Sora-Bold',
-        textAlign: 'center',
+        color: colors.white,
     },
     bottomSheetOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.18)',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
         justifyContent: 'flex-end',
     },
     bottomSheet: {
         backgroundColor: colors.white,
-        borderTopLeftRadius: wp(5), // ~20px
-        borderTopRightRadius: wp(5), // ~20px
-        paddingHorizontal: wp(6), // ~24px
-        paddingVertical: hp(3), // ~24px
-        minHeight: hp(22.5), // ~180px
-        elevation: 12,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        padding: wp(4),
+        elevation: 4,
+        shadowColor: colors.black,
+        shadowOffset: {
+            width: 0,
+            height: -2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     sheetTitle: {
-        fontSize: RFPercentage(2.5), // ~18px
+        fontSize: RFValue(18),
         fontFamily: 'Sora-Bold',
-        color: colors.gray,
-        marginBottom: hp(2.25), // ~18px
-        textAlign: 'center',
-    },
-    sheetOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: hp(1.75), // ~14px
-        paddingHorizontal: wp(2), // ~8px
-        borderRadius: wp(2.5), // ~10px
-        marginBottom: hp(0.75), // ~6px
-    },
-    currencyFlag: {
-        fontSize: RFPercentage(3.3), // ~24px
-        marginRight: wp(3), // ~12px
-    },
-    currencyInfo: {
-        flex: 1,
-    },
-    currencyName: {
-        fontSize: RFPercentage(2), // ~14px
-        color: colors.gray,
-        marginTop: hp(0.25), // ~2px
-        fontFamily: 'Sora-Regular',
-    },
-    currencyItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: hp(1.75), // ~14px
-        paddingHorizontal: wp(2), // ~8px
-        borderRadius: wp(2.5), // ~10px
-        marginBottom: hp(0.75), // ~6px
-    },
-    currencyCode: {
-        fontSize: RFPercentage(2.2), // ~16px
-        fontFamily: 'Sora-Regular',
-        color: colors.primary,
+        color: colors.text,
+        marginBottom: hp(2),
     },
     currencyList: {
-        paddingHorizontal: wp(6), // ~24px
-        paddingVertical: hp(3), // ~24px
+        paddingBottom: hp(2),
     },
-    selectInput: {
-        backgroundColor: colors.white,
-        borderRadius: wp(3), // ~12px
-        paddingVertical: hp(1.75), // ~14px
-        paddingHorizontal: wp(4), // ~16px
-        marginBottom: hp(1.75), // ~14px
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
-        borderWidth: 1,
-        borderColor: colors.border,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    selectInputText: {
-        fontSize: RFPercentage(2.2), // ~16px
+    optionalText: {
+        color: colors.gray,
+        fontSize: RFValue(12),
         fontFamily: 'Sora-Regular',
-        color: colors.text,
     },
 });
 

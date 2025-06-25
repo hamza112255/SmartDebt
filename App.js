@@ -237,7 +237,7 @@ function App({ currentLanguage }) {
   console.log('transactions', realm.objects('Transaction'))
   //clear Transaction from realm
   // realm.write(() => {
-  //   realm.delete(realm.objects('SyncLog'));
+  //   realm.delete(realm.objects('Transaction'));
   // });
 
   const updateBiometricState = (enabled) => {

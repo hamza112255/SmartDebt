@@ -30,7 +30,8 @@ import * as ImagePicker from 'expo-image-picker';
 import moment from 'moment';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { createTransactionInSupabase } from '../supabase';
+import { createTransactionInSupabase, deleteTransactionInSupabase, updateTransactionInSupabase } from '../supabase';
+import NetInfo from '@react-native-community/netinfo';
 
 const colors = {
     primary: '#667eea',
@@ -57,12 +58,12 @@ const colors = {
 const getAvailableTransactionTypes = (accountType) => {
     console.log('ghjgjhgjh',accountType)
     switch (accountType) {
-        case 'Cash In - Cash Out':
+        case 'cash_in_out':
             return [
                 { label: 'Cash In', value: 'cash_in' },
                 { label: 'Cash Out', value: 'cash_out' }
             ];
-        case 'receive_send_out':
+        case 'receive_send':
             return [
                 { label: 'Receive', value: 'receive' },
                 { label: 'Send Out', value: 'send_out' }
@@ -72,7 +73,7 @@ const getAvailableTransactionTypes = (accountType) => {
                 { label: 'Borrow', value: 'borrow' },
                 { label: 'Lend', value: 'lend' }
             ];
-        case 'Debit - Credit':
+        case 'debit_credit':
             return [
                 { label: 'Debit', value: 'debit' },
                 { label: 'Credit', value: 'credit' }
@@ -84,6 +85,14 @@ const getAvailableTransactionTypes = (accountType) => {
             ];
     }
 };
+
+function mapTypeForSupabase(type) {
+    if (['cash_in', 'receive', 'credit'].includes(type)) return 'credit';
+    if (['cash_out', 'send_out', 'debit'].includes(type)) return 'debit';
+    if (['borrow'].includes(type)) return 'borrow';
+    if (['lend'].includes(type)) return 'lend';
+    return type;
+}
 
 const NewRecordScreen = ({ navigation, route }) => {
     const { t } = useTranslation();
@@ -320,69 +329,147 @@ const NewRecordScreen = ({ navigation, route }) => {
         setIsLoading(true);
 
         try {
-            let transactionData;
-            await realm.write(() => {
-                transactionData = {
-                    id: isEditing && transactionId ? transactionId : new Date().toISOString(),
-                    type: type,
-                    purpose: purpose || null,
-                    amount: parseFloat(amount) || 0,
-                    accountId: accountId,
-                    userId: userId,
-                    contactId: contactPerson || null,
-                    transactionDate: transactionDate,
-                    remarks: remarks || null,
-                    photoUrl: imageUri || null,
-                    remindToContact: false,
-                    remindMe: false,
-                    remindToContactType: null,
-                    remindMeType: null,
-                    remindContactAt: null,
-                    remindMeAt: null,
-                    status: 'completed',
-                    isRecurring: false,
-                    is_proxy_payment: showProxySwitch ? isProxyPayment : false,
-                    on_behalf_of_contact_id: showProxySwitch && isProxyPayment && onBehalfOfContactId ? onBehalfOfContactId : null,
-                    recurringPattern: null,
-                    parentTransactionId: null,
-                    isSettled: false,
-                    settledAt: null,
-                    settlementNote: null,
-                    createdOn: isEditing && originalTransaction ? originalTransaction.createdOn : new Date(),
-                    updatedOn: new Date(),
-                    syncStatus: 'pending',
-                    lastSyncAt: null,
-                    needsUpload: true
-                };
+            // Prepare transaction data
+            const transactionData = {
+                id: isEditing && transactionId ? transactionId : new Date().toISOString(),
+                type: type,
+                purpose: purpose || null,
+                amount: parseFloat(amount) || 0,
+                accountId: accountId,
+                userId: userId,
+                contactId: contactPerson || null,
+                transactionDate: transactionDate,
+                remarks: remarks || null,
+                photoUrl: imageUri || null,
+                remindToContact: false,
+                remindMe: false,
+                remindToContactType: null,
+                remindMeType: null,
+                remindContactAt: null,
+                remindMeAt: null,
+                status: 'completed',
+                isRecurring: false,
+                is_proxy_payment: showProxySwitch ? isProxyPayment : false,
+                on_behalf_of_contact_id: showProxySwitch && isProxyPayment && onBehalfOfContactId ? onBehalfOfContactId : null,
+                recurringPattern: null,
+                parentTransactionId: null,
+                isSettled: false,
+                settledAt: null,
+                settlementNote: null,
+                createdOn: isEditing && originalTransaction ? originalTransaction.createdOn : new Date(),
+                updatedOn: new Date(),
+                syncStatus: 'pending',
+                lastSyncAt: null,
+                needsUpload: true
+            };
 
-                const transaction = realm.create('Transaction', transactionData);
+            const user = realm.objectForPrimaryKey('User', userId);
+            const supabaseUserId = user?.supabaseId;
+            const netState = await NetInfo.fetch();
+            const netOn = netState.isConnected && netState.isInternetReachable;
+            const paid = user?.userType === 'paid';
 
-                realm.create('SyncLog', {
-                    id: Date.now().toString() + '_log',
-                    userId: userId,
-                    tableName: 'transactions',
-                    recordId: transactionData.id,
-                    operation: isEditing ? 'update' : 'create',
-                    status: 'pending',
-                    createdOn: new Date(),
-                    processedAt: null
-                });
-            });
-
-            // --- Add this block to create in Supabase if user is paid ---
-            if (userType === 'paid') {
-                try {
-                    // You may need to get supabaseUserId and idMapping from your app context/session
-                    const user = realm.objectForPrimaryKey('User', userId);
-                    const supabaseUserId = user?.supabaseId;
-                    // Build idMapping if you have mapping logic, or pass empty for now
-                    await createTransactionInSupabase(transactionData, supabaseUserId, {});
-                } catch (e) {
-                    // Optionally handle Supabase error (show alert, etc)
-                    console.error('Supabase transaction create error:', e);
+            if (isEditing) {
+                if (paid && netOn) {
+                    try {
+                        // Map type for Supabase
+                        const supabaseTxData = { ...transactionData, type: mapTypeForSupabase(transactionData.type) };
+                        // Update in Supabase first
+                        const supaTx = await updateTransactionInSupabase(transactionData.id, supabaseTxData);
+                        // Update in Realm with Supabase response
+                        realm.write(() => {
+                            realm.create('Transaction', {
+                                ...transactionData,
+                                ...supaTx,
+                                id: supaTx.id,
+                                syncStatus: 'synced',
+                                needsUpload: false,
+                                lastSyncAt: new Date(),
+                                createdOn: supaTx.created_on ? new Date(supaTx.created_on) : transactionData.createdOn,
+                                updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
+                            }, 'modified');
+                        });
+                    } catch (e) {
+                        // If Supabase fails, fallback to local + SyncLog
+                        realm.write(() => {
+                            realm.create('Transaction', transactionData, 'modified');
+                            realm.create('SyncLog', {
+                                id: Date.now().toString() + '_log',
+                                userId: userId,
+                                tableName: 'transactions',
+                                recordId: transactionData.id,
+                                operation: 'update',
+                                status: 'pending',
+                                createdOn: new Date(),
+                                processedAt: null
+                            });
+                        });
+                    }
+                } else {
+                    // Offline or free: update in Realm and add SyncLog
+                    realm.write(() => {
+                        realm.create('Transaction', transactionData, 'modified');
+                        realm.create('SyncLog', {
+                            id: Date.now().toString() + '_log',
+                            userId: userId,
+                            tableName: 'transactions',
+                            recordId: transactionData.id,
+                            operation: 'update',
+                            status: 'pending',
+                            createdOn: new Date(),
+                            processedAt: null
+                        });
+                    });
+                }
+            } else {
+                // --- CREATE LOGIC ---
+                if (paid && netOn) {
+                    try {
+                        // Map type for Supabase
+                        const supabaseTxData = { ...transactionData, type: mapTypeForSupabase(transactionData.type) };
+                        const supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
+                        realm.write(() => {
+                            realm.create('Transaction', {
+                                ...transactionData,
+                                id: supaTx.id,
+                                syncStatus: 'synced',
+                                needsUpload: false,
+                                lastSyncAt: new Date(),
+                                createdOn: supaTx.created_on ? new Date(supaTx.created_on) : new Date(),
+                                updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
+                            }, 'modified');
+                        });
+                    } catch (e) {
+                        realm.write(() => {
+                            realm.create('Transaction', transactionData);
+                            realm.create('SyncLog', {
+                                id: Date.now().toString() + '_log',
+                                userId: userId,
+                                tableName: 'transactions',
+                                recordId: transactionData.id,
+                                operation: 'create',
+                                status: 'pending',
+                                createdOn: new Date(),
+                                processedAt: null
+                            });
+                        });
+                    }
+                } else {
+                    realm.write(() => {
+                        realm.create('Transaction', transactionData);
+                        realm.create('SyncLog', {
+                            id: Date.now().toString() + '_log',
+                            userId: userId,
+                            tableName: 'transactions',
+                            recordId: transactionData.id,
+                            operation: 'create',
+                            status: 'pending',
+                            createdOn: new Date(),
+                            processedAt: null
+                        });
+                    });
                 }
             }
-            // -----------------------------------------------------------
 
             Alert.alert(
                 t('common.success'),
@@ -419,23 +506,38 @@ const NewRecordScreen = ({ navigation, route }) => {
                     onPress: async () => {
                         setIsLoading(true);
                         try {
-                            realm.write(() => {
-                                const account = realm.objectForPrimaryKey('Account', originalTransaction.accountId);
+                            const user = realm.objectForPrimaryKey('User', userId);
+                            const supabaseUserId = user?.supabaseId;
+                            const netState = await NetInfo.fetch();
+                            const netOn = netState.isConnected && netState.isInternetReachable;
+                            const paid = user?.userType === 'paid';
+                            const transactionIdToDelete = originalTransaction.id;
 
+                            if (paid && netOn) {
+                                // Delete from Supabase first
+                                try {
+                                    await deleteTransactionInSupabase(transactionIdToDelete);
+                                } catch (e) {
+                                    // Optionally show alert or ignore
+                                    console.error('Supabase transaction delete error:', e);
+                                }
+                            }
+
+                            // Delete from Realm (after Supabase, or always if offline/free)
+                            realm.write(() => {
+                                // ...existing code for updating account balances...
+                                const account = realm.objectForPrimaryKey('Account', originalTransaction.accountId);
                                 if (account) {
                                     const amount = parseFloat(originalTransaction.amount) || 0;
                                     let balanceChange = amount;
-
                                     if (['cash_out', 'send_out', 'lend', 'debit'].includes(originalTransaction.type)) {
                                         balanceChange = -balanceChange;
                                     }
-
                                     const updatedAccount = {
                                         ...account,
                                         currentBalance: (account.currentBalance || 0) - balanceChange,
                                         updatedOn: new Date()
                                     };
-
                                     if (originalTransaction.type === 'cash_in') updatedAccount.cash_in = (account.cash_in || 0) - amount;
                                     else if (originalTransaction.type === 'cash_out') updatedAccount.cash_out = (account.cash_out || 0) - amount;
                                     else if (originalTransaction.type === 'receive') updatedAccount.receive = (account.receive || 0) - amount;
@@ -444,12 +546,26 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     else if (originalTransaction.type === 'lend') updatedAccount.lend = (account.lend || 0) - amount;
                                     else if (originalTransaction.type === 'debit') updatedAccount.debit = (account.debit || 0) - amount;
                                     else if (originalTransaction.type === 'credit') updatedAccount.credit = (account.credit || 0) - amount;
-
                                     realm.create('Account', updatedAccount, 'modified');
                                 }
-
                                 realm.delete(originalTransaction);
                             });
+
+                            // If offline or free, add SyncLog for delete
+                            if (!paid || !netOn) {
+                                realm.write(() => {
+                                    realm.create('SyncLog', {
+                                        id: Date.now().toString() + '_log',
+                                        userId: userId,
+                                        tableName: 'transactions',
+                                        recordId: transactionIdToDelete,
+                                        operation: 'delete',
+                                        status: 'pending',
+                                        createdOn: new Date(),
+                                        processedAt: null
+                                    });
+                            });
+                            }
 
                             safeAlert('Success', 'Transaction deleted successfully.');
                             navigation.goBack();
@@ -463,7 +579,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 },
             ]
         );
-    }, [isLoading, isEditing, originalTransaction, navigation]);
+    }, [isLoading, isEditing, originalTransaction, navigation, userId]);
 
     const handleCancel = useCallback(() => {
         navigation.goBack();
@@ -1338,20 +1454,20 @@ const styles = StyleSheet.create({
     },
     dropdownText: {
         fontSize: RFPercentage(2.2), // ~16px
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderStyle: 'dashed',
+    },
+    dropdownText: {
+        fontSize: RFPercentage(2.2), // ~16px
         fontFamily: 'Sora-Regular',
         color: colors.gray,
         flex: 1,
-    },
-    dropdownMenu: {
-        maxHeight: 200,
-        backgroundColor: colors.white,
-        borderRadius: 8,
-        marginTop: 4,
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 4,
     },
     dropdownItem: {
         padding: 12,

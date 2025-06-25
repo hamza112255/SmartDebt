@@ -229,6 +229,7 @@
   "dashboardScreen.myAccounts": "Mes comptes",
   "dashboardScreen.addAccount": "Ajouter un nouveau compte",
   "dashboardScreen.accountOptions": "Options du compte",
+  "dashboardScreen.primaryAccount": "Compte principal",
   "createProfileScreen.createProfile": "Créer un profil",
   "createProfileScreen.editProfile": "Modifier le profil",
   "createProfileScreen.firstName": "Prénom",
@@ -577,5 +578,17 @@
     "complete": "Synchronisation terminée !",
     "nothingToSync": "Tout est à jour.",
     "error": "La synchronisation a échoué. Veuillez réessayer."
+  },
+  "addNewAccountScreen": {
+    "accountName": "Nom du compte",
+    "addAccount": "Ajouter un compte",
+    "updateAccount": "Mettre à jour le compte",
+    "initialAmount": "Montant initial",
+    "optional": "Optionnel",
+    "deleteAccount": "Supprimer le compte",
+    "placeholders": {
+      "accountName": "Entrez le nom du compte",
+      "initialAmount": "Entrez le montant initial"
+    }
   }
 }

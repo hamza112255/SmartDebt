@@ -72,6 +72,7 @@
   "dashboardScreen.myAccounts": "حساباتي",
   "dashboardScreen.addAccount": "إضافة حساب جديد",
   "dashboardScreen.accountOptions": "خيارات الحساب",
+  "dashboardScreen.primaryAccount": "الحساب الأساسي",
   "settingsScreen": {
     "settings": "الإعدادات",
     "personalInformation": "المعلومات الشخصية",
@@ -285,8 +286,12 @@
     "selectLanguage": "اختر اللغة",
     "selectCurrency": "اختر العملة",
     "selectTerms": "اختر الشروط",
+    "initialAmount": "المبلغ الابتدائي",
+    "optional": "اختياري",
+    "deleteAccount": "حذف الحساب",
     "placeholders": {
-      "accountName": "أدخل اسم الحساب"
+      "accountName": "أدخل اسم الحساب",
+      "initialAmount": "أدخل المبلغ الابتدائي"
     },
     "success": {
       "accountAdded": "تم إضافة الحساب بنجاح",

@@ -590,3 +590,162 @@ export async function createTransactionInSupabase(transactionData, supabaseUserI
   if (error) throw error;
   return data;
 }
+
+/**
+ * Delete a transaction directly in Supabase by its ID.
+ * @param {string} transactionId - The Supabase transaction UUID.
+ * @returns {Promise<boolean>} - True if deleted, throws error otherwise.
+ */
+export async function deleteTransactionInSupabase(transactionId) {
+  const { error } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', transactionId);
+
+  if (error) throw error;
+  return true;
+}
+
+/**
+ * Update a transaction in Supabase by its ID.
+ * @param {string} transactionId - The Supabase transaction UUID.
+ * @param {object} transactionData - Transaction data in camelCase (as in Realm).
+ * @returns {Promise<object>} - The updated transaction from Supabase.
+ */
+export async function updateTransactionInSupabase(transactionId, transactionData) {
+  let snakeCaseData = transformKeysToSnakeCase({ ...transactionData });
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on;
+  delete snakeCaseData.updated_on;
+  // Don't update id
+  delete snakeCaseData.id;
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .update(snakeCaseData)
+    .eq('id', transactionId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Create an account in Supabase.
+ * @param {object} accountData - Account data in camelCase.
+ * @returns {Promise<object>} - The created account from Supabase.
+ */
+export async function createAccountInSupabase(accountData) {
+  let snakeCaseData = transformKeysToSnakeCase({ ...accountData });
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on;
+  delete snakeCaseData.updated_on;
+  delete snakeCaseData.id;
+  // do NOT delete is_active
+
+  const { data, error } = await supabase
+    .from('accounts')
+    .insert(snakeCaseData)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Update an account in Supabase by its ID.
+ * @param {string} accountId - The Supabase account UUID.
+ * @param {object} accountData - Account data in camelCase.
+ * @returns {Promise<object>} - The updated account from Supabase.
+ */
+export async function updateAccountInSupabase(accountId, accountData) {
+  let snakeCaseData = transformKeysToSnakeCase({ ...accountData });
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on;
+  delete snakeCaseData.updated_on;
+  delete snakeCaseData.id;
+  // do NOT delete is_active
+
+  const { data, error } = await supabase
+    .from('accounts')
+    .update(snakeCaseData)
+    .eq('id', accountId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Delete an account in Supabase by its ID.
+ * @param {string} accountId - The Supabase account UUID.
+ * @returns {Promise<boolean>} - True if deleted, throws error otherwise.
+ */
+export async function deleteAccountInSupabase(accountId) {
+  const { error } = await supabase
+    .from('accounts')
+    .delete()
+    .eq('id', accountId);
+
+  if (error) throw error;
+  return true;
+}
+
+/**
+ * Update a user in Supabase by its ID.
+ * @param {string} userId - The Supabase user UUID.
+ * @param {object} userData - User data in camelCase.
+ * @returns {Promise<object>} - The updated user from Supabase.
+ */
+export async function updateUserInSupabase(userId, userData) {
+  let snakeCaseData = transformKeysToSnakeCase({ ...userData });
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on;
+  delete snakeCaseData.updated_on;
+  delete snakeCaseData.id;
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(snakeCaseData)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Create a contact in Supabase.
+ * @param {object} contactData - Contact data in camelCase.
+ * @returns {Promise<object>} - The created contact from Supabase.
+ */
+export async function createContactInSupabase(contactData) {
+  let snakeCaseData = transformKeysToSnakeCase({ ...contactData });
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on;
+  delete snakeCaseData.updated_on;
+  delete snakeCaseData.id;
+
+  const { data, error } = await supabase
+    .from('contacts')
+    .insert(snakeCaseData)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}

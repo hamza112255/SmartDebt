@@ -235,6 +235,7 @@
   "dashboardScreen.myAccounts": "My Accounts",
   "dashboardScreen.addAccount": "Add new account",
   "dashboardScreen.accountOptions": "Account Options",
+  "dashboardScreen.primaryTag": "Primary Account",
   "createProfileScreen.createProfile": "Create Profile",
   "createProfileScreen.editProfile": "Edit Profile",
   "createProfileScreen.firstName": "First Name",
@@ -309,12 +310,16 @@
     "selectCurrency": "Select Currency",
     "selectTerms": "Select Terms",
     "placeholders": {
-      "accountName": "Enter account name"
+      "accountName": "Enter account name",
+      "initialAmount": "Enter initial amount"
     },
     "success":{
       "accountAdded": "Account added successfully",
       "accountUpdated": "Account updated successfully"
-    }
+    },
+    "initialAmount": "Initial Amount",
+    "optional": "Optional",
+    "deleteAccount": "Delete Account"
   },
   "addNewAccountScreen.accountName": "Account Name",
   "addNewAccountScreen.addAccount": "Add Account",

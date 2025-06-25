@@ -229,6 +229,7 @@
   "dashboardScreen.myAccounts": "Mis cuentas",
   "dashboardScreen.addAccount": "Agregar nueva cuenta",
   "dashboardScreen.accountOptions": "Opciones de cuenta",
+  "dashboardScreen.primaryAccount": "Cuenta principal",
   "createProfileScreen.createProfile": "Crear perfil",
   "createProfileScreen.editProfile": "Editar perfil",
   "createProfileScreen.firstName": "Nombre",
@@ -302,8 +303,12 @@
     "selectLanguage": "Seleccionar idioma",
     "selectCurrency": "Seleccionar moneda",
     "selectTerms": "Seleccionar términos",
+    "initialAmount": "Monto inicial",
+    "optional": "Opcional",
+    "deleteAccount": "Eliminar cuenta",
     "placeholders": {
-      "accountName": "Ingrese el nombre de la cuenta"
+      "accountName": "Ingrese el nombre de la cuenta",
+      "initialAmount": "Ingrese el monto inicial"
     }
   },
   "accountDetailsScreen.accountDetails": "Detalles de la cuenta",

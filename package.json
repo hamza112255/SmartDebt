@@ -48,6 +48,7 @@
     "react-native-responsive-screen": "^1.4.2",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "^4.11.1",
+    "react-native-switch-pro": "^1.0.5",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-uuid": "^2.0.3",
     "realm": "^12.14.2"

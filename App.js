@@ -237,7 +237,7 @@ function App({ currentLanguage }) {
   console.log('transactions', realm.objects('Transaction'))
   //clear Transaction from realm
   // realm.write(() => {
-  //   realm.delete(realm.objects('Transaction'));
+  //   realm.delete(realm.objects('SyncLog'));
   // });
 
   const updateBiometricState = (enabled) => {
@@ -437,49 +437,49 @@ function App({ currentLanguage }) {
     };
   }, []);
 
-  useEffect(() => {
-    const checkConnectivityAndSync = async () => {
-      const netInfoState = await NetInfo.fetch();
-      console.log('netInfoState', netInfoState);
-      if (netInfoState.isConnected) {
-        try {
-          const users = realm.objects('User');
-          const syncLogs = realm.objects('SyncLog');
+  // useEffect(() => {
+  //   const checkConnectivityAndSync = async () => {
+  //     const netInfoState = await NetInfo.fetch();
+  //     console.log('netInfoState', netInfoState);
+  //     if (netInfoState.isConnected) {
+  //       try {
+  //         const users = realm.objects('User');
+  //         const syncLogs = realm.objects('SyncLog');
           
-          if (users.length > 0 && users[0].userType === 'paid' && syncLogs.length > 0) {
-            setSyncMessage('Preparing to sync...');
-            setSyncProgress(0);
+  //         if (users.length > 0 && users[0].userType === 'paid' && syncLogs.length > 0) {
+  //           setSyncMessage('Preparing to sync...');
+  //           setSyncProgress(0);
             
-            const onProgress = ({ current, total, tableName }) => {
-              const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
-              setSyncProgress(percentage);
-              setSyncMessage(`Syncing ${tableName || 'records'} (${current}/${total})`);
-            };
+  //           const onProgress = ({ current, total, tableName }) => {
+  //             const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+  //             setSyncProgress(percentage);
+  //             setSyncMessage(`Syncing ${tableName || 'records'} (${current}/${total})`);
+  //           };
             
-            const result = await syncPendingChanges(users[0].id, onProgress);
+  //           const result = await syncPendingChanges(users[0].id, onProgress);
             
-            if (result.total > 0) {
-              setSyncMessage('Sync complete!');
-              setSyncProgress(100);
-            } else {
-              setSyncMessage('Everything is up to date');
-            }
-          }
-        } catch (error) {
-          console.error('Sync error:', error);
-          setSyncMessage('Sync failed');
-        }
-      }
-    };
+  //           if (result.total > 0) {
+  //             setSyncMessage('Sync complete!');
+  //             setSyncProgress(100);
+  //           } else {
+  //             setSyncMessage('Everything is up to date');
+  //           }
+  //         }
+  //       } catch (error) {
+  //         console.error('Sync error:', error);
+  //         setSyncMessage('Sync failed');
+  //       }
+  //     }
+  //   };
 
-    checkConnectivityAndSync();
+  //   checkConnectivityAndSync();
     
-    const unsubscribe = NetInfo.addEventListener(checkConnectivityAndSync);
+  //   const unsubscribe = NetInfo.addEventListener(checkConnectivityAndSync);
     
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+  //   return () => {
+  //     unsubscribe();
+  //   };
+  // }, []);
 
   if (isLoading || !fontsLoaded || !initialRoute) {
     return (

@@ -40,7 +40,6 @@ export const AccountSchema = {
     userId: "string",
     isPrimary: "bool",
     currentBalance: "double",
-    // Dynamic columns based on account type
     cash_in: { type: "double", default: 0 },
     cash_out: { type: "double", default: 0 },
     debit: { type: "double", default: 0 },
@@ -102,6 +101,8 @@ export const TransactionSchema = {
     remindMeAt: "date?",
     status: "string",
     isRecurring: "bool",
+    is_proxy_payment: { type: "bool", default: false },
+    on_behalf_of_contact_id: "string?",
     recurringPattern: "string?",
     parentTransactionId: "string?",
     isSettled: "bool",

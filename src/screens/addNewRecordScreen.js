@@ -16,7 +16,8 @@ import {
     ActivityIndicator,
     Image,
     Dimensions,
-    FlatList
+    FlatList,
+    Switch // Add this import for the Switch component
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -29,6 +30,7 @@ import * as ImagePicker from 'expo-image-picker';
 import moment from 'moment';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { createTransactionInSupabase } from '../supabase';
 
 const colors = {
     primary: '#667eea',
@@ -53,18 +55,19 @@ const colors = {
 };
 
 const getAvailableTransactionTypes = (accountType) => {
+    console.log('ghjgjhgjh',accountType)
     switch (accountType) {
         case 'Cash In - Cash Out':
             return [
                 { label: 'Cash In', value: 'cash_in' },
                 { label: 'Cash Out', value: 'cash_out' }
             ];
-        case 'Receive - Send Out':
+        case 'receive_send_out':
             return [
                 { label: 'Receive', value: 'receive' },
                 { label: 'Send Out', value: 'send_out' }
             ];
-        case 'Borrow - Lend':
+        case 'borrow_lend':
             return [
                 { label: 'Borrow', value: 'borrow' },
                 { label: 'Lend', value: 'lend' }
@@ -122,6 +125,11 @@ const NewRecordScreen = ({ navigation, route }) => {
     const [showPurposeModal, setShowPurposeModal] = useState(false);
     const [newPurpose, setNewPurpose] = useState('');
     const [showNewPurposeModal, setShowNewPurposeModal] = useState(false);
+    const [userType, setUserType] = useState('free');
+    const [isProxyPayment, setIsProxyPayment] = useState(false);
+    const [onBehalfOfContactId, setOnBehalfOfContactId] = useState('');
+    const [onBehalfOfContactName, setOnBehalfOfContactName] = useState('');
+    const [showOnBehalfDropdown, setShowOnBehalfDropdown] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(hp(50))).current;
@@ -278,84 +286,68 @@ const NewRecordScreen = ({ navigation, route }) => {
         }
     }, []);
 
+    // Fetch userType from Realm
+    useEffect(() => {
+        if (userId) {
+            const user = realm.objectForPrimaryKey('User', userId);
+            setUserType(user?.userType || 'free');
+        }
+    }, [userId]);
+
+    // When editing, load proxy fields
+    useEffect(() => {
+        if (isEditing && originalTransaction) {
+            setIsProxyPayment(originalTransaction.is_proxy_payment || false);
+            setOnBehalfOfContactId(originalTransaction.on_behalf_of_contact_id || '');
+            if (originalTransaction.on_behalf_of_contact_id) {
+                const c = realm.objectForPrimaryKey('Contact', originalTransaction.on_behalf_of_contact_id);
+                setOnBehalfOfContactName(c?.name || '');
+            }
+        }
+    }, [isEditing, originalTransaction]);
+
+    // Exclude selected contacts from each other's dropdowns
+    const availableContactsForContact = contacts.filter(c => c.id !== onBehalfOfContactId);
+    const availableContactsForOnBehalf = contacts.filter(c => c.id !== contactPerson);
+
+    // Show proxy switch only for paid users and send-out/cash-out/lend/debit types
+    const showProxySwitch = userType === 'paid' && (
+        ['send_out', 'cash_out', 'lend', 'debit'].includes(type)
+    );
+
     const handleSave = useCallback(async () => {
         if (isLoading) return;
         setIsLoading(true);
 
         try {
+            let transactionData;
             await realm.write(() => {
-                const transactionAmount = parseFloat(amount) || 0;
-                const account = realm.objectForPrimaryKey('Account', accountId);
-
-                if (account) {
-                    let balanceChange = 0;
-                    let typeChange = 0;
-
-                    if (isEditing && originalTransaction) {
-                        const originalAmount = parseFloat(originalTransaction.amount) || 0;
-                        if (Math.abs(transactionAmount - originalAmount) > 0.01) {
-                            balanceChange = transactionAmount - originalAmount;
-                            if (['cash_in', 'receive', 'borrow', 'credit'].includes(originalTransaction.type)) {
-                                typeChange = transactionAmount - originalAmount;
-                            } else {
-                                typeChange = originalAmount - transactionAmount;
-                            }
-                            if (['cash_out', 'send_out', 'lend', 'debit'].includes(originalTransaction.type)) {
-                                balanceChange = -balanceChange;
-                            }
-                        }
-                    } else {
-                        balanceChange = transactionAmount;
-                        typeChange = transactionAmount;
-                        if (['cash_out', 'send_out', 'lend', 'debit'].includes(type)) {
-                            balanceChange = -balanceChange;
-                            typeChange = -typeChange;
-                        }
-                    }
-
-                    if (balanceChange !== 0) {
-                        const updatedAccount = {
-                            ...account,
-                            currentBalance: (account.currentBalance || 0) + balanceChange,
-                            updatedOn: new Date()
-                        };
-                        if (type === 'cash_in') updatedAccount.cash_in = (account.cash_in || 0) + typeChange;
-                        else if (type === 'cash_out') updatedAccount.cash_out = (account.cash_out || 0) - typeChange;
-                        else if (type === 'receive') updatedAccount.receive = (account.receive || 0) + typeChange;
-                        else if (type === 'send_out') updatedAccount.send_out = (account.send_out || 0) - typeChange;
-                        else if (type === 'borrow') updatedAccount.borrow = (account.borrow || 0) + typeChange;
-                        else if (type === 'lend') updatedAccount.lend = (account.lend || 0) - typeChange;
-                        else if (type === 'debit') updatedAccount.debit = (account.debit || 0) - typeChange;
-                        else if (type === 'credit') updatedAccount.credit = (account.credit || 0) + typeChange;
-
-                        realm.create('Account', updatedAccount, 'modified');
-                    }
-                }
-
-                const transactionData = {
+                transactionData = {
                     id: isEditing && transactionId ? transactionId : new Date().toISOString(),
                     type: type,
-                    amount: transactionAmount,
-                    transactionDate: transactionDate,
-                    remarks: remarks || '',
-                    purpose: purpose || '',
+                    purpose: purpose || null,
+                    amount: parseFloat(amount) || 0,
                     accountId: accountId,
                     userId: userId,
-                    contactId: contactPerson || '',
-                    photoUrl: imageUri || '',
+                    contactId: contactPerson || null,
+                    transactionDate: transactionDate,
+                    remarks: remarks || null,
+                    photoUrl: imageUri || null,
                     remindToContact: false,
                     remindMe: false,
-                    remindToContactType: '',
-                    remindMeType: '',
+                    remindToContactType: null,
+                    remindMeType: null,
                     remindContactAt: null,
                     remindMeAt: null,
                     status: 'completed',
                     isRecurring: false,
-                    recurringPattern: '',
-                    parentTransactionId: '',
+                    is_proxy_payment: showProxySwitch ? isProxyPayment : false,
+                    on_behalf_of_contact_id: showProxySwitch && isProxyPayment && onBehalfOfContactId ? onBehalfOfContactId : null,
+                    recurringPattern: null,
+                    parentTransactionId: null,
                     isSettled: false,
                     settledAt: null,
-                    settlementNote: '',
+                    settlementNote: null,
                     createdOn: isEditing && originalTransaction ? originalTransaction.createdOn : new Date(),
                     updatedOn: new Date(),
                     syncStatus: 'pending',
@@ -369,27 +361,49 @@ const NewRecordScreen = ({ navigation, route }) => {
                     id: Date.now().toString() + '_log',
                     userId: userId,
                     tableName: 'transactions',
-                    recordId: transaction.id,
+                    recordId: transactionData.id,
                     operation: isEditing ? 'update' : 'create',
                     status: 'pending',
                     createdOn: new Date(),
                     processedAt: null
                 });
-
-                if (sourceScreen === 'calendar') {
-                    navigation.navigate(screens.Calendar);
-                } else {
-                    navigation.goBack();
-                }
             });
 
+            // --- Add this block to create in Supabase if user is paid ---
+            if (userType === 'paid') {
+                try {
+                    // You may need to get supabaseUserId and idMapping from your app context/session
+                    const user = realm.objectForPrimaryKey('User', userId);
+                    const supabaseUserId = user?.supabaseId;
+                    // Build idMapping if you have mapping logic, or pass empty for now
+                    await createTransactionInSupabase(transactionData, supabaseUserId, {});
+                } catch (e) {
+                    // Optionally handle Supabase error (show alert, etc)
+                    console.error('Supabase transaction create error:', e);
+                }
+            }
+            // -----------------------------------------------------------
+
+            Alert.alert(
+                t('common.success'),
+                t('addNewRecordScreen.success.transactionSaved'),
+                [
+                    {
+                        text: t('common.ok'),
+                        onPress: () => navigation.goBack()
+                    }
+                ]
+            );
             setIsLoading(false);
         } catch (error) {
             safeAlert('Error', 'Failed to save transaction: ' + error.message);
-        } finally {
             setIsLoading(false);
         }
-    }, [isLoading, amount, type, accountId, userId, transactionId, originalTransaction, isEditing, contactPerson, transactionDate, remarks, purpose, imageUri, navigation, sourceScreen]);
+    }, [
+        isLoading, amount, type, accountId, userId, transactionId, originalTransaction, isEditing,
+        contactPerson, transactionDate, remarks, purpose, imageUri, navigation,
+        isProxyPayment, onBehalfOfContactId, showProxySwitch, userType
+    ]);
 
     const handleDelete = useCallback(async () => {
         if (isLoading || !isEditing || !originalTransaction) return;
@@ -522,6 +536,13 @@ const NewRecordScreen = ({ navigation, route }) => {
         setShowContactDropdown(false);
     }, []);
 
+    // Add this handler for the "on behalf of" contact selection
+    const handleSelectOnBehalfContact = useCallback((contact) => {
+        setOnBehalfOfContactId(contact.id);
+        setOnBehalfOfContactName(contact.name);
+        setShowOnBehalfDropdown(false);
+    }, []);
+
     const handleAddNewContact = () => {
         setShowContactModal(false);
         setShowContactOptionsModal(true);
@@ -602,82 +623,6 @@ const NewRecordScreen = ({ navigation, route }) => {
             safeAlert('Error', 'Failed to import contacts');
         }
     };
-
-    // Saved Contacts Modal
-    const SavedContactsModal = () => (
-        <Modal
-            visible={showContactModal}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setShowContactModal(false)}
-        >
-            <TouchableWithoutFeedback onPress={() => setShowContactModal(false)}>
-                <View style={styles.modalOverlay} />
-            </TouchableWithoutFeedback>
-            <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
-                    <Text style={styles.sectionTitle}>Select Contact</Text>
-                    {contacts.length === 0 ? (
-                        <Text style={styles.noContactsText}>No contacts available</Text>
-                    ) : (
-                        <ScrollView>
-                            {contacts.map(contact => (
-                                <TouchableOpacity
-                                    key={contact.id}
-                                    style={styles.contactItem}
-                                    onPress={() => handleSelectContact(contact)}
-                                >
-                                    <Text style={styles.contactName}>{contact.name}</Text>
-                                    {contactPerson === contact.id && (
-                                        <Icon name="check" size={24} color={colors.primary} />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    )}
-                    <TouchableOpacity
-                        style={styles.addContactButton}
-                        onPress={handleAddNewContact}
-                    >
-                        <Text style={styles.addContactText}>{t('addNewContact')}</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
-    );
-
-    // Contact Options Bottom Sheet
-    const ContactOptionsBottomSheet = () => (
-        <Modal
-            visible={showContactOptionsModal}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setShowContactOptionsModal(false)}
-        >
-            <TouchableWithoutFeedback onPress={() => setShowContactOptionsModal(false)}>
-                <View style={styles.modalOverlay} />
-            </TouchableWithoutFeedback>
-            <View style={styles.bottomSheetContainer}>
-                <View style={styles.bottomSheetContent}>
-                    <View style={styles.bottomSheetHandle} />
-                    <Text style={styles.sectionTitle}>{t('addContact')}</Text>
-                    <TouchableOpacity
-                        style={styles.bottomSheetOption}
-                        onPress={() => handleContactOptionSelect('create')}
-                    >
-                        <Icon name="person-add" size={RFValue(20)} color={colors.primary} />
-                        <Text style={styles.bottomSheetText}>{t('createNewContact')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.bottomSheetOption}
-                        onPress={() => handleContactOptionSelect('import')}
-                    >
-                        <Text style={styles.bottomSheetText}>{t('importFromContact')}</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
-    );
 
     // Contact Options Modal
     const ContactOptionsModal = () => (
@@ -805,6 +750,57 @@ const NewRecordScreen = ({ navigation, route }) => {
                         contentContainerStyle={styles.scrollContent}
                         keyboardShouldPersistTaps="handled"
                     >
+                        {/* On behalf of switch and contact field */}
+                        {showProxySwitch && (
+                            <View style={styles.cardContainer}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                    <Text style={styles.sectionTitle}>On behalf of</Text>
+                                    <Switch
+                                        value={isProxyPayment}
+                                        onValueChange={setIsProxyPayment}
+                                        style={{ marginLeft: 12 }}
+                                    />
+                                </View>
+                                {isProxyPayment && (
+                                    <View>
+                                        <Text style={styles.sectionTitle}>On behalf of Contact</Text>
+                                        <TouchableOpacity
+                                            style={[styles.dropdownInput, onBehalfOfContactId && styles.inputFocused]}
+                                            onPress={() => setShowOnBehalfDropdown(!showOnBehalfDropdown)}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Text style={[styles.inputText, !onBehalfOfContactName && styles.placeholderText]}>
+                                                {onBehalfOfContactName || t('newRecordScreen.selectContactPlaceholder')}
+                                            </Text>
+                                            <Icon
+                                                name={showOnBehalfDropdown ? 'expand-less' : 'expand-more'}
+                                                size={24}
+                                                color={colors.gray}
+                                            />
+                                        </TouchableOpacity>
+                                        {showOnBehalfDropdown && (
+                                            <View style={styles.dropdownMenu}>
+                                                <ScrollView style={styles.dropdownScroll}>
+                                                    {availableContactsForOnBehalf.map(contact => (
+                                                        <TouchableOpacity
+                                                            key={contact.id}
+                                                            style={styles.dropdownItem}
+                                                            onPress={() => handleSelectOnBehalfContact(contact)}
+                                                        >
+                                                            <Text style={styles.dropdownItemText}>{contact.name}</Text>
+                                                            {onBehalfOfContactId === contact.id && (
+                                                                <Icon name="check" size={20} color={colors.primary} />
+                                                            )}
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </ScrollView>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
                         <View style={styles.cardContainer}>
                             <Text style={styles.sectionTitle}>{t('newRecordScreen.typeLabel')}</Text>
                             <View style={styles.typeContainer}>
@@ -875,6 +871,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                             )}
                         </View>
 
+                        {/* Main Contact field (exclude onBehalfOfContactId) */}
                         <View style={styles.cardContainer}>
                             <Text style={styles.sectionTitle}>{t('newRecordScreen.contactLabel')}</Text>
                             <TouchableOpacity
@@ -896,7 +893,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                             {showContactDropdown && (
                                 <View style={styles.dropdownMenu}>
                                     <ScrollView style={styles.dropdownScroll}>
-                                        {contacts.map(contact => (
+                                        {availableContactsForContact.map(contact => (
                                             <TouchableOpacity
                                                 key={contact.id}
                                                 style={styles.dropdownItem}

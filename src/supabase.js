@@ -540,3 +540,53 @@ export const syncPendingChanges = async (realmUserId, onProgress = () => { }) =>
 
   return { total, success: successCount, failed: failedCount, idMapping };
 };
+
+/**
+ * Create a transaction directly in Supabase.
+ * @param {object} transactionData - Transaction data in camelCase (as in Realm).
+ * @param {string} supabaseUserId - The Supabase user UUID.
+ * @param {object} idMapping - { accounts: {}, contacts: {} } for mapping local IDs to Supabase IDs.
+ * @returns {Promise<object>} - The created transaction from Supabase, or throws error.
+ */
+export async function createTransactionInSupabase(transactionData, supabaseUserId, idMapping = {}) {
+  // Convert camelCase to snake_case for Supabase
+  let snakeCaseData = transformKeysToSnakeCase({ ...transactionData });
+
+  // Remove fields not present in Supabase schema
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on; // optional: let Supabase default
+  delete snakeCaseData.updated_on; // optional: let Supabase default
+
+  // Map account_id and contact_id using idMapping if needed
+  if (snakeCaseData.account_id && idMapping.accounts && idMapping.accounts[snakeCaseData.account_id]) {
+    snakeCaseData.account_id = idMapping.accounts[snakeCaseData.account_id];
+  }
+  if (snakeCaseData.contact_id && idMapping.contacts && idMapping.contacts[snakeCaseData.contact_id]) {
+    snakeCaseData.contact_id = idMapping.contacts[snakeCaseData.contact_id];
+  }
+  if (snakeCaseData.on_behalf_of_contact_id && idMapping.contacts && idMapping.contacts[snakeCaseData.on_behalf_of_contact_id]) {
+    snakeCaseData.on_behalf_of_contact_id = idMapping.contacts[snakeCaseData.on_behalf_of_contact_id];
+  }
+
+  // Set user_id
+  snakeCaseData.user_id = supabaseUserId;
+
+  // Ensure proxy fields are present
+  if (!('is_proxy_payment' in snakeCaseData)) snakeCaseData.is_proxy_payment = false;
+  if (!('on_behalf_of_contact_id' in snakeCaseData)) snakeCaseData.on_behalf_of_contact_id = null;
+
+  // Remove id so Supabase generates a UUID
+  delete snakeCaseData.id;
+
+  // Insert into Supabase
+  const { data, error } = await supabase
+    .from('transactions')
+    .insert(snakeCaseData)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}

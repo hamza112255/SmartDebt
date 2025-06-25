@@ -126,13 +126,17 @@ const AddAccountScreen = ({ navigation, route }) => {
             const users = getAllObjects('User');
             let currentUserId = users.length > 0 ? users[0].id : 'localUser';
 
+            // Check number of accounts in Realm
+            const accounts = getAllObjects('Account');
+            const isFirstAccount = accounts.length === 0;
+
             const data = {
                 id: existingAccount ? existingAccount.id : uuid.v4(),
                 name: accountName.trim(),
                 currency: currency,
                 type: terms,
                 userId: currentUserId,
-                isPrimary: existingAccount ? existingAccount.isPrimary : false,
+                isPrimary: existingAccount ? existingAccount.isPrimary : isFirstAccount, // <-- updated logic
                 currentBalance: existingAccount ? existingAccount.currentBalance : 0,
                 language: i18n.language,
                 // Initialize all type-based amounts to 0

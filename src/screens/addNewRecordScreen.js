@@ -474,7 +474,7 @@ const NewRecordScreen = ({ navigation, route }) => {
 
             Alert.alert(
                 t('common.success'),
-                t('addNewRecordScreen.success.transactionSaved'),
+                t('addNewRecordScreen.alerts.success.save'),
                 [
                     {
                         text: t('common.ok'),
@@ -497,12 +497,12 @@ const NewRecordScreen = ({ navigation, route }) => {
         if (isLoading || !isEditing || !originalTransaction) return;
 
         Alert.alert(
-            'Confirm Deletion',
-            'Are you sure you want to delete this transaction? This action cannot be undone.',
+            t('addNewRecordScreen.alerts.success.confirmDeleteLabel'),
+            t('addNewRecordScreen.alerts.success.confirmDeleteDescription'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t('common.delete'),
                     style: 'destructive',
                     onPress: async () => {
                         setIsLoading(true);

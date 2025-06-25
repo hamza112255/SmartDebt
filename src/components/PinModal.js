@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BOTTOM_SHEET_HEIGHT = SCREEN_HEIGHT * 0.6;
@@ -32,7 +33,7 @@ const PinModal = ({
   visible,
   onAuthenticated,
   onCancel,
-  title = 'Enter PIN',
+  title,
   showCancel = true,
   maxAttempts = MAX_ATTEMPTS,
   onEmergencyReset,
@@ -44,6 +45,7 @@ const PinModal = ({
   const [attempts, setAttempts] = useState(0);
   const [error, setError] = useState('');
   const translateY = useSharedValue(SCREEN_HEIGHT);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (visible) {
@@ -160,12 +162,18 @@ const PinModal = ({
           <Animated.View style={[styles.bottomSheet, animatedStyle]}>
             <View style={styles.dragIndicator} />
             <Text style={styles.title}>
-              {mode === 'create' ? title : mode === 'confirm' ? 'Confirm PIN' : 'Enter PIN'}
+              {mode === 'create'
+                ? t('pin.createTitle', title || t('pin.createTitle'))
+                : mode === 'confirm'
+                ? t('pin.confirmTitle')
+                : t('pin.enterTitle')}
             </Text>
             <Text style={styles.subtitle}>
-              {mode === 'create' ? 'Enter a 4-digit PIN' :
-                mode === 'confirm' ? 'Re-enter your PIN to confirm' :
-                  'Enter your 4-digit PIN'}
+              {mode === 'create'
+                ? t('pin.createSubtitle')
+                : mode === 'confirm'
+                ? t('pin.confirmSubtitle')
+                : t('pin.enterSubtitle')}
             </Text>
             <View style={styles.pinContainer}>
               {[...Array(4)].map((_, i) => (
@@ -174,7 +182,7 @@ const PinModal = ({
                   style={[
                     styles.pinDot,
                     ((mode === 'create' || mode === 'verify') && i < pin.length) ||
-                      (mode === 'confirm' && i < confirmPin.length)
+                    (mode === 'confirm' && i < confirmPin.length)
                       ? styles.pinDotFilled
                       : null,
                   ]}
@@ -207,12 +215,12 @@ const PinModal = ({
             <View style={styles.footer}>
               {showCancel && (
                 <TouchableOpacity onPress={handleCancel}>
-                  <Text style={styles.cancelText}>Cancel</Text>
+                  <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               )}
               {onEmergencyReset && mode === 'verify' && (
                 <TouchableOpacity onPress={onEmergencyReset}>
-                  <Text style={styles.emergencyText}>Forgot PIN? Reset</Text>
+                  <Text style={styles.emergencyText}>{t('pin.forgot')}</Text>
                 </TouchableOpacity>
               )}
             </View>

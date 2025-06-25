@@ -26,6 +26,49 @@
   "signupScreen.creatingAccount": "Création du compte...",
   "signupScreen.alreadyHaveAccount": "Vous avez déjà un compte? ",
   "signupScreen.signInLink": "Se connecter",
+  "signupScreen": {
+    "title": "Créer un compte",
+    "subtitle": "Inscrivez-vous pour commencer avec SmartDebt.",
+    "emailAddressLabel": "Adresse e-mail",
+    "passwordLabel": "Mot de passe",
+    "confirmPasswordLabel": "Confirmer le mot de passe",
+    "placeholders": {
+      "email": "Entrez votre e-mail",
+      "password": "Entrez votre mot de passe",
+      "confirmPassword": "Répétez votre mot de passe"
+    },
+    "validation": {
+      "emailRequired": "L'e-mail est requis.",
+      "emailInvalid": "Veuillez entrer une adresse e-mail valide.",
+      "passwordRequired": "Le mot de passe est requis.",
+      "passwordMinLength": "Le mot de passe doit comporter au moins 8 caractères.",
+      "passwordComplexity": "Le mot de passe doit contenir une majuscule, une minuscule et un chiffre.",
+      "confirmPasswordRequired": "Veuillez confirmer votre mot de passe.",
+      "passwordsDoNotMatch": "Les mots de passe ne correspondent pas."
+    },
+    "passwordRequirements": {
+      "title": "Le mot de passe doit contenir :"
+    },
+    "atLeast8Chars": "Au moins 8 caractères",
+    "oneUppercase": "Une lettre majuscule",
+    "oneLowercase": "Une lettre minuscule",
+    "oneNumber": "Un chiffre",
+    "termsAgreement": "En vous inscrivant, vous acceptez nos",
+    "termsOfService": "Conditions d'utilisation",
+    "and": "et",
+    "privacyPolicy": "Politique de confidentialité",
+    "createAccountButton": "Créer un compte",
+    "creatingAccount": "Création du compte...",
+    "alreadyHaveAccount": "Vous avez déjà un compte ?",
+    "signInLink": "Se connecter",
+    "success": {
+      "title": "Compte créé"
+    },
+    "errors": {
+      "signupFailed": "Échec de l'inscription",
+      "tryAgain": "Veuillez réessayer."
+    }
+  },
   "settingsScreen": {
     "settings": "Paramètres",
     "personalInformation": "Informations personnelles",
@@ -271,7 +314,8 @@
     "resetTitle": "Réinitialiser",
     "resetMessage": "Cela désactivera définitivement la protection par PIN. Êtes-vous sûr?",
     "disabledMessage": "La protection par PIN a été désactivée avec succès.",
-    "authFailed": "Échec de l'authentification par PIN :"
+    "authFailed": "Échec de l'authentification par PIN :",
+    "logout": "Se déconnecter"
   },
   "navigation": {
     "tabs": {
@@ -283,6 +327,13 @@
     }
   },
   "pin": {
+    "createTitle": "Créer un code PIN",
+    "confirmTitle": "Confirmer le code PIN",
+    "enterTitle": "Entrer le code PIN",
+    "createSubtitle": "Entrez un code PIN à 4 chiffres",
+    "confirmSubtitle": "Ressaisissez votre code PIN pour confirmer",
+    "enterSubtitle": "Entrez votre code PIN à 4 chiffres",
+    "forgot": "Code PIN oublié ? Réinitialiser",
     "incorrectTitle": "Code PIN incorrect",
     "incorrectMessage": "Le code PIN que vous avez entré est incorrect. Veuillez réessayer.",
     "resetTitle": "Réinitialiser le PIN",
@@ -493,5 +544,24 @@
       "createBudget": "Créer des budgets et suivre les dépenses"
     },
     "upgradeButton": "Mettre à niveau maintenant"
+  },
+  "loginScreen.placeholders": {
+    "email": "Entrez votre e-mail",
+    "password": "Entrez votre mot de passe"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "L'e-mail et le mot de passe sont obligatoires."
+  },
+  "loginScreen.errors": {
+    "signInFailed": "Échec de la connexion. Veuillez réessayer.",
+    "invalidCredentials": "E-mail ou mot de passe incorrect."
+  },
+  "loginScreen.googleSignInButton": "Se connecter avec Google",
+  "loginScreen.sync": {
+    "starting": "Préparation à la synchronisation...",
+    "progress": "Synchronisation {{current}}/{{total}} {{table}}...",
+    "complete": "Synchronisation terminée !",
+    "nothingToSync": "Tout est à jour.",
+    "error": "La synchronisation a échoué. Veuillez réessayer."
   }
 }

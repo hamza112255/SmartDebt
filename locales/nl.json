@@ -26,6 +26,25 @@
   "signupScreen.creatingAccount": "Account aanmaken...",
   "signupScreen.alreadyHaveAccount": "Heeft u al een account? ",
   "signupScreen.signInLink": "Inloggen",
+  "signupScreen.title": "Account aanmaken",
+  "signupScreen.subtitle": "Meld je aan om te starten met SmartDebt.",
+  "signupScreen.emailAddressLabel": "E-mailadres",
+  "signupScreen.passwordLabel": "Wachtwoord",
+  "signupScreen.confirmPasswordLabel": "Wachtwoord bevestigen",
+  "signupScreen.placeholders": {
+    "email": "Vul je e-mailadres in",
+    "password": "Vul je wachtwoord in",
+    "confirmPassword": "Herhaal je wachtwoord"
+  },
+  "signupScreen.validation": {
+    "emailRequired": "E-mailadres is verplicht.",
+    "emailInvalid": "Vul een geldig e-mailadres in.",
+    "passwordRequired": "Wachtwoord is verplicht.",
+    "passwordMinLength": "Wachtwoord moet minstens 8 tekens bevatten.",
+    "passwordComplexity": "Wachtwoord moet een hoofdletter, kleine letter en een cijfer bevatten.",
+    "confirmPasswordRequired": "Bevestig je wachtwoord.",
+    "passwordsDoNotMatch": "Wachtwoorden komen niet overeen."
+  },
   "settingsScreen.settings": "Instellingen",
   "settingsScreen.personalInformation": "Persoonlijke informatie",
   "settingsScreen.firstName": "Voornaam",
@@ -239,6 +258,7 @@
   "common.resetMessage": "Dit zal de PIN-beveiliging permanent uitschakelen. Weet je het zeker?",
   "common.disabledMessage": "De PIN-beveiliging is succesvol uitgeschakeld.",
   "common.authFailed": "PIN-authenticatie mislukt:",
+  "common.logout": "Uitloggen",
   "navigation": {
     "tabs": {
       "settings": "Instellingen",
@@ -249,6 +269,13 @@
     }
   },
   "pin": {
+    "createTitle": "Pincode aanmaken",
+    "confirmTitle": "Bevestig pincode",
+    "enterTitle": "Voer pincode in",
+    "createSubtitle": "Voer een 4-cijferige pincode in",
+    "confirmSubtitle": "Voer uw pincode opnieuw in ter bevestiging",
+    "enterSubtitle": "Voer uw 4-cijferige pincode in",
+    "forgot": "Pincode vergeten? Reset",
     "incorrectTitle": "Onjuiste pincode",
     "incorrectMessage": "De pincode die je hebt ingevoerd is onjuist. Probeer het opnieuw.",
     "resetTitle": "Pincode resetten",
@@ -458,5 +485,24 @@
       "createBudget": "Budget maken en volgen"
     },
     "upgradeButton": "Nu upgraden"
+  },
+  "loginScreen.placeholders": {
+    "email": "Vul je e-mailadres in",
+    "password": "Vul je wachtwoord in"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "E-mailadres en wachtwoord zijn verplicht."
+  },
+  "loginScreen.errors": {
+    "signInFailed": "Inloggen mislukt. Probeer het opnieuw.",
+    "invalidCredentials": "Ongeldig e-mailadres of wachtwoord."
+  },
+  "loginScreen.googleSignInButton": "Inloggen met Google",
+  "loginScreen.sync": {
+    "starting": "Voorbereiden op synchronisatie...",
+    "progress": "Synchroniseren {{current}}/{{total}} {{table}}...",
+    "complete": "Synchronisatie voltooid!",
+    "nothingToSync": "Alles is up-to-date.",
+    "error": "Synchronisatie mislukt. Probeer het opnieuw."
   }
 }

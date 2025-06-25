@@ -26,6 +26,49 @@
   "signupScreen.creatingAccount": "جاري إنشاء حساب...",
   "signupScreen.alreadyHaveAccount": "هل لديك حساب بالفعل؟ ",
   "signupScreen.signInLink": "تسجيل الدخول",
+  "signupScreen": {
+    "title": "إنشاء حساب",
+    "subtitle": "سجل للبدء مع SmartDebt.",
+    "emailAddressLabel": "البريد الإلكتروني",
+    "passwordLabel": "كلمة المرور",
+    "confirmPasswordLabel": "تأكيد كلمة المرور",
+    "placeholders": {
+      "email": "أدخل بريدك الإلكتروني",
+      "password": "أدخل كلمة المرور",
+      "confirmPassword": "أعد إدخال كلمة المرور"
+    },
+    "validation": {
+      "emailRequired": "البريد الإلكتروني مطلوب.",
+      "emailInvalid": "يرجى إدخال بريد إلكتروني صالح.",
+      "passwordRequired": "كلمة المرور مطلوبة.",
+      "passwordMinLength": "يجب أن تكون كلمة المرور 8 أحرف على الأقل.",
+      "passwordComplexity": "يجب أن تحتوي كلمة المرور على حرف كبير وصغير ورقم.",
+      "confirmPasswordRequired": "يرجى تأكيد كلمة المرور.",
+      "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين."
+    },
+    "passwordRequirements": {
+      "title": "يجب أن تحتوي كلمة المرور على:"
+    },
+    "atLeast8Chars": "8 أحرف على الأقل",
+    "oneUppercase": "حرف كبير واحد",
+    "oneLowercase": "حرف صغير واحد",
+    "oneNumber": "رقم واحد",
+    "termsAgreement": "بالتسجيل أنت توافق على",
+    "termsOfService": "شروط الخدمة",
+    "and": "و",
+    "privacyPolicy": "سياسة الخصوصية",
+    "createAccountButton": "إنشاء حساب",
+    "creatingAccount": "جاري إنشاء الحساب...",
+    "alreadyHaveAccount": "هل لديك حساب بالفعل؟",
+    "signInLink": "تسجيل الدخول",
+    "success": {
+      "title": "تم إنشاء الحساب"
+    },
+    "errors": {
+      "signupFailed": "فشل التسجيل",
+      "tryAgain": "يرجى المحاولة مرة أخرى."
+    }
+  },
   "dashboardScreen.myAccounts": "حساباتي",
   "dashboardScreen.addAccount": "إضافة حساب جديد",
   "dashboardScreen.accountOptions": "خيارات الحساب",
@@ -264,7 +307,8 @@
     "ok": "موافق",
     "cancel": "إلغاء",
     "delete": "حذف",
-    "edit": "تعديل"
+    "edit": "تعديل",
+    "logout": "تسجيل الخروج"
   },
   "navigation": {
     "tabs": {
@@ -276,6 +320,13 @@
     }
   },
   "pin": {
+    "createTitle": "إنشاء رمز سري",
+    "confirmTitle": "تأكيد الرمز السري",
+    "enterTitle": "أدخل الرمز السري",
+    "createSubtitle": "أدخل رمز سري مكون من 4 أرقام",
+    "confirmSubtitle": "أعد إدخال الرمز السري للتأكيد",
+    "enterSubtitle": "أدخل رمزك السري المكون من 4 أرقام",
+    "forgot": "هل نسيت الرمز السري؟ إعادة تعيين",
     "incorrectTitle": "رمز PIN غير صحيح",
     "incorrectMessage": "الرمز الذي أدخلته غير صحيح. يرجى المحاولة مرة أخرى.",
     "resetTitle": "إعادة تعيين PIN",
@@ -482,5 +533,24 @@
       "createBudget": "إنشاء ميزانية"
     },
     "upgradeButton": "ترقية الآن"
+  },
+  "loginScreen.placeholders": {
+    "email": "أدخل بريدك الإلكتروني",
+    "password": "أدخل كلمة المرور"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "البريد الإلكتروني وكلمة المرور مطلوبة."
+  },
+  "loginScreen.errors": {
+    "signInFailed": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.",
+    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة."
+  },
+  "loginScreen.googleSignInButton": "تسجيل الدخول باستخدام جوجل",
+  "loginScreen.sync": {
+    "starting": "جارٍ التحضير للمزامنة...",
+    "progress": "جاري المزامنة {{current}}/{{total}} {{table}}...",
+    "complete": "اكتملت المزامنة!",
+    "nothingToSync": "كل شيء محدث.",
+    "error": "فشلت المزامنة. يرجى المحاولة مرة أخرى."
   }
 }

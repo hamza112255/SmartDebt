@@ -17,6 +17,7 @@ import { supabase, syncPendingChanges } from '../supabase';
 import { realm } from '../realm';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import IconGoogle from 'react-native-vector-icons/MaterialCommunityIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage } from 'react-native-responsive-fontsize';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +54,10 @@ const LoginScreen = ({ navigation }) => {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert(t('common.error'), t('loginScreen.validation.emailPasswordRequired'));
+            Alert.alert(t('common.error'), t('loginScreen.validation.emailPasswordRequired'),[
+                {
+                    text: t('common.ok'),
+            }]);
             return;
         }
 
@@ -88,7 +92,19 @@ const LoginScreen = ({ navigation }) => {
             }
         } catch (error) {
             console.error('[LOGIN] Error:', error);
-            Alert.alert(t('common.error'), error.message || t('loginScreen.errors.signInFailed'));
+            let message = error.message;
+            if (
+                message &&
+                message.toLowerCase().includes('invalid login credentials')
+            ) {
+                message = t('loginScreen.errors.invalidCredentials');
+            } else {
+                message = message || t('loginScreen.errors.signInFailed');
+            }
+            Alert.alert(t('common.error'), message,[
+                {
+                    text: t('common.ok'),
+            }]);
         } finally {
             setIsLoading(false);
         }
@@ -138,7 +154,11 @@ const LoginScreen = ({ navigation }) => {
         } catch (error) {
             if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
                 console.error('Google Sign-In Error:', error);
-                Alert.alert(t('common.error'), 'Google Sign-In failed. Please try again.');
+                Alert.alert(t('common.error'), 'Google Sign-In failed. Please try again.',[
+                    {
+                        text: t('common.ok'),
+                    }
+                ]);
             }
         } finally {
             setIsLoading(false);
@@ -216,6 +236,7 @@ const LoginScreen = ({ navigation }) => {
                                 <TextInput
                                     style={styles.input}
                                     placeholder={t('loginScreen.placeholders.email', 'Enter your email')}
+                                    placeholderTextColor={colors.gray}
                                     value={email}
                                     onChangeText={setEmail}
                                     keyboardType="email-address"
@@ -230,6 +251,7 @@ const LoginScreen = ({ navigation }) => {
                                 <TextInput
                                     style={styles.input}
                                     placeholder={t('loginScreen.placeholders.password', 'Enter your password')}
+                                    placeholderTextColor={colors.gray}
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry
@@ -244,7 +266,7 @@ const LoginScreen = ({ navigation }) => {
                         </TouchableOpacity>
 
                         <TouchableOpacity style={[styles.googleButton, (isLoading || isSyncing) && styles.buttonDisabled]} onPress={handleGoogleSignIn} disabled={isLoading || isSyncing}>
-                            <Icon name="sc-google" size={22} color={colors.white} style={styles.googleIcon} />
+                            <IconGoogle name="google" size={20} color={colors.white} style={styles.googleIcon} />
                             <Text style={styles.buttonText}>{t('loginScreen.googleSignInButton', 'Sign In with Google')}</Text>
                         </TouchableOpacity>
 

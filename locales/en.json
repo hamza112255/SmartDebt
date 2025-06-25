@@ -26,6 +26,49 @@
   "signupScreen.creatingAccount": "Creating Account...",
   "signupScreen.alreadyHaveAccount": "Already have an account? ",
   "signupScreen.signInLink": "Sign In",
+  "signupScreen": {
+    "title": "Create Account",
+    "subtitle": "Sign up to get started with SmartDebt.",
+    "emailAddressLabel": "Email Address",
+    "passwordLabel": "Password",
+    "confirmPasswordLabel": "Confirm Password",
+    "placeholders": {
+      "email": "Enter your email",
+      "password": "Enter your password",
+      "confirmPassword": "Re-enter your password"
+    },
+    "validation": {
+      "emailRequired": "Email is required.",
+      "emailInvalid": "Please enter a valid email address.",
+      "passwordRequired": "Password is required.",
+      "passwordMinLength": "Password must be at least 8 characters.",
+      "passwordComplexity": "Password must contain uppercase, lowercase, and a number.",
+      "confirmPasswordRequired": "Please confirm your password.",
+      "passwordsDoNotMatch": "Passwords do not match."
+    },
+    "passwordRequirements": {
+      "title": "Password must contain:"
+    },
+    "atLeast8Chars": "At least 8 characters",
+    "oneUppercase": "One uppercase letter",
+    "oneLowercase": "One lowercase letter",
+    "oneNumber": "One number",
+    "termsAgreement": "By signing up, you agree to our",
+    "termsOfService": "Terms of Service",
+    "and": "and",
+    "privacyPolicy": "Privacy Policy",
+    "createAccountButton": "Create Account",
+    "creatingAccount": "Creating Account...",
+    "alreadyHaveAccount": "Already have an account?",
+    "signInLink": "Sign In",
+    "success": {
+      "title": "Account Created"
+    },
+    "errors": {
+      "signupFailed": "Signup Failed",
+      "tryAgain": "Please try again."
+    }
+  },
   "settingsScreen": {
     "settings": "Settings",
     "personalInformation": "Personal Information",
@@ -293,7 +336,8 @@
     "ok": "OK",
     "cancel": "Cancel",
     "delete": "Delete",
-    "edit": "Edit"
+    "edit": "Edit",
+    "logout": "Logout"
   },
   "navigation": {
     "tabs": {
@@ -305,6 +349,13 @@
     }
   },
   "pin": {
+    "createTitle": "Create PIN",
+    "confirmTitle": "Confirm PIN",
+    "enterTitle": "Enter PIN",
+    "createSubtitle": "Enter a 4-digit PIN",
+    "confirmSubtitle": "Re-enter your PIN to confirm",
+    "enterSubtitle": "Enter your 4-digit PIN",
+    "forgot": "Forgot PIN? Reset",
     "incorrectTitle": "Incorrect PIN",
     "incorrectMessage": "The PIN you entered is incorrect. Please try again.",
     "resetTitle": "Reset PIN",
@@ -481,5 +532,24 @@
   "addContact": "Add Contact",
   "createNewContact":"Create New Contact",
   "importFromContact":"Import From Contact",
-  "cancelContact":"Cancel"
+  "cancelContact":"Cancel",
+  "loginScreen.placeholders": {
+    "email": "Enter your email",
+    "password": "Enter your password"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "Email and password are required."
+  },
+  "loginScreen.errors": {
+    "signInFailed": "Sign in failed. Please try again.",
+    "invalidCredentials": "Invalid email or password."
+  },
+  "loginScreen.googleSignInButton": "Sign In with Google",
+  "loginScreen.sync": {
+    "starting": "Preparing to sync...",
+    "progress": "Syncing {{current}}/{{total}} {{table}}...",
+    "complete": "Sync complete!",
+    "nothingToSync": "Everything is up to date.",
+    "error": "Sync failed. Please try again."
+  }
 }

@@ -26,6 +26,49 @@
   "signupScreen.creatingAccount": "Creando cuenta...",
   "signupScreen.alreadyHaveAccount": "¿Ya tienes una cuenta? ",
   "signupScreen.signInLink": "Iniciar sesión",
+  "signupScreen": {
+    "title": "Crear cuenta",
+    "subtitle": "Regístrate para comenzar con SmartDebt.",
+    "emailAddressLabel": "Dirección de correo electrónico",
+    "passwordLabel": "Contraseña",
+    "confirmPasswordLabel": "Confirmar contraseña",
+    "placeholders": {
+      "email": "Introduce tu correo",
+      "password": "Introduce tu contraseña",
+      "confirmPassword": "Repite tu contraseña"
+    },
+    "validation": {
+      "emailRequired": "El correo es obligatorio.",
+      "emailInvalid": "Introduce un correo válido.",
+      "passwordRequired": "La contraseña es obligatoria.",
+      "passwordMinLength": "La contraseña debe tener al menos 8 caracteres.",
+      "passwordComplexity": "La contraseña debe contener mayúsculas, minúsculas y un número.",
+      "confirmPasswordRequired": "Confirma tu contraseña.",
+      "passwordsDoNotMatch": "Las contraseñas no coinciden."
+    },
+    "passwordRequirements": {
+      "title": "La contraseña debe contener:"
+    },
+    "atLeast8Chars": "Al menos 8 caracteres",
+    "oneUppercase": "Una letra mayúscula",
+    "oneLowercase": "Una letra minúscula",
+    "oneNumber": "Un número",
+    "termsAgreement": "Al registrarte, aceptas nuestros",
+    "termsOfService": "Términos de Servicio",
+    "and": "y",
+    "privacyPolicy": "Política de Privacidad",
+    "createAccountButton": "Crear cuenta",
+    "creatingAccount": "Creando cuenta...",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "signInLink": "Iniciar sesión",
+    "success": {
+      "title": "Cuenta creada"
+    },
+    "errors": {
+      "signupFailed": "Registro fallido",
+      "tryAgain": "Por favor, inténtalo de nuevo."
+    }
+  },
   "settingsScreen": {
     "settings": "Configuración",
     "personalInformation": "Información personal",
@@ -280,8 +323,8 @@
     "save": "Guardar",
     "confirm": "Confirmar",
     "disabledMessage": "La protección por PIN se ha desactivado correctamente.",
-    "authFailed": "Error de autenticación por PIN:"
-    
+    "authFailed": "Error de autenticación por PIN:",
+    "logout": "Cerrar sesión"
   },
   "navigation": {
     "tabs": {
@@ -293,6 +336,13 @@
     }
   },
   "pin": {
+    "createTitle": "Crear PIN",
+    "confirmTitle": "Confirmar PIN",
+    "enterTitle": "Ingresar PIN",
+    "createSubtitle": "Ingresa un PIN de 4 dígitos",
+    "confirmSubtitle": "Vuelve a ingresar tu PIN para confirmar",
+    "enterSubtitle": "Ingresa tu PIN de 4 dígitos",
+    "forgot": "¿Olvidaste el PIN? Restablecer",
     "incorrectTitle": "PIN incorrecto",
     "incorrectMessage": "El PIN que ingresaste es incorrecto. Por favor inténtalo de nuevo.",
     "resetTitle": "Restablecer PIN",
@@ -503,5 +553,24 @@
       "createBudget": "Crear presupuestos y seguimiento de gastos"
     },
     "upgradeButton": "Actualizar ahora"
+  },
+  "loginScreen.placeholders": {
+    "email": "Introduce tu correo electrónico",
+    "password": "Introduce tu contraseña"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "Correo electrónico y contraseña son obligatorios."
+  },
+  "loginScreen.errors": {
+    "signInFailed": "Error al iniciar sesión. Por favor, inténtalo de nuevo.",
+    "invalidCredentials": "Correo electrónico o contraseña incorrectos."
+  },
+  "loginScreen.googleSignInButton": "Iniciar sesión con Google",
+  "loginScreen.sync": {
+    "starting": "Preparando para sincronizar...",
+    "progress": "Sincronizando {{current}}/{{total}} {{table}}...",
+    "complete": "¡Sincronización completa!",
+    "nothingToSync": "Todo está actualizado.",
+    "error": "La sincronización falló. Por favor, inténtalo de nuevo."
   }
 }

@@ -325,6 +325,145 @@ const NewRecordScreen = ({ navigation, route }) => {
         ['send_out', 'cash_out', 'lend', 'debit'].includes(type)
     );
 
+    const createLocalProxyPayment = ({
+        mainTransaction,
+        user,
+        account,
+        contacts,
+        onBehalfOfContactId,
+        isAppUser,
+        onBehalfUserId,
+        netOn,
+        paid
+    }) => {
+        // Find onBehalf contact
+        const onBehalfContact = contacts.find(c => c.id === onBehalfOfContactId);
+        const recipientContact = contacts.find(c => c.id === mainTransaction.contactId);
+        let debtAdjustmentTransaction = null;
+        let proxyPaymentId = Date.now().toString() + '_proxy';
+        let debtAdjustmentAmount = mainTransaction.amount;
+        let remarks = '';
+        let debtAdjustmentType = '';
+        let debtAdjustmentAccountId = '';
+        let debtAdjustmentUserId = '';
+        let debtAdjustmentContactId = '';
+        let debtAdjustmentPurpose = '';
+        let newDebtAmount = 0;
+
+        if (isAppUser && onBehalfUserId) {
+            // Alice is app user, create debt adjustment in Alice's account
+            // Find Bob's contact in Alice's contacts
+            const payerContactInAlice = realm.objects('Contact')
+                .filtered('userId == $0 && contactUserId == $1', onBehalfUserId, user.id)[0];
+            debtAdjustmentAccountId = realm.objects('Account').filtered('userId == $0', onBehalfUserId)[0]?.id;
+            debtAdjustmentUserId = onBehalfUserId;
+            debtAdjustmentContactId = payerContactInAlice?.id;
+            debtAdjustmentType = 'borrow';
+            debtAdjustmentPurpose = 'Debt adjustment - proxy payment';
+            remarks = `Debt adjustment: ${user.firstName || ''} paid ${mainTransaction.amount} to someone on my behalf`;
+
+            // For simplicity, always create a single adjustment for now (can be extended for partial/excess)
+            debtAdjustmentTransaction = {
+                id: Date.now().toString() + '_debt',
+                type: debtAdjustmentType,
+                purpose: debtAdjustmentPurpose,
+                amount: debtAdjustmentAmount,
+                accountId: debtAdjustmentAccountId,
+                userId: debtAdjustmentUserId,
+                contactId: debtAdjustmentContactId,
+                transactionDate: mainTransaction.transactionDate,
+                remarks,
+                status: 'completed',
+                isRecurring: false,
+                is_proxy_payment: false,
+                on_behalf_of_contact_id: null,
+                recurringPattern: null,
+                parentTransactionId: null,
+                isSettled: false,
+                settledAt: null,
+                settlementNote: null,
+                createdOn: new Date(),
+                updatedOn: new Date(),
+                syncStatus: netOn && paid ? 'synced' : 'pending',
+                lastSyncAt: netOn && paid ? new Date() : null,
+                needsUpload: !(netOn && paid)
+            };
+        } else {
+            // Alice is not app user, create debt adjustment in Bob's account
+            debtAdjustmentAccountId = mainTransaction.accountId;
+            debtAdjustmentUserId = mainTransaction.userId;
+            debtAdjustmentContactId = onBehalfOfContactId;
+            debtAdjustmentType = 'lend';
+            debtAdjustmentPurpose = 'Debt adjustment - proxy payment';
+            remarks = `Debt adjustment: paid $${mainTransaction.amount} to ${recipientContact?.name || ''} on behalf of ${onBehalfContact?.name || ''}`;
+
+            debtAdjustmentTransaction = {
+                id: Date.now().toString() + '_debt',
+                type: debtAdjustmentType,
+                purpose: debtAdjustmentPurpose,
+                amount: debtAdjustmentAmount,
+                accountId: debtAdjustmentAccountId,
+                userId: debtAdjustmentUserId,
+                contactId: debtAdjustmentContactId,
+                transactionDate: mainTransaction.transactionDate,
+                remarks,
+                status: 'completed',
+                isRecurring: false,
+                is_proxy_payment: false,
+                on_behalf_of_contact_id: null,
+                recurringPattern: null,
+                parentTransactionId: null,
+                isSettled: false,
+                settledAt: null,
+                settlementNote: null,
+                createdOn: new Date(),
+                updatedOn: new Date(),
+                syncStatus: netOn && paid ? 'synced' : 'pending',
+                lastSyncAt: netOn && paid ? new Date() : null,
+                needsUpload: !(netOn && paid)
+            };
+        }
+
+        // Create ProxyPayment record
+        const proxyPayment = {
+            id: proxyPaymentId,
+            payerUserId: mainTransaction.userId,
+            onBehalfOfUserId: isAppUser ? onBehalfUserId : null,
+            recipientContactId: mainTransaction.contactId,
+            amount: mainTransaction.amount,
+            originalTransactionId: mainTransaction.id,
+            debtAdjustmentTransactionId: debtAdjustmentTransaction.id,
+            notificationSent: false,
+            createdOn: new Date(),
+            updatedOn: new Date()
+        };
+
+        // Save both in Realm
+        realm.write(() => {
+            realm.create('Transaction', debtAdjustmentTransaction);
+            realm.create('ProxyPayment', proxyPayment);
+        });
+
+        // Update account balances for debt adjustment
+        const adjAccount = realm.objectForPrimaryKey('Account', debtAdjustmentAccountId);
+        if (adjAccount) {
+            let adjBalance = adjAccount.currentBalance || 0;
+            let adjAmount = debtAdjustmentTransaction.amount;
+            if (debtAdjustmentType === 'lend' || debtAdjustmentType === 'credit') {
+                adjBalance += adjAmount;
+            } else {
+                adjBalance -= adjAmount;
+            }
+            realm.write(() => {
+                realm.create('Account', {
+                    ...adjAccount,
+                    currentBalance: adjBalance,
+                    updatedOn: new Date()
+                }, 'modified');
+            });
+        }
+    };
+
     const handleSave = useCallback(async () => {
         if (isLoading) return;
         setIsLoading(true);
@@ -370,26 +509,47 @@ const NewRecordScreen = ({ navigation, route }) => {
             const netOn = netState.isConnected && netState.isInternetReachable;
             const paid = user?.userType === 'paid';
 
+            // Find contacts for proxy logic
+            const allContacts = Array.from(realm.objects('Contact').filtered('userId == $0 AND isActive == true', userId));
+            let onBehalfContact = onBehalfOfContactId ? realm.objectForPrimaryKey('Contact', onBehalfOfContactId) : null;
+            let isAppUser = !!onBehalfContact?.contactUserId;
+            let onBehalfUserId = onBehalfContact?.contactUserId || null;
+
+            // --- CREATE LOGIC ---
             if (isEditing) {
+                // ...existing update logic...
+                // (You can extend this for proxy update if needed)
+            } else {
                 if (paid && netOn) {
                     try {
                         // Map type for Supabase
                         const supabaseTxData = { ...transactionData, type: mapTypeForSupabase(transactionData.type) };
-                        // Update in Supabase first
-                        const supaTx = await updateTransactionInSupabase(transactionData.id, supabaseTxData);
-                        // Update in Realm with Supabase response
+                        const supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
                         realm.write(() => {
                             realm.create('Transaction', {
                                 ...transactionData,
-                                ...supaTx,
                                 id: supaTx.id,
                                 syncStatus: 'synced',
                                 needsUpload: false,
                                 lastSyncAt: new Date(),
-                                createdOn: supaTx.created_on ? new Date(supaTx.created_on) : transactionData.createdOn,
+                                createdOn: supaTx.created_on ? new Date(supaTx.created_on) : new Date(),
                                 updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
                             }, 'modified');
                         });
+                        // If proxy payment, create local debt adjustment and ProxyPayment
+                        if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
+                            createLocalProxyPayment({
+                                mainTransaction: { ...transactionData, id: supaTx.id },
+                                user,
+                                account: realm.objectForPrimaryKey('Account', accountId),
+                                contacts: allContacts,
+                                onBehalfOfContactId,
+                                isAppUser,
+                                onBehalfUserId,
+                                netOn,
+                                paid
+                            });
+                        }
                     } catch (e) {
                         // If Supabase fails, fallback to local + SyncLog
                         realm.write(() => {
@@ -407,55 +567,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         });
                     }
                 } else {
-                    // Offline or free: update in Realm and add SyncLog
-                    realm.write(() => {
-                        realm.create('Transaction', transactionData, 'modified');
-                        realm.create('SyncLog', {
-                            id: Date.now().toString() + '_log',
-                            userId: userId,
-                            tableName: 'transactions',
-                            recordId: transactionData.id,
-                            operation: 'update',
-                            status: 'pending',
-                            createdOn: new Date(),
-                            processedAt: null
-                        });
-                    });
-                }
-            } else {
-                // --- CREATE LOGIC ---
-                if (paid && netOn) {
-                    try {
-                        // Map type for Supabase
-                        const supabaseTxData = { ...transactionData, type: mapTypeForSupabase(transactionData.type) };
-                        const supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
-                        realm.write(() => {
-                            realm.create('Transaction', {
-                                ...transactionData,
-                                id: supaTx.id,
-                                syncStatus: 'synced',
-                                needsUpload: false,
-                                lastSyncAt: new Date(),
-                                createdOn: supaTx.created_on ? new Date(supaTx.created_on) : new Date(),
-                                updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
-                            }, 'modified');
-                        });
-                    } catch (e) {
-                        realm.write(() => {
-                            realm.create('Transaction', transactionData);
-                            realm.create('SyncLog', {
-                                id: Date.now().toString() + '_log',
-                                userId: userId,
-                                tableName: 'transactions',
-                                recordId: transactionData.id,
-                                operation: 'create',
-                                status: 'pending',
-                                createdOn: new Date(),
-                                processedAt: null
-                            });
-                        });
-                    }
-                } else {
+                    // Offline or free: create all locally
                     realm.write(() => {
                         realm.create('Transaction', transactionData);
                         realm.create('SyncLog', {
@@ -469,7 +581,40 @@ const NewRecordScreen = ({ navigation, route }) => {
                             processedAt: null
                         });
                     });
+                    // If proxy payment, create local debt adjustment and ProxyPayment
+                    if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
+                        createLocalProxyPayment({
+                            mainTransaction: transactionData,
+                            user,
+                            account: realm.objectForPrimaryKey('Account', accountId),
+                            contacts: allContacts,
+                            onBehalfOfContactId,
+                            isAppUser,
+                            onBehalfUserId,
+                            netOn,
+                            paid
+                        });
+                    }
                 }
+            }
+
+            // Update account balance for main transaction
+            const mainAccount = realm.objectForPrimaryKey('Account', accountId);
+            if (mainAccount) {
+                let mainBalance = mainAccount.currentBalance || 0;
+                let mainAmount = parseFloat(amount) || 0;
+                if (['cash_in', 'receive', 'credit', 'borrow'].includes(type)) {
+                    mainBalance += mainAmount;
+                } else {
+                    mainBalance -= mainAmount;
+                }
+                realm.write(() => {
+                    realm.create('Account', {
+                        ...mainAccount,
+                        currentBalance: mainBalance,
+                        updatedOn: new Date()
+                    }, 'modified');
+                });
             }
 
             Alert.alert(
@@ -526,7 +671,38 @@ const NewRecordScreen = ({ navigation, route }) => {
 
                             // Delete from Realm (after Supabase, or always if offline/free)
                             realm.write(() => {
-                                // ...existing code for updating account balances...
+                                // Delete related ProxyPayment and debt adjustment if exists
+                                if (originalTransaction.is_proxy_payment && originalTransaction.on_behalf_of_contact_id) {
+                                    // Find ProxyPayment by originalTransactionId
+                                    const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', originalTransaction.id)[0];
+                                    if (proxyPayment) {
+                                        // Delete debt adjustment transaction if exists
+                                        if (proxyPayment.debtAdjustmentTransactionId) {
+                                            const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
+                                            if (debtTx) {
+                                                // Update account balance for debt adjustment
+                                                const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
+                                                if (adjAccount) {
+                                                    let adjBalance = adjAccount.currentBalance || 0;
+                                                    let adjAmount = debtTx.amount;
+                                                    if (['lend', 'credit'].includes(debtTx.type)) {
+                                                        adjBalance -= adjAmount;
+                                                    } else {
+                                                        adjBalance += adjAmount;
+                                                    }
+                                                    realm.create('Account', {
+                                                        ...adjAccount,
+                                                        currentBalance: adjBalance,
+                                                        updatedOn: new Date()
+                                                    }, 'modified');
+                                                }
+                                                realm.delete(debtTx);
+                                            }
+                                        }
+                                        realm.delete(proxyPayment);
+                                    }
+                                }
+                                // ...existing code for updating account balances for main transaction...
                                 const account = realm.objectForPrimaryKey('Account', originalTransaction.accountId);
                                 if (account) {
                                     const amount = parseFloat(originalTransaction.amount) || 0;

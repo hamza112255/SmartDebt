@@ -236,9 +236,18 @@ function App({ currentLanguage }) {
   console.log('accounts', realm.objects('Account'))
   console.log('transactions', realm.objects('Transaction'))
   //clear Transaction from realm
-  // realm.write(() => {
-  //   realm.delete(realm.objects('Transaction'));
-  // });
+  realm.write(() => {
+    realm.delete(realm.objects('Transaction'));
+  });
+  realm.write(() => {
+    realm.delete(realm.objects('SyncLog'));
+  });
+  realm.write(() => {
+    realm.delete(realm.objects('ProxyPayment'));
+  });
+  realm.write(() => {
+    realm.delete(realm.objects('Account'));
+  });
 
   const updateBiometricState = (enabled) => {
     setIsBiometricEnabled(enabled);

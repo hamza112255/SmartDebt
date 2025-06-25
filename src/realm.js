@@ -94,12 +94,12 @@ export const TransactionSchema = {
     dueDate: "date?",
     remarks: "string?",
     photoUrl: "string?",
-    remindToContact: "bool",
-    remindMe: "bool",
-    remindToContactType: "string?",
-    remindMeType: "string?",
-    remindContactAt: "date?",
-    remindMeAt: "date?",
+    remindToContact: { type: "bool", default: false },
+    remindMe: { type: "bool", default: false },
+    remindToContactType: { type: "string", default: null, optional: true },
+    remindMeType: { type: "string", default: null, optional: true },
+    remindContactAt: { type: "date", default: null, optional: true },
+    remindMeAt: { type: "date", default: null, optional: true },
     status: "string",
     isRecurring: "bool",
     is_proxy_payment: { type: "bool", default: false },
@@ -200,6 +200,23 @@ export const SyncLogSchema = {
   },
 };
 
+export const ProxyPaymentSchema = {
+  name: "ProxyPayment",
+  primaryKey: "id",
+  properties: {
+    id: "string",
+    payerUserId: "string", // UUID of payer user
+    onBehalfOfUserId: "string", // UUID of user on whose behalf payment is made
+    recipientContactId: "string", // UUID of contact
+    amount: "double",
+    originalTransactionId: "string",
+    debtAdjustmentTransactionId: "string?",
+    notificationSent: { type: "bool", default: false },
+    createdOn: "date",
+    updatedOn: "date",
+  },
+};
+
 // ---------------- Realm Instance ---------------- //
 let realm = new Realm({
   schema: [
@@ -211,7 +228,8 @@ let realm = new Realm({
     CodeListElementSchema,
     UserCodeListElementSchema,
     ReportSchema,
-    SyncLogSchema, // Add SyncLogSchema
+    SyncLogSchema,
+    ProxyPaymentSchema, // Add ProxyPaymentSchema
   ],
   schemaVersion: 1,
 });
@@ -231,7 +249,8 @@ export const initializeRealm = async () => {
           CodeListElementSchema,
           UserCodeListElementSchema,
           ReportSchema,
-          SyncLogSchema, // Add SyncLogSchema
+          SyncLogSchema,
+          ProxyPaymentSchema, // Add ProxyPaymentSchema
         ],
         schemaVersion: 1,
       });
@@ -310,5 +329,36 @@ export const deleteSyncLog = (logId) => {
       return true;
     }
     return false;
+  });
+};
+
+// ---------------- ProxyPayment CRUD Helpers ---------------- //
+export const createProxyPayment = (data) => {
+  realm.write(() => {
+    realm.create("ProxyPayment", {
+      ...data,
+      id: data.id || Date.now().toString(),
+      createdOn: data.createdOn || new Date(),
+      updatedOn: data.updatedOn || new Date(),
+    }, Realm.UpdateMode.Modified);
+  });
+};
+
+export const getAllProxyPayments = () => realm.objects("ProxyPayment");
+
+export const updateProxyPayment = (id, data) => {
+  realm.write(() => {
+    realm.create("ProxyPayment", {
+      ...data,
+      id,
+      updatedOn: new Date(),
+    }, Realm.UpdateMode.Modified);
+  });
+};
+
+export const deleteProxyPayment = (id) => {
+  realm.write(() => {
+    const obj = realm.objectForPrimaryKey("ProxyPayment", id);
+    if (obj) realm.delete(obj);
   });
 };

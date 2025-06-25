@@ -33,6 +33,9 @@ const safeGet = (obj, path, defaultValue = null) => {
 };
 
 const CalendarScreen = ({ navigation, route }) => {
+    console.log('CalendarScreen rendered',realm.objects('Transaction'));
+    console.log('CalendarScreen accounts', realm.objects('Account'));
+    console.log('CalendarScreen proxypayment', realm.objects('ProxyPayment'));
     const today = moment().format('YYYY-MM-DD');
     const [selectedDate, setSelectedDate] = useState(today);
     const [showAccountSheet, setShowAccountSheet] = useState(false);

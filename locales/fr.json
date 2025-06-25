@@ -501,6 +501,8 @@
     "addNewPhoto":"Ajouter une nouvelle photo",
     "updateButton":"Mettre à jour",
     "deleteButton":"Supprimer",
+    "onBehalfOf": "Au nom de",
+    "onBehalfOfContact": "Au nom du contact",
     "cancelButton": "Annuler",
     "selectPhoto": "Ajouter une photo",
     "takePhoto": "Prendre une photo",
@@ -508,7 +510,12 @@
     "successMessage": "Transaction enregistrée avec succès!",
     "errorMessage": "Veuillez remplir tous les champs obligatoires",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette transaction?",
-    "selectContactPlaceholder": "Sélectionner un contact"
+    "selectContactPlaceholder": "Sélectionner un contact",
+    "selectPurpose": "Sélectionner le but",
+    "addContactLabel": "Ajouter un contact",
+    "createContactLabel": "Créer un nouveau contact",
+    "importContactLabel": "Importer depuis les contacts de l'appareil",
+    "addNewPurpose": "Ajouter un nouveau but"
   },
   "addNewContactScreen": {
     "title": "Ajouter un nouveau contact",

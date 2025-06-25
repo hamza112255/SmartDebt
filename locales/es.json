@@ -505,6 +505,8 @@
     "amountLabel": "Monto",
     "remarksLabel": "Monto",
     "attachmentsLabel": "Adjuntar",
+    "onBehalfOf": "En nombre de",
+    "onBehalfOfContact": "Contacto en nombre de",
     "contactLabel": "Persona de contacto",
     "addNewPhoto":"Agregar nueva foto",
     "updateButton":"Actualizar",
@@ -517,7 +519,12 @@
     "successMessage": "Transacción guardada exitosamente!",
     "errorMessage": "Por favor, complete todos los campos obligatorios",
     "deleteConfirm": "¿Estás seguro de que quieres eliminar esta transacción?",
-    "selectContactPlaceholder": "Seleccionar contacto"
+    "selectContactPlaceholder": "Seleccionar contacto",
+    "selectPurpose": "Seleccionar propósito",
+    "addContactLabel": "Agregar contacto",
+    "createContactLabel": "Crear nuevo contacto",
+    "importContactLabel": "Importar desde contactos del dispositivo",
+    "addNewPurpose": "Agregar nuevo propósito"
   },
   "addNewContactScreen": {
     "title": "Agregar nuevo contacto",

@@ -754,7 +754,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         {showProxySwitch && (
                             <View style={styles.cardContainer}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                    <Text style={styles.sectionTitle}>On behalf of</Text>
+                                    <Text style={styles.sectionTitle}>{t('newRecordScreen.onBehalfOf')}</Text>
                                     <Switch
                                         value={isProxyPayment}
                                         onValueChange={setIsProxyPayment}
@@ -763,7 +763,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 </View>
                                 {isProxyPayment && (
                                     <View>
-                                        <Text style={styles.sectionTitle}>On behalf of Contact</Text>
+                                        <Text style={styles.sectionTitle}>{t('newRecordScreen.onBehalfOfContact')}</Text>
                                         <TouchableOpacity
                                             style={[styles.dropdownInput, onBehalfOfContactId && styles.inputFocused]}
                                             onPress={() => setShowOnBehalfDropdown(!showOnBehalfDropdown)}
@@ -1111,7 +1111,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         >
                             <TouchableWithoutFeedback>
                                 <View style={styles.modalContent}>
-                                    <Text style={styles.modalTitle}>Select Purpose</Text>
+                                    <Text style={styles.modalTitle}>{t('newRecordScreen.selectPurpose')}</Text>
                                     <FlatList
                                         data={purposes}
                                         keyExtractor={item => item.id}
@@ -1134,7 +1134,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             setShowNewPurposeModal(true);
                                         }}
                                     >
-                                        <Text style={styles.addNewText}>+ Add New Purpose</Text>
+                                        <Text style={styles.addNewText}>+ {t('newRecordScreen.addNewPurpose')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </TouchableWithoutFeedback>
@@ -1148,7 +1148,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                     >
                         <View style={styles.modalContainer}>
                             <View style={styles.modalContent}>
-                                <Text style={styles.modalTitle}>Add New Purpose</Text>
+                                <Text style={styles.modalTitle}>{t('newRecordScreen.addNewPurpose')}</Text>
                                 <TextInput
                                     style={styles.modalInput}
                                     placeholder="Enter purpose name"
@@ -1161,13 +1161,13 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         style={[styles.modalButton, styles.cancelButton]}
                                         onPress={() => setShowNewPurposeModal(false)}
                                     >
-                                        <Text style={styles.modalButtonText}>Cancel</Text>
+                                        <Text style={styles.modalButtonText}>{t('common.cancel')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity 
                                         style={[styles.modalButton, styles.saveButton]}
                                         onPress={handleAddNewPurpose}
                                     >
-                                        <Text style={styles.modalButtonText}>Save</Text>
+                                        <Text style={styles.modalButtonText}>{t('common.save')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>

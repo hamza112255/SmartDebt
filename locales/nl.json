@@ -100,7 +100,13 @@
       "transactionType": "Transactietype",
       "allTransactionTypes": "Alle",
       "receiving": "Ontvangen",
-      "sending": "Verzenden"
+      "sending": "Verzenden",
+      "selectTransactionType": "Selecteer transactietype",
+      "allAccounts": "Alle rekeningen",
+      "selectAccountOptional": "Selecteer rekening (optioneel)"
+    },
+    "common": {
+      "unnamedAccount": "Naamloze rekening"
     },
     "alerts": {
       "selectReportType": "Selecteer een rapporttype.",
@@ -118,7 +124,8 @@
     "errors": {
       "contactNotFound": "Het geselecteerde contact kon niet worden gevonden.",
       "invalidReportType": "Ongeldig rapporttype geselecteerd."
-    }
+    },
+    "generate": "Rapport genereren"
   },
   "profileScreen.profile": "Profiel",
   "profileScreen.name": "Naam",

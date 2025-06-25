@@ -175,7 +175,8 @@
       "receiving": "Receiving",
       "sending": "Sending",
       "selectTransactionType": "Select Transaction Type",
-      "allAccounts": "All Accounts"
+      "allAccounts": "All Accounts",
+      "selectAccountOptional": "Select Account (Optional)"
     },
     "alerts": {
       "selectReportType": "Please select a report type.",
@@ -200,8 +201,10 @@
       "error": "Error",
       "all": "All",
       "receiving": "Receiving",
-      "sending": "Sending"
-    }
+      "sending": "Sending",
+      "unnamedAccount": "Unnamed Account"
+    },
+    "generate": "Generate Report"
   },
   "reportScreen.reports": "Reports",
   "reportScreen.transactionReport": "Transaction Report",

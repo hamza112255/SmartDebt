@@ -398,9 +398,9 @@ const ReportScreen = ({ navigation }) => {
                                         onValueChange={setTransactionTypeFilter}
                                         style={styles.picker}
                                     >
-                                        <Picker.Item label={t('reportScreen.common.all')} value="all" />
-                                        <Picker.Item label={t('reportScreen.common.receiving')} value="receiving" />
-                                        <Picker.Item label={t('reportScreen.common.sending')} value="sending" />
+                                        <Picker.Item label={t('reportScreen.modal.allTransactionTypes')} value="all" />
+                                        <Picker.Item label={t('reportScreen.modal.receiving')} value="receiving" />
+                                        <Picker.Item label={t('reportScreen.modal.sending')} value="sending" />
                                     </Picker>
                                 </View>
                             </View>

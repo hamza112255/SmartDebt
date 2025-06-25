@@ -173,7 +173,10 @@
       "transactionType": "Tipo de Transacción",
       "allTransactionTypes": "Todos",
       "receiving": "Recibiendo",
-      "sending": "Enviando"
+      "sending": "Enviando",
+      "selectTransactionType": "Seleccionar tipo de transacción",
+      "allAccounts": "Todas las cuentas",
+      "selectAccountOptional": "Seleccionar cuenta (opcional)"
     },
     "alerts": {
       "selectReportType": "Por favor, seleccione un tipo de informe.",
@@ -191,7 +194,11 @@
     "errors": {
       "contactNotFound": "No se pudo encontrar el contacto seleccionado.",
       "invalidReportType": "Tipo de informe seleccionado no válido."
-    }
+    },
+    "common": {
+      "unnamedAccount": "Cuenta sin nombre"
+    },
+    "generate": "Generar informe"
   },
   "reportScreen.reports": "Informes",
   "reportScreen.transactionReport": "Informe de transacción",

@@ -177,7 +177,9 @@
       "allTransactionTypes": "الكل",
       "receiving": "استلام",
       "sending": "إرسال",
-      "allAccounts": "جميع الحسابات"
+      "allAccounts": "جميع الحسابات",
+      "selectTransactionType": "اختر نوع المعاملة",
+      "selectAccountOptional": "تحديد حساب (اختياري)"
     },
     "alerts": {
       "selectReportType": "يرجى تحديد نوع التقرير.",
@@ -195,7 +197,11 @@
     "errors": {
       "contactNotFound": "تعذر العثور على جهة الاتصال المحددة.",
       "invalidReportType": "تم تحديد نوع تقرير غير صالح."
-    }
+    },
+    "common": {
+      "unnamedAccount": "حساب بدون اسم"
+    },
+    "generate": "إنشاء التقرير"
   },
   "profileScreen.name": "الاسم",
   "profileScreen.email": "البريد الإلكتروني",

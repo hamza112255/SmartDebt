@@ -173,7 +173,14 @@
       "transactionType": "Type de Transaction",
       "allTransactionTypes": "Tous",
       "receiving": "Réception",
-      "sending": "Envoi"
+      "sending": "Envoi",
+      "generate": "Générer le rapport",
+      "selectTransactionType": "Sélectionner le type de transaction",
+      "allAccounts": "Tous les comptes",
+      "selectAccountOptional": "Sélectionner un compte (facultatif)"
+    },
+    "common": {
+      "unnamedAccount": "Compte sans nom"
     },
     "alerts": {
       "selectReportType": "Veuillez sélectionner un type de rapport.",

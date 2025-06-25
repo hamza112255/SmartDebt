@@ -54,6 +54,7 @@ const SettingsScreen = ({ navigation }) => {
     const [showPinSetup, setShowPinSetup] = useState(false);
     const { updateBiometricState, updatePinState } = useContext(BiometricContext);
     const { t } = useTranslation(); // Initialize useTranslation
+    const [userType, setUserType] = useState('free'); // Default user type
 
     useEffect(() => {
         loadUserData();
@@ -76,6 +77,7 @@ const SettingsScreen = ({ navigation }) => {
                     pinEnabled: u.pinEnabled ?? false,
                     pinCode: u.pinCode ?? '',
                 });
+                setUserType(u.userType || 'free'); // Set user type from realm data
                 setUserId(u.id);
             }
         } catch (error) {
@@ -355,7 +357,7 @@ const SettingsScreen = ({ navigation }) => {
                     </View>
                 )}
                 {/* Logout Button */}
-                <TouchableOpacity
+                {userType === 'paid' && <TouchableOpacity
                     style={{
                         marginTop: 30,
                         padding: 15,
@@ -379,7 +381,7 @@ const SettingsScreen = ({ navigation }) => {
                     <Text style={{ color: colors.white, fontSize: RFPercentage(2.2), fontFamily: 'Sora-Bold' }}>
                         {t('common.logout') || 'Logout'}
                     </Text>
-                </TouchableOpacity>
+                </TouchableOpacity>}
             </ScrollView>
         </SafeAreaView>
     );

@@ -550,10 +550,6 @@ function App({ currentLanguage }) {
                   <Stack.Screen
                     name="PremiumScreen"
                     component={PremiumScreen}
-                    options={{
-                      headerShown: true,
-                      title: t('premiumScreen.title'),
-                    }}
                   />
                 </Stack.Navigator>
               </NavigationContainer>

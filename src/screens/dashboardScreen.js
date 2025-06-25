@@ -177,8 +177,8 @@ const DashboardScreen = ({ navigation }) => {
                     <Text style={styles.headerText}>
                         {t('dashboardScreen.myAccounts')}
                     </Text>
-                    {user?.userType !== 'paid' && (
-                        <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+                    {true && (
+                        <TouchableOpacity onPress={() => navigation.navigate('PremiumScreen')}>
                             <Icon name="workspace-premium" size={RFValue(24)} color={colors.primary} />
                         </TouchableOpacity>
                     )}

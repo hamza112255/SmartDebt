@@ -454,7 +454,7 @@ const CalendarScreen = ({ navigation, route }) => {
                     {safeGetTransactions(selectedDate)?.length === 0 ? (
                         <View style={styles.noTransactions}>
                             <Icon name="receipt" size={RFValue(40)} color={colors.lightGray} />
-                            <Text style={styles.noTransactionsText}>No transactions for this day</Text>
+                            <Text style={styles.noTransactionsText}>{t('calendarScreen.noTransactions')}</Text>
                         </View>
                     ) : (
                         safeGetTransactions(selectedDate).map(transaction => (

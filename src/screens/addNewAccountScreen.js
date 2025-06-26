@@ -368,8 +368,22 @@ const AddAccountScreen = ({ navigation, route }) => {
                     }
                 }
             } else {
-                // Mark as deleted in Realm and add to SyncLog (offline or free user)
-                updateObject('Account', existingAccount.id, { isActive: false, syncStatus: 'pending', needsUpload: true, updatedOn: new Date() });
+                // Remove from Realm and add to SyncLog (offline or free user)
+                const realmAccounts = getAllObjects('Account');
+                const accountObj = realmAccounts.filtered('id == $0', existingAccount.id)[0];
+                if (accountObj && accountObj.realm) {
+                    accountObj.realm.write(() => {
+                        accountObj.realm.delete(accountObj);
+                    });
+                } else if (accountObj) {
+                    // fallback if .realm is not available
+                    const RealmLib = require('../realm');
+                    if (RealmLib && RealmLib.realm) {
+                        RealmLib.realm.write(() => {
+                            RealmLib.realm.delete(accountObj);
+                        });
+                    }
+                }
                 createObject('SyncLog', {
                     id: Date.now().toString() + '_log',
                     userId: existingAccount.userId,

@@ -325,7 +325,30 @@ const NewRecordScreen = ({ navigation, route }) => {
         ['send_out', 'cash_out', 'lend', 'debit'].includes(type)
     );
 
-    const createLocalProxyPayment = ({
+    // Helper: update account balance for a transaction (like your SQL trigger)
+    function updateAccountBalance(account, tx, isRevert = false) {
+        let balanceChange = 0;
+        const amount = parseFloat(tx.amount) || 0;
+        const type = tx.type;
+        // Only update if not a proxy adjustment (on_behalf_of_contact_id must be null or empty)
+        if (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '') {
+            // Add "cash_in" to the list that increases balance
+            if (['credit', 'borrow', 'cash_in'].includes(type)) {
+                balanceChange = amount;
+            } else {
+                balanceChange = -amount;
+            }
+            if (isRevert) balanceChange = -balanceChange;
+            realm.create('Account', {
+                ...account,
+                currentBalance: (account.currentBalance || 0) + balanceChange,
+                updatedOn: new Date()
+            }, 'modified');
+        }
+    }
+
+    // Helper: create debt adjustment transaction for proxy payment
+    function createDebtAdjustmentTransaction({
         mainTransaction,
         user,
         account,
@@ -335,7 +358,7 @@ const NewRecordScreen = ({ navigation, route }) => {
         onBehalfUserId,
         netOn,
         paid
-    }) => {
+    }) {
         // Find onBehalf contact
         const onBehalfContact = contacts.find(c => c.id === onBehalfOfContactId);
         const recipientContact = contacts.find(c => c.id === mainTransaction.contactId);
@@ -347,8 +370,7 @@ const NewRecordScreen = ({ navigation, route }) => {
         let debtAdjustmentAccountId = '';
         let debtAdjustmentUserId = '';
         let debtAdjustmentContactId = '';
-        let debtAdjustmentPurpose = '';
-        let newDebtAmount = 0;
+        let debtAdjustmentPurpose = 'New debt - proxy payment';
 
         if (isAppUser && onBehalfUserId) {
             // Alice is app user, create debt adjustment in Alice's account
@@ -359,29 +381,27 @@ const NewRecordScreen = ({ navigation, route }) => {
             debtAdjustmentUserId = onBehalfUserId;
             debtAdjustmentContactId = payerContactInAlice?.id;
             debtAdjustmentType = 'borrow';
-            debtAdjustmentPurpose = 'Debt adjustment - proxy payment';
-            remarks = `Debt adjustment: ${user.firstName || ''} paid ${mainTransaction.amount} to someone on my behalf`;
+            remarks = `New debt: ${user.firstName || ''} paid ${recipientContact?.name || ''} $${mainTransaction.amount} on my behalf`;
 
-            // For simplicity, always create a single adjustment for now (can be extended for partial/excess)
             debtAdjustmentTransaction = {
                 id: Date.now().toString() + '_debt',
                 type: debtAdjustmentType,
-                purpose: debtAdjustmentPurpose,
+                purpose: debtAdjustmentPurpose || '',
                 amount: debtAdjustmentAmount,
-                accountId: debtAdjustmentAccountId,
-                userId: debtAdjustmentUserId,
-                contactId: debtAdjustmentContactId,
+                accountId: debtAdjustmentAccountId || '',
+                userId: debtAdjustmentUserId || '',
+                contactId: debtAdjustmentContactId || '',
                 transactionDate: mainTransaction.transactionDate,
-                remarks,
+                remarks: remarks || '',
                 status: 'completed',
                 isRecurring: false,
                 is_proxy_payment: false,
                 on_behalf_of_contact_id: null,
-                recurringPattern: null,
-                parentTransactionId: null,
+                recurringPattern: '', // always string
+                parentTransactionId: '', // always string
                 isSettled: false,
                 settledAt: null,
-                settlementNote: null,
+                settlementNote: '',
                 createdOn: new Date(),
                 updatedOn: new Date(),
                 syncStatus: netOn && paid ? 'synced' : 'pending',
@@ -394,28 +414,27 @@ const NewRecordScreen = ({ navigation, route }) => {
             debtAdjustmentUserId = mainTransaction.userId;
             debtAdjustmentContactId = onBehalfOfContactId;
             debtAdjustmentType = 'lend';
-            debtAdjustmentPurpose = 'Debt adjustment - proxy payment';
-            remarks = `Debt adjustment: paid $${mainTransaction.amount} to ${recipientContact?.name || ''} on behalf of ${onBehalfContact?.name || ''}`;
+            remarks = `New debt: paid $${mainTransaction.amount} to ${recipientContact?.name || ''} on behalf of ${onBehalfContact?.name || ''}`;
 
             debtAdjustmentTransaction = {
                 id: Date.now().toString() + '_debt',
                 type: debtAdjustmentType,
-                purpose: debtAdjustmentPurpose,
+                purpose: debtAdjustmentPurpose || '',
                 amount: debtAdjustmentAmount,
-                accountId: debtAdjustmentAccountId,
-                userId: debtAdjustmentUserId,
-                contactId: debtAdjustmentContactId,
+                accountId: debtAdjustmentAccountId || '',
+                userId: debtAdjustmentUserId || '',
+                contactId: debtAdjustmentContactId || '',
                 transactionDate: mainTransaction.transactionDate,
-                remarks,
+                remarks: remarks || '',
                 status: 'completed',
                 isRecurring: false,
                 is_proxy_payment: false,
                 on_behalf_of_contact_id: null,
-                recurringPattern: null,
-                parentTransactionId: null,
+                recurringPattern: '', // always string
+                parentTransactionId: '', // always string
                 isSettled: false,
                 settledAt: null,
-                settlementNote: null,
+                settlementNote: '',
                 createdOn: new Date(),
                 updatedOn: new Date(),
                 syncStatus: netOn && paid ? 'synced' : 'pending',
@@ -427,75 +446,79 @@ const NewRecordScreen = ({ navigation, route }) => {
         // Create ProxyPayment record
         const proxyPayment = {
             id: proxyPaymentId,
-            payerUserId: mainTransaction.userId,
-            onBehalfOfUserId: isAppUser ? onBehalfUserId : null,
-            recipientContactId: mainTransaction.contactId,
+            payerUserId: mainTransaction.userId || '',
+            onBehalfOfUserId: isAppUser ? (onBehalfUserId || '') : '',
+            recipientContactId: mainTransaction.contactId || '',
             amount: mainTransaction.amount,
-            originalTransactionId: mainTransaction.id,
-            debtAdjustmentTransactionId: debtAdjustmentTransaction.id,
+            originalTransactionId: mainTransaction.id || '',
+            debtAdjustmentTransactionId: debtAdjustmentTransaction.id || '',
             notificationSent: false,
             createdOn: new Date(),
             updatedOn: new Date()
         };
 
         // Save both in Realm
-        realm.write(() => {
-            realm.create('Transaction', debtAdjustmentTransaction);
-            realm.create('ProxyPayment', proxyPayment);
-        });
-
-        // Update account balances for debt adjustment
+        realm.create('Transaction', debtAdjustmentTransaction);
+        // Update account balance for debt adjustment
         const adjAccount = realm.objectForPrimaryKey('Account', debtAdjustmentAccountId);
         if (adjAccount) {
-            let adjBalance = adjAccount.currentBalance || 0;
-            let adjAmount = debtAdjustmentTransaction.amount;
-            if (debtAdjustmentType === 'lend' || debtAdjustmentType === 'credit') {
-                adjBalance += adjAmount;
-            } else {
-                adjBalance -= adjAmount;
-            }
-            realm.write(() => {
-                realm.create('Account', {
-                    ...adjAccount,
-                    currentBalance: adjBalance,
-                    updatedOn: new Date()
-                }, 'modified');
-            });
+            updateAccountBalance(adjAccount, debtAdjustmentTransaction, false);
         }
-    };
+        realm.create('ProxyPayment', proxyPayment);
+    }
+
+    // Helper: convert empty string to null for UUID and enum fields before sending to Supabase
+    function supabaseSafe(obj, nullFields = []) {
+        const out = { ...obj };
+        nullFields.forEach(field => {
+            if (out[field] === '' || out[field] === undefined) out[field] = null;
+        });
+        return out;
+    }
 
     const handleSave = useCallback(async () => {
         if (isLoading) return;
         setIsLoading(true);
 
         try {
+            // Validate inputs
+            if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+                throw new Error('Please enter a valid amount');
+            }
+            if (!type) {
+                throw new Error('Please select a transaction type');
+            }
+            if (!accountId) {
+                throw new Error('Account ID is missing');
+            }
+
             // Prepare transaction data
             const transactionData = {
                 id: isEditing && transactionId ? transactionId : new Date().toISOString(),
-                type: type,
-                purpose: purpose || null,
+                type: type || '',
+                purpose: purpose || '',
                 amount: parseFloat(amount) || 0,
-                accountId: accountId,
-                userId: userId,
-                contactId: contactPerson || null,
+                accountId: accountId || '',
+                userId: userId || '',
+                contactId: contactPerson || '',
                 transactionDate: transactionDate,
-                remarks: remarks || null,
-                photoUrl: imageUri || null,
+                remarks: remarks || '',
+                photoUrl: imageUri || '',
                 remindToContact: false,
                 remindMe: false,
-                remindToContactType: null,
-                remindMeType: null,
+                remindToContactType: '',
+                remindMeType: '',
                 remindContactAt: null,
                 remindMeAt: null,
                 status: 'completed',
                 isRecurring: false,
                 is_proxy_payment: showProxySwitch ? isProxyPayment : false,
-                on_behalf_of_contact_id: showProxySwitch && isProxyPayment && onBehalfOfContactId ? onBehalfOfContactId : null,
-                recurringPattern: null,
-                parentTransactionId: null,
+                on_behalf_of_contact_id: showProxySwitch && isProxyPayment && onBehalfOfContactId ? onBehalfOfContactId : '',
+                recurringPattern: '',
+                parentTransactionId: '',
                 isSettled: false,
                 settledAt: null,
-                settlementNote: null,
+                settlementNote: '',
                 createdOn: isEditing && originalTransaction ? originalTransaction.createdOn : new Date(),
                 updatedOn: new Date(),
                 syncStatus: 'pending',
@@ -515,78 +538,99 @@ const NewRecordScreen = ({ navigation, route }) => {
             let isAppUser = !!onBehalfContact?.contactUserId;
             let onBehalfUserId = onBehalfContact?.contactUserId || null;
 
-            // --- CREATE LOGIC ---
-            if (isEditing) {
-                // ...existing update logic...
-                // (You can extend this for proxy update if needed)
-            } else {
-                if (paid && netOn) {
-                    try {
-                        // Map type for Supabase
-                        const supabaseTxData = { ...transactionData, type: mapTypeForSupabase(transactionData.type) };
-                        const supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
-                        realm.write(() => {
-                            realm.create('Transaction', {
-                                ...transactionData,
-                                id: supaTx.id,
-                                syncStatus: 'synced',
-                                needsUpload: false,
-                                lastSyncAt: new Date(),
-                                createdOn: supaTx.created_on ? new Date(supaTx.created_on) : new Date(),
-                                updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
-                            }, 'modified');
-                        });
-                        // If proxy payment, create local debt adjustment and ProxyPayment
-                        if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
-                            createLocalProxyPayment({
-                                mainTransaction: { ...transactionData, id: supaTx.id },
-                                user,
-                                account: realm.objectForPrimaryKey('Account', accountId),
-                                contacts: allContacts,
-                                onBehalfOfContactId,
-                                isAppUser,
-                                onBehalfUserId,
-                                netOn,
-                                paid
-                            });
+            // Get the account for balance updates
+            const mainAccount = realm.objectForPrimaryKey('Account', accountId);
+            if (!mainAccount) {
+                throw new Error('Account not found');
+            }
+
+            // STEP 1: Handle all local database operations first (synchronously)
+            let finalTransactionId = transactionData.id; // Keep track of final ID
+
+            realm.write(() => {
+                if (isEditing) {
+                    // --- UPDATE LOGIC ---
+                    const existingTransaction = realm.objectForPrimaryKey('Transaction', transactionId);
+                    if (!existingTransaction) {
+                        throw new Error('Transaction not found');
+                    }
+
+                    // Revert the original transaction's effect on balance
+                    updateAccountBalance(mainAccount, existingTransaction, true);
+
+                    // Apply new transaction effect
+                    updateAccountBalance(mainAccount, transactionData, false);
+
+                    // Update transaction locally
+                    realm.create('Transaction', transactionData, 'modified');
+
+                    // Create sync log for main transaction only
+                    realm.create('SyncLog', {
+                        id: Date.now().toString() + '_log',
+                        userId: userId,
+                        tableName: 'transactions',
+                        recordId: transactionData.id,
+                        operation: 'update',
+                        status: 'pending',
+                        createdOn: new Date(),
+                        processedAt: null
+                    });
+
+                    // Handle proxy payment updates
+                    if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
+                        // Delete existing proxy payment and debt adjustment
+                        const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', transactionId)[0];
+                        if (proxyPayment) {
+                            if (proxyPayment.debtAdjustmentTransactionId) {
+                                const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
+                                if (debtTx) {
+                                    const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
+                                    if (adjAccount) {
+                                        updateAccountBalance(adjAccount, debtTx, true);
+                                    }
+                                    realm.delete(debtTx);
+                                }
+                            }
+                            realm.delete(proxyPayment);
                         }
-                    } catch (e) {
-                        // If Supabase fails, fallback to local + SyncLog
-                        realm.write(() => {
-                            realm.create('Transaction', transactionData, 'modified');
-                            realm.create('SyncLog', {
-                                id: Date.now().toString() + '_log',
-                                userId: userId,
-                                tableName: 'transactions',
-                                recordId: transactionData.id,
-                                operation: 'update',
-                                status: 'pending',
-                                createdOn: new Date(),
-                                processedAt: null
-                            });
+                        // Create new debt adjustment and proxy payment
+                        createDebtAdjustmentTransaction({
+                            mainTransaction: transactionData,
+                            user,
+                            account: mainAccount,
+                            contacts: allContacts,
+                            onBehalfOfContactId,
+                            isAppUser,
+                            onBehalfUserId,
+                            netOn,
+                            paid
                         });
                     }
                 } else {
-                    // Offline or free: create all locally
-                    realm.write(() => {
-                        realm.create('Transaction', transactionData);
-                        realm.create('SyncLog', {
-                            id: Date.now().toString() + '_log',
-                            userId: userId,
-                            tableName: 'transactions',
-                            recordId: transactionData.id,
-                            operation: 'create',
-                            status: 'pending',
-                            createdOn: new Date(),
-                            processedAt: null
-                        });
+                    // --- CREATE LOGIC ---
+                    updateAccountBalance(mainAccount, transactionData, false);
+
+                    // Create transaction locally
+                    realm.create('Transaction', transactionData);
+
+                    // Create sync log for main transaction only
+                    realm.create('SyncLog', {
+                        id: Date.now().toString() + '_log',
+                        userId: userId,
+                        tableName: 'transactions',
+                        recordId: transactionData.id,
+                        operation: 'create',
+                        status: 'pending',
+                        createdOn: new Date(),
+                        processedAt: null
                     });
-                    // If proxy payment, create local debt adjustment and ProxyPayment
+
+                    // Handle proxy payments for new transactions
                     if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
-                        createLocalProxyPayment({
+                        createDebtAdjustmentTransaction({
                             mainTransaction: transactionData,
                             user,
-                            account: realm.objectForPrimaryKey('Account', accountId),
+                            account: mainAccount,
                             contacts: allContacts,
                             onBehalfOfContactId,
                             isAppUser,
@@ -596,46 +640,141 @@ const NewRecordScreen = ({ navigation, route }) => {
                         });
                     }
                 }
-            }
+            });
 
-            // Update account balance for main transaction
-            const mainAccount = realm.objectForPrimaryKey('Account', accountId);
-            if (mainAccount) {
-                let mainBalance = mainAccount.currentBalance || 0;
-                let mainAmount = parseFloat(amount) || 0;
-                if (['cash_in', 'receive', 'credit', 'borrow'].includes(type)) {
-                    mainBalance += mainAmount;
-                } else {
-                    mainBalance -= mainAmount;
+            // STEP 2: Handle Supabase sync operations (asynchronously, outside of realm.write)
+            if (paid && netOn) {
+                try {
+                    // List all fields that must be null if empty (UUIDs and enums)
+                    const nullFields = [
+                        'contactId',
+                        'on_behalf_of_contact_id',
+                        'parentTransactionId',
+                        'recurringPattern',
+                        'accountId',
+                        'userId',
+                        'remindToContactType',
+                        'remindMeType'
+                    ];
+                    // Prepare payload for Supabase
+                    const supabaseTxData = supabaseSafe(
+                        { ...transactionData, type: mapTypeForSupabase(transactionData.type) },
+                        nullFields
+                    );
+
+                    let supaTx;
+                    if (isEditing) {
+                        supaTx = await updateTransactionInSupabase(supabaseTxData, supabaseUserId);
+                    } else {
+                        supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
+                        finalTransactionId = supaTx.id; // Get the new ID from Supabase
+                    }
+
+                    // Update sync status in a separate write transaction
+                    realm.write(() => {
+                        const currentTxId = isEditing ? transactionId : transactionData.id;
+                        const txToUpdate = realm.objectForPrimaryKey('Transaction', currentTxId);
+
+                        if (txToUpdate) {
+                            // If this is a new transaction and we got a new ID from Supabase, we need to handle the ID change
+                            if (!isEditing && finalTransactionId !== transactionData.id) {
+                                // Delete the old transaction with temporary ID
+                                realm.delete(txToUpdate);
+
+                                // Create new transaction with Supabase ID
+                                realm.create('Transaction', {
+                                    ...transactionData,
+                                    id: finalTransactionId,
+                                    syncStatus: 'synced',
+                                    needsUpload: false,
+                                    lastSyncAt: new Date(),
+                                    createdOn: supaTx.created_on ? new Date(supaTx.created_on) : transactionData.createdOn,
+                                    updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
+                                });
+
+                                // --- Update ProxyPayment originalTransactionId if exists ---
+                                if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
+                                    // Find ProxyPayment by old temp transaction ID
+                                    const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', transactionData.id)[0];
+                                    if (proxyPayment) {
+                                        realm.create('ProxyPayment', {
+                                            ...proxyPayment.toJSON(),
+                                            originalTransactionId: finalTransactionId,
+                                            updatedOn: new Date()
+                                        }, 'modified');
+                                    }
+                                }
+                            } else {
+                                // Just update the existing transaction
+                                realm.create('Transaction', {
+                                    ...txToUpdate,
+                                    syncStatus: 'synced',
+                                    needsUpload: false,
+                                    lastSyncAt: new Date(),
+                                    createdOn: supaTx.created_on ? new Date(supaTx.created_on) : txToUpdate.createdOn,
+                                    updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
+                                }, 'modified');
+                            }
+
+                            // Update sync log status
+                            const syncLog = realm.objects('SyncLog').filtered('recordId == $0 AND status == "pending"', currentTxId).sorted('createdOn', true)[0];
+                            if (syncLog) {
+                                realm.create('SyncLog', {
+                                    ...syncLog,
+                                    recordId: finalTransactionId, // Update to final ID
+                                    status: 'completed',
+                                    processedAt: new Date()
+                                }, 'modified');
+                            }
+                        }
+                    });
+
+                } catch (supabaseError) {
+                    console.error('Supabase sync error:', supabaseError);
+                    // Sync failed, but local transaction is already saved
+                    // The sync log will remain as 'pending' for later retry
                 }
-                realm.write(() => {
-                    realm.create('Account', {
-                        ...mainAccount,
-                        currentBalance: mainBalance,
-                        updatedOn: new Date()
-                    }, 'modified');
-                });
             }
 
+            // STEP 3: Trigger callback first, then show success alert
+            // Trigger the callback if provided (check both possible parameter names)
+            // const callback = route.params?.onTransactionSaved || route.params?.onSave;
+            // if (callback && typeof callback === 'function') {
+            //     try {
+            //         callback();
+            //     } catch (callbackError) {
+            //         console.error('Error in callback:', callbackError);
+            //         // Don't throw here, just log the error
+            //     }
+            // }
+
+            // Show success alert and navigate back only when user clicks OK
             Alert.alert(
                 t('common.success'),
                 t('addNewRecordScreen.alerts.success.save'),
                 [
                     {
                         text: t('common.ok'),
-                        onPress: () => navigation.goBack()
+                        onPress: () => {
+                            // Navigate back only when user clicks OK
+                            navigation.goBack();
+                        }
                     }
-                ]
+                ],
+                { cancelable: false } // Prevent dismissing by tapping outside
             );
-            setIsLoading(false);
+
         } catch (error) {
+            console.error('Error saving transaction:', error);
             safeAlert('Error', 'Failed to save transaction: ' + error.message);
+        } finally {
             setIsLoading(false);
         }
     }, [
         isLoading, amount, type, accountId, userId, transactionId, originalTransaction, isEditing,
         contactPerson, transactionDate, remarks, purpose, imageUri, navigation,
-        isProxyPayment, onBehalfOfContactId, showProxySwitch, userType
+        isProxyPayment, onBehalfOfContactId, showProxySwitch, userType,
+        route.params?.onTransactionSaved, route.params?.onSave
     ]);
 
     const handleDelete = useCallback(async () => {
@@ -660,11 +799,10 @@ const NewRecordScreen = ({ navigation, route }) => {
                             const transactionIdToDelete = originalTransaction.id;
 
                             if (paid && netOn) {
-                                // Delete from Supabase first
+                                // Delete from Supabase first (only main transaction)
                                 try {
                                     await deleteTransactionInSupabase(transactionIdToDelete);
                                 } catch (e) {
-                                    // Optionally show alert or ignore
                                     console.error('Supabase transaction delete error:', e);
                                 }
                             }
@@ -680,21 +818,9 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         if (proxyPayment.debtAdjustmentTransactionId) {
                                             const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
                                             if (debtTx) {
-                                                // Update account balance for debt adjustment
                                                 const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
                                                 if (adjAccount) {
-                                                    let adjBalance = adjAccount.currentBalance || 0;
-                                                    let adjAmount = debtTx.amount;
-                                                    if (['lend', 'credit'].includes(debtTx.type)) {
-                                                        adjBalance -= adjAmount;
-                                                    } else {
-                                                        adjBalance += adjAmount;
-                                                    }
-                                                    realm.create('Account', {
-                                                        ...adjAccount,
-                                                        currentBalance: adjBalance,
-                                                        updatedOn: new Date()
-                                                    }, 'modified');
+                                                    updateAccountBalance(adjAccount, debtTx, true);
                                                 }
                                                 realm.delete(debtTx);
                                             }
@@ -702,33 +828,15 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         realm.delete(proxyPayment);
                                     }
                                 }
-                                // ...existing code for updating account balances for main transaction...
+                                // Update account balance for main transaction
                                 const account = realm.objectForPrimaryKey('Account', originalTransaction.accountId);
                                 if (account) {
-                                    const amount = parseFloat(originalTransaction.amount) || 0;
-                                    let balanceChange = amount;
-                                    if (['cash_out', 'send_out', 'lend', 'debit'].includes(originalTransaction.type)) {
-                                        balanceChange = -balanceChange;
-                                    }
-                                    const updatedAccount = {
-                                        ...account,
-                                        currentBalance: (account.currentBalance || 0) - balanceChange,
-                                        updatedOn: new Date()
-                                    };
-                                    if (originalTransaction.type === 'cash_in') updatedAccount.cash_in = (account.cash_in || 0) - amount;
-                                    else if (originalTransaction.type === 'cash_out') updatedAccount.cash_out = (account.cash_out || 0) - amount;
-                                    else if (originalTransaction.type === 'receive') updatedAccount.receive = (account.receive || 0) - amount;
-                                    else if (originalTransaction.type === 'send_out') updatedAccount.send_out = (account.send_out || 0) - amount;
-                                    else if (originalTransaction.type === 'borrow') updatedAccount.borrow = (account.borrow || 0) - amount;
-                                    else if (originalTransaction.type === 'lend') updatedAccount.lend = (account.lend || 0) - amount;
-                                    else if (originalTransaction.type === 'debit') updatedAccount.debit = (account.debit || 0) - amount;
-                                    else if (originalTransaction.type === 'credit') updatedAccount.credit = (account.credit || 0) - amount;
-                                    realm.create('Account', updatedAccount, 'modified');
+                                    updateAccountBalance(account, originalTransaction, true);
                                 }
                                 realm.delete(originalTransaction);
                             });
 
-                            // If offline or free, add SyncLog for delete
+                            // If offline or free, add SyncLog for delete (only main transaction)
                             if (!paid || !netOn) {
                                 realm.write(() => {
                                     realm.create('SyncLog', {
@@ -741,7 +849,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         createdOn: new Date(),
                                         processedAt: null
                                     });
-                            });
+                                });
                             }
 
                             safeAlert('Success', 'Transaction deleted successfully.');

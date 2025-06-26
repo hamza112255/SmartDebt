@@ -335,6 +335,18 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
               needsUpload: false,
             };
             realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
+            // --- Update ProxyPayment originalTransactionId if exists ---
+            if (tableName === 'transactions') {
+              // Find ProxyPayment by old temp transaction ID
+              const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', recordId)[0];
+              if (proxyPayment) {
+                realm.create('ProxyPayment', {
+                  ...proxyPayment.toJSON(),
+                  originalTransactionId: finalData.id,
+                  updatedOn: new Date()
+                }, Realm.UpdateMode.Modified);
+              }
+            }
             console.log(`[SYNC-PROCESS] Successfully replaced local record ${recordId} with new Supabase record ${finalData.id}`);
           });
 

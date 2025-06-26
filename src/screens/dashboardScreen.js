@@ -52,6 +52,7 @@ const CARD_COLORS = {
 const DashboardScreen = ({ navigation }) => {
     const [accounts, setAccounts] = useState([]);
     const [user, setUser] = useState(null);
+    const [balanceVisibility, setBalanceVisibility] = useState({});
     const { t } = useTranslation();
     console.log('transactions',realm.objects('Transaction'))
 
@@ -60,6 +61,7 @@ const DashboardScreen = ({ navigation }) => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 const realmUser = realm.objectForPrimaryKey('User', session.user.id);
+                console.log('Current user from Realm:', realmUser);
                 setUser(realmUser);
                 
                 // Fetch current user's data from Supabase
@@ -128,6 +130,14 @@ const DashboardScreen = ({ navigation }) => {
         return `${code} ${numeric.toLocaleString()}`;
     };
 
+    // Toggle balance visibility for a specific account
+    const toggleBalanceVisibility = (accountId) => {
+        setBalanceVisibility(prev => ({
+            ...prev,
+            [accountId]: !prev[accountId]
+        }));
+    };
+
     const getTranslatedAccountType = (typeCode) => {
         switch(typeCode) {
             case 'cash_in_out': return t('terms.cash_inCashOut');
@@ -184,6 +194,7 @@ const DashboardScreen = ({ navigation }) => {
                         const palette = ['green', 'yellow', 'blue', 'red'];
                         const computedColorKey = account.color ?? palette[index % palette.length];
                         const cardColors = CARD_COLORS[computedColorKey] || CARD_COLORS.default;
+                        const isVisible = balanceVisibility[account.id] ?? true;
                         return (
                             <TouchableOpacity
                                 key={account.id}
@@ -223,9 +234,22 @@ const DashboardScreen = ({ navigation }) => {
                                             </Text>
                                         </View>
                                     </View>
-                                    <TouchableOpacity style={styles.moreButton} onPress={() => handleMorePress(account)}>
-                                        <Icon name="more-vert" size={RFValue(22)} color={cardColors.text} />
-                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <TouchableOpacity
+                                            style={styles.eyeButton}
+                                            onPress={() => toggleBalanceVisibility(account.id)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Icon
+                                                name={isVisible ? "visibility" : "visibility-off"}
+                                                size={RFValue(22)}
+                                                color={cardColors.text}
+                                            />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.moreButton} onPress={() => handleMorePress(account)}>
+                                            <Icon name="more-vert" size={RFValue(22)} color={cardColors.text} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                                 <View style={styles.accountFooter}>
                                     <Text style={[
@@ -238,7 +262,7 @@ const DashboardScreen = ({ navigation }) => {
                                         styles.accountBalance,
                                         { color: cardColors.text }
                                     ]}>
-                                        {formatAmount(account.currentBalance, account.currency)}
+                                        {isVisible ? formatAmount(account.currentBalance, account.currency) : '***'}
                                     </Text>
                                 </View>
                             </TouchableOpacity>
@@ -326,6 +350,15 @@ const styles = StyleSheet.create({
         width: wp(10), // ~40px on a 400px width screen
         height: wp(10),
         borderRadius: wp(5), // ~20px
+        backgroundColor: colors.lightGray,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: wp(2), // add spacing between eye and more button
+    },
+    eyeButton: {
+        width: wp(10),
+        height: wp(10),
+        borderRadius: wp(5),
         backgroundColor: colors.lightGray,
         justifyContent: 'center',
         alignItems: 'center',

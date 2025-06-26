@@ -506,6 +506,11 @@ export const syncPendingChanges = async (realmUserId, onProgress = () => { }) =>
             logToUpdate.status = 'completed';
             logToUpdate.lastSyncAt = new Date();
           });
+          // Remove the SyncLog after marking as completed
+          realm.write(() => {
+            const logToDelete = realm.objectForPrimaryKey('SyncLog', log.id);
+            if (logToDelete) realm.delete(logToDelete);
+          });
         }
         successCount++;
         console.log(`[SYNC] ✅ Successfully processed ${log.tableName}/${log.recordId}`);

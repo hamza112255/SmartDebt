@@ -298,16 +298,16 @@ const CalendarScreen = ({ navigation, route }) => {
     };
 
     const getStatValue = (side, account, stats) => {
-        if (account?.type === 'Cash In - Cash Out') {
-            return side === 'left' ? stats.cash_out : stats.cash_in;
+        if (account?.type === 'cash_in_out') {
+            return side === 'left' ? stats.cash_in : stats.cash_out;
         }
-        if (account?.type === 'Receive - Send Out') {
-            return side === 'left' ? stats.send_out : stats.receive;
+        if (account?.type === 'recieve_send_out') {
+            return side === 'left' ? stats.recieve : stats.send_out;
         }
-        if (account?.type === 'Borrow - Lend') {
-            return side === 'left' ? stats.lend : stats.borrow;
+        if (account?.type === 'borrow_lend') {
+            return side === 'left' ? stats.borrow : stats.lend;
         }
-        return side === 'left' ? stats.debit : stats.credit;
+        return side === 'left' ? stats.credit : stats.debit;
     };
 
     const currency = safeGet(selectedAccount, 'currency', 'PKR');
@@ -414,7 +414,7 @@ const CalendarScreen = ({ navigation, route }) => {
                 />
 
                 <View style={styles.statsRow}>
-                    <View style={[styles.statCard, { backgroundColor: colors.error }]}>
+                    <View style={[styles.statCard, { backgroundColor: colors.success }]}>
                         <View style={styles.typeContainer}>
                             <Text style={[styles.typeLabel, { color: colors.white }]}>
                                 {getStatLabel('left', selectedAccount)}
@@ -424,7 +424,7 @@ const CalendarScreen = ({ navigation, route }) => {
                             {currency} {getStatValue('left', selectedAccount, stats).toFixed(2)}
                         </Text>
                     </View>
-                    <View style={[styles.statCard, { backgroundColor: colors.success }]}>
+                    <View style={[styles.statCard, { backgroundColor: colors.error }]}>
                         <View style={styles.typeContainer}>
                             <Text style={[styles.typeLabel, { color: colors.white }]}>
                                 {getStatLabel('right', selectedAccount)}

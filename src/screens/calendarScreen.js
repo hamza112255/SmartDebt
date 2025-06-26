@@ -480,7 +480,7 @@ const CalendarScreen = ({ navigation, route }) => {
                                     { backgroundColor: safeGet(transaction, 'color', colors.lightGray) + '20' }
                                 ]}>
                                     <Icon
-                                        name={['cash_in', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? "arrow-downward" : "arrow-upward"}
+                                        name={['cash_in', 'receive', 'borrow', 'credit'].includes(safeGet(transaction, 'type')) ? "arrow-upward" : "arrow-downward"}
                                         size={RFValue(16)}
                                         color={safeGet(transaction, 'color', colors.lightGray)}
                                     />

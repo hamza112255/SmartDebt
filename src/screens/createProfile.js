@@ -16,7 +16,9 @@ import { getAllObjects, createObject, updateObject } from '../realm';
 import uuid from 'react-native-uuid';
 import { useTranslation } from 'react-i18next';
 import { Picker } from '@react-native-picker/picker';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { realm } from '../realm';
+import { updateUserInSupabase } from '../supabase';
 
 const colors = {
     primary: '#2563eb',
@@ -39,6 +41,7 @@ export default function CreateProfileScreen({ navigation, route }) {
     })();
 
     const { t, i18n } = useTranslation();
+    const netInfo = useNetInfo();
 
     const [form, setForm] = useState(() => {
         // Initialize with current i18n language
@@ -103,48 +106,88 @@ export default function CreateProfileScreen({ navigation, route }) {
         }
 
         try {
-            await realm.write(() => {
-                if (existingUser && mode === 'edit') {
-                    existingUser.firstName = firstName;
-                    existingUser.lastName = lastName;
-                    existingUser.email = email;
-                    existingUser.language = language;
-                    existingUser.updatedOn = new Date();
-                    existingUser.syncStatus = 'pending';
-                    existingUser.needsUpload = true;
-                } else {
-                    const newUser = realm.create('User', {
-                        id: Date.now().toString(),
-                        firstName,
-                        lastName,
-                        email,
-                        language,
-                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-                        userType: 'free',
-                        emailConfirmed: false,
-                        biometricEnabled: false,
-                        pinEnabled: false,
-                        pinCode: '',
-                        isActive: true,
-                        createdOn: new Date(),
-                        updatedOn: new Date(),
-                        syncStatus: 'pending',
-                        lastSyncAt: null,
-                        needsUpload: true,
-                    });
+            const isPaidUser = existingUser?.userType === 'paid';
+            const isOnline = netInfo.isConnected;
 
-                    realm.create('SyncLog', {
-                        id: Date.now().toString() + '_log',
-                        userId: newUser.id,
-                        tableName: 'users',
-                        recordId: newUser.id,
-                        operation: 'create',
-                        status: 'pending',
-                        createdOn: new Date(),
-                        processedAt: null
-                    });
-                }
-            });
+            if (mode === 'edit' && isPaidUser && isOnline) {
+                // Paid user is online: Update directly to Supabase
+                const updatedData = {
+                    id: existingUser.id,
+                    firstName,
+                    lastName,
+                    email,
+                    language,
+                    updatedOn: new Date().toISOString(),
+                };
+
+                const updatedSupabaseUser = await updateUserInSupabase(existingUser.supabaseId, updatedData);
+
+                realm.write(() => {
+                    existingUser.firstName = updatedSupabaseUser.first_name;
+                    existingUser.lastName = updatedSupabaseUser.last_name;
+                    existingUser.email = updatedSupabaseUser.email;
+                    existingUser.language = updatedSupabaseUser.language;
+                    existingUser.updatedOn = new Date(updatedSupabaseUser.updated_on);
+                    existingUser.syncStatus = 'synced';
+                    existingUser.needsUpload = false;
+                    existingUser.lastSyncAt = new Date();
+                });
+            } else {
+                // Free user, or Paid user is offline: Save to Realm and create SyncLog
+                await realm.write(() => {
+                    if (existingUser && mode === 'edit') {
+                        existingUser.firstName = firstName;
+                        existingUser.lastName = lastName;
+                        existingUser.email = email;
+                        existingUser.language = language;
+                        existingUser.updatedOn = new Date();
+                        existingUser.syncStatus = 'pending';
+                        existingUser.needsUpload = true;
+
+                        realm.create('SyncLog', {
+                            id: uuid.v4() + '_log',
+                            userId: existingUser.id,
+                            tableName: 'users',
+                            recordId: existingUser.id,
+                            operation: 'update',
+                            status: 'pending',
+                            createdOn: new Date(),
+                        });
+
+                    } else {
+                        const newUser = realm.create('User', {
+                            id: Date.now().toString(),
+                            firstName,
+                            lastName,
+                            email,
+                            language,
+                            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                            userType: 'free',
+                            emailConfirmed: false,
+                            biometricEnabled: false,
+                            pinEnabled: false,
+                            pinCode: '',
+                            isActive: true,
+                            createdOn: new Date(),
+                            updatedOn: new Date(),
+                            syncStatus: 'pending',
+                            lastSyncAt: null,
+                            needsUpload: true,
+                        });
+
+                        realm.create('SyncLog', {
+                            id: uuid.v4() + '_log',
+                            userId: newUser.id,
+                            tableName: 'users',
+                            recordId: newUser.id,
+                            operation: 'create',
+                            status: 'pending',
+                            createdOn: new Date(),
+                            processedAt: null
+                        });
+                    }
+                });
+            }
 
             // Only change language after successful save
             if (language !== i18n.language) {

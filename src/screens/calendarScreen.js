@@ -380,8 +380,14 @@ const CalendarScreen = ({ navigation, route }) => {
     };
 
     const calculateStats = (transArr = [], account) => {
+        const debtAdjustmentTxIds = new Set(
+            (realm.objects('ProxyPayment') || []).map(p => p.debtAdjustmentTransactionId)
+        );
+
         const baseBalance = account?.currentBalance || 0;
-        const transactionStats = transArr.reduce((acc, transaction) => {
+        const transactionStats = transArr
+            .filter(t => !debtAdjustmentTxIds.has(t.id))
+            .reduce((acc, transaction) => {
             const amount = parseFloat(transaction.amount) || 0;
             if (['cash_in', 'receive', 'borrow', 'credit'].includes(transaction.type)) {
                 acc.credit += amount;
@@ -421,13 +427,13 @@ const CalendarScreen = ({ navigation, route }) => {
     };
 
     const getStatValue = (side, account, stats) => {
-        if (account?.type === 'cash_in_out') {
+        if (account?.type === 'Cash In - Cash Out') {
             return side === 'left' ? stats.cash_in : stats.cash_out;
         }
-        if (account?.type === 'recieve_send_out') {
-            return side === 'left' ? stats.recieve : stats.send_out;
+        if (account?.type === 'Receive - Send Out') {
+            return side === 'left' ? stats.receive : stats.send_out;
         }
-        if (account?.type === 'borrow_lend') {
+        if (account?.type === 'Borrow - Lend') {
             return side === 'left' ? stats.borrow : stats.lend;
         }
         return side === 'left' ? stats.credit : stats.debit;

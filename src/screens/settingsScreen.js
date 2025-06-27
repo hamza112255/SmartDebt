@@ -18,11 +18,12 @@ import { getAllObjects, updateObject, createObject, initializeRealm, realm } fro
 import uuid from 'react-native-uuid';
 import LinearGradient from 'react-native-linear-gradient';
 import BiometricContext from '../../src/contexts/BiometricContext';
-import { supabase } from '../supabase';
+import { supabase, updateUserInSupabase } from '../supabase';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PinModal from '../components/PinModal';
 import * as SecureStore from 'expo-secure-store';
 import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { useNetInfo } from '@react-native-community/netinfo';
 
 const colors = {
     primary: '#2563eb',
@@ -50,11 +51,13 @@ const SettingsScreen = ({ navigation }) => {
         pinCode: '',
     });
     const [userId, setUserId] = useState(null);
+    const [supabaseUserId, setSupabaseUserId] = useState(null);
     const [showBiometricConfirm, setShowBiometricConfirm] = useState(false);
     const [showPinSetup, setShowPinSetup] = useState(false);
     const { updateBiometricState, updatePinState } = useContext(BiometricContext);
     const { t } = useTranslation(); // Initialize useTranslation
     const [userType, setUserType] = useState('free'); // Default user type
+    const netInfo = useNetInfo();
 
     useEffect(() => {
         loadUserData();
@@ -79,6 +82,7 @@ const SettingsScreen = ({ navigation }) => {
                 });
                 setUserType(u.userType || 'free'); // Set user type from realm data
                 setUserId(u.id);
+                setSupabaseUserId(u.supabaseId);
             }
         } catch (error) {
             Alert.alert(t('common.error'), t('settingsScreen.errors.loadUser'));
@@ -92,30 +96,62 @@ const SettingsScreen = ({ navigation }) => {
             Alert.alert(t('common.error'), t('settingsScreen.errors.noUserFound'));
             return false;
         }
-        try {
-            realm.write(() => {
-                realm.create('User', {
-                    id: userId,
-                    ...settingsToUpdate,
-                    updatedOn: new Date(),
-                }, 'modified');
 
-                // Check if a 'create' log already exists for this unsynced user.
-                const createLog = realm.objects('SyncLog').filtered('recordId == $0 AND operation == "create" AND (status == "pending" OR status == "failed")', userId)[0];
-                
-                if (!createLog) {
-                    // Only create an 'update' log if the user record has been synced before.
-                    realm.create('SyncLog', {
-                        id: `${Date.now()}_log`,
-                        userId: userId,
-                        tableName: 'users',
-                        recordId: userId,
-                        operation: 'update',
-                        status: 'pending',
-                        createdOn: new Date(),
-                    });
+        const isPaidUser = userType === 'paid';
+        const isOnline = netInfo.isConnected;
+
+        try {
+            if (isPaidUser && isOnline) {
+                // Paid user, online -> Update Supabase directly
+                const updatedUser = await updateUserInSupabase(supabaseUserId, settingsToUpdate);
+
+                const realmUpdateData = {
+                    id: userId,
+                    updatedOn: new Date(updatedUser.updated_on),
+                    syncStatus: 'synced',
+                    lastSyncAt: new Date(),
+                    needsUpload: false,
+                };
+
+                if (settingsToUpdate.biometricEnabled !== undefined) {
+                    realmUpdateData.biometricEnabled = updatedUser.biometric_enabled;
                 }
-            });
+                if (settingsToUpdate.pinEnabled !== undefined) {
+                    realmUpdateData.pinEnabled = updatedUser.pin_enabled;
+                }
+                if (settingsToUpdate.pinCode !== undefined) {
+                    realmUpdateData.pinCode = updatedUser.pin_code;
+                }
+
+                realm.write(() => {
+                    realm.create('User', realmUpdateData, 'modified');
+                });
+            } else {
+                // Free user or offline -> Update Realm and queue for sync
+                realm.write(() => {
+                    realm.create('User', {
+                        id: userId,
+                        ...settingsToUpdate,
+                        updatedOn: new Date(),
+                        needsUpload: true,
+                        syncStatus: 'pending',
+                    }, 'modified');
+
+                    const existingLog = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', userId)[0];
+
+                    if (!existingLog) {
+                        realm.create('SyncLog', {
+                            id: uuid.v4(),
+                            userId: userId,
+                            tableName: 'users',
+                            recordId: userId,
+                            operation: 'update',
+                            status: 'pending',
+                            createdOn: new Date(),
+                        });
+                    }
+                });
+            }
 
             // Update secure store and context
             if (settingsToUpdate.biometricEnabled !== undefined) {
@@ -132,7 +168,7 @@ const SettingsScreen = ({ navigation }) => {
             }
             return true;
         } catch (error) {
-            Alert.alert(t('common.error'), t('settingsScreen.errors.saveSettings'));
+            Alert.alert(t('common.error'), `${t('settingsScreen.errors.saveSettings')}: ${error.message}`);
             return false;
         }
     };

@@ -576,26 +576,46 @@ const AccountDetailScreen = ({ navigation, route }) => {
     const accountColor = accountData?.color || colors.primary;
     const dynamicStyles = makeStyles(accountColor);
 
+    const getDebtAdjustmentTxIds = () => {
+        return new Set(
+            (realm.objects('ProxyPayment') || []).map(p => p.debtAdjustmentTransactionId)
+        );
+    };
+
     const loadAccountData = useCallback(() => {
         if (!accountId) return;
         const account = realm.objectForPrimaryKey('Account', accountId);
         if (account) {
+            const allTransactions = realm.objects('Transaction').filtered('accountId == $0', accountId);
+            const debtAdjustmentTxIds = getDebtAdjustmentTxIds();
+
+            const stats = allTransactions
+                .filter(t => !debtAdjustmentTxIds.has(t.id))
+                .reduce((acc, tx) => {
+                    const amount = tx.amount || 0;
+                    if (tx.type === 'cash_in') acc.cash_in += amount;
+                    else if (tx.type === 'cash_out') acc.cash_out += amount;
+                    else if (tx.type === 'receive') acc.receive += amount;
+                    else if (tx.type === 'send_out') acc.send_out += amount;
+                    else if (tx.type === 'borrow') acc.borrow += amount;
+                    else if (tx.type === 'lend') acc.lend += amount;
+                    else if (tx.type === 'credit') acc.credit += amount;
+                    else if (tx.type === 'debit') acc.debit += amount;
+                    return acc;
+                }, {
+                    cash_in: 0, cash_out: 0, receive: 0, send_out: 0,
+                    borrow: 0, lend: 0, credit: 0, debit: 0,
+                });
+
             setAccountData({
                 id: account.id,
                 name: account.name,
                 type: account.type,
                 color: account.color,
                 currentBalance: account.currentBalance,
-                cash_in: account.cash_in,
-                cash_out: account.cash_out,
-                receive: account.receive,
-                send_out: account.send_out,
-                borrow: account.borrow,
-                lend: account.lend,
-                credit: account.credit,
-                debit: account.debit,
                 currency: account.currency,
                 userId: account.userId,
+                ...stats,
             });
         }
     }, [accountId]);
@@ -678,9 +698,11 @@ const AccountDetailScreen = ({ navigation, route }) => {
         try {
             const allTransactions = realm.objects('Transaction');
             const listener = (transactions, changes) => {
-                const accountTransactionsChanged = changes.insertions.length > 0 || changes.modifications.length > 0 || changes.deletions.length > 0;
-                if (accountTransactionsChanged) {
-                    loadTransactions();
+                if (changes) {
+                    const accountTransactionsChanged = (changes.insertions?.length > 0) || (changes.modifications?.length > 0) || (changes.deletions?.length > 0);
+                    if (accountTransactionsChanged) {
+                        loadTransactions();
+                    }
                 }
             };
             allTransactions.addListener(listener);

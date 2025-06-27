@@ -320,6 +320,10 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
             console.log(`[SYNC-PROCESS] Creating ${tableName} with user_id: ${supabaseUserId}`);
           }
 
+          if (tableName === 'accounts') {
+            snakeCaseData.current_balance = 0;
+          }
+
           await delay(500); // 500ms delay
           result = await supabase.from(tableName).insert(snakeCaseData).select().single();
 
@@ -343,6 +347,12 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
               lastSyncAt: new Date(),
               needsUpload: false,
             };
+
+            if (tableName === 'accounts' && operation === 'create') {
+              finalData.currentBalance = data.currentBalance;
+              console.log(`[SYNC-PROCESS] Restored original balance for account ${finalData.id}: ${data.currentBalance}`);
+            }
+            
             realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
             // --- Update ProxyPayment originalTransactionId if exists ---
             if (tableName === 'transactions') {
@@ -674,6 +684,7 @@ export async function createAccountInSupabase(accountData) {
   delete snakeCaseData.updated_on;
   delete snakeCaseData.id;
   // do NOT delete is_active
+  snakeCaseData.current_balance = 0;
 
   const { data, error } = await supabase
     .from('accounts')

@@ -18,7 +18,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
-import { createObject, updateObject, getAllObjects } from '../realm';
+import { createObject, updateObject, getAllObjects, realm } from '../realm';
 import uuid from 'react-native-uuid';
 import { useTranslation } from 'react-i18next';
 import NetInfo from '@react-native-community/netinfo';
@@ -122,6 +122,18 @@ const AddAccountScreen = ({ navigation, route }) => {
             setSupabaseUserId(users[0].supabaseId || null);
         }
     }, []);
+
+    useEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                existingAccount ? (
+                    <TouchableOpacity onPress={handleDeleteAccount} style={{ padding: 8 }}>
+                        <Icon name="delete" size={24} color={colors.error} />
+                    </TouchableOpacity>
+                ) : null
+            ),
+        });
+    }, [navigation, existingAccount]);
 
     const termOptions = [
         {code: 'cash_in_out', display: t('terms.cash_inCashOut')},
@@ -340,69 +352,83 @@ const AddAccountScreen = ({ navigation, route }) => {
         userType, supabaseUserId, i18n.language
     ]);
 
-    // Add this function for deleting an account
-    const handleDeleteAccount = useCallback(async () => {
-        if (!existingAccount) return;
-        setIsLoading(true);
-        try {
-            const netState = await NetInfo.fetch();
-            const isOnline = netState.isConnected && netState.isInternetReachable;
+    const handleDeleteAccount = () => {
+        if (!existingAccount?.id) return;
+        
+        Alert.alert(
+            t('addNewAccountScreen.deleteTitle'),
+            t('addNewAccountScreen.deleteMessage'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                    text: t('common.delete'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const accountId = existingAccount.id;
+                            const userId = existingAccount.userId;
 
-            if (userType === 'paid' && isOnline) {
-                // Delete from Supabase first
-                await deleteAccountInSupabase(existingAccount.id);
-                // Delete from Realm (remove the object safely)
-                const realmAccounts = getAllObjects('Account');
-                const accountObj = realmAccounts.filtered('id == $0', existingAccount.id)[0];
-                if (accountObj && accountObj.realm) {
-                    accountObj.realm.write(() => {
-                        accountObj.realm.delete(accountObj);
-                    });
-                } else if (accountObj) {
-                    // fallback if .realm is not available
-                    const RealmLib = require('../realm');
-                    if (RealmLib && RealmLib.realm) {
-                        RealmLib.realm.write(() => {
-                            RealmLib.realm.delete(accountObj);
-                        });
-                    }
-                }
-            } else {
-                // Remove from Realm and add to SyncLog (offline or free user)
-                const realmAccounts = getAllObjects('Account');
-                const accountObj = realmAccounts.filtered('id == $0', existingAccount.id)[0];
-                if (accountObj && accountObj.realm) {
-                    accountObj.realm.write(() => {
-                        accountObj.realm.delete(accountObj);
-                    });
-                } else if (accountObj) {
-                    // fallback if .realm is not available
-                    const RealmLib = require('../realm');
-                    if (RealmLib && RealmLib.realm) {
-                        RealmLib.realm.write(() => {
-                            RealmLib.realm.delete(accountObj);
-                        });
-                    }
-                }
-                createObject('SyncLog', {
-                    id: Date.now().toString() + '_log',
-                    userId: existingAccount.userId,
-                    tableName: 'accounts',
-                    recordId: existingAccount.id,
-                    operation: 'delete',
-                    status: 'pending',
-                    createdOn: new Date(),
-                    processedAt: null
-                });
-            }
-            Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountDeleted'));
-            navigation.goBack();
-        } catch (error) {
-            Alert.alert('Error', 'Failed to delete account: ' + (error?.message || error));
-        } finally {
-            setIsLoading(false);
-        }
-    }, [existingAccount, navigation, userType]);
+                            const netState = await NetInfo.fetch();
+                            const isOnline = netState.isConnected && netState.isInternetReachable;
+
+                            if (userType === 'paid' && isOnline) {
+                                if (!supabaseUserId) throw new Error('Supabase user ID is not available.');
+
+                                await deleteAccountInSupabase(accountId);
+
+                                // On success, delete from Realm locally
+                                realm.write(() => {
+                                    const accountToDelete = realm.objectForPrimaryKey('Account', accountId);
+                                    if (accountToDelete) {
+                                        const transactionsToDelete = realm.objects('Transaction').filtered('accountId == $0', accountId);
+                                        realm.delete(transactionsToDelete);
+                                        realm.delete(accountToDelete);
+                                    }
+                                });
+                                Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountDeleted', 'Account deleted successfully.'));
+                            } else {
+                                // FREE or OFFLINE: Fallback to SyncLog
+                                realm.write(() => {
+                                    const accountToDelete = realm.objectForPrimaryKey('Account', accountId);
+                                    if (!accountToDelete) return;
+
+                                    const pendingLogs = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', accountId);
+                                    const isNewAndUnsynced = pendingLogs.some(log => log.operation === 'create');
+
+                                    if (isNewAndUnsynced) {
+                                        if (pendingLogs.length > 0) realm.delete(pendingLogs);
+                                    } else {
+                                        const updateLogs = pendingLogs.filtered('operation == "update"');
+                                        if (updateLogs.length > 0) realm.delete(updateLogs);
+                                        
+                                        createObject('SyncLog', {
+                                            id: new Date().toISOString() + '_log_del_acc',
+                                            userId: userId,
+                                            tableName: 'accounts',
+                                            recordId: accountId,
+                                            operation: 'delete',
+                                            status: 'pending',
+                                            createdOn: new Date(),
+                                        });
+                                    }
+                                    
+                                    const transactionsToDelete = realm.objects('Transaction').filtered('accountId == $0', accountId);
+                                    realm.delete(transactionsToDelete);
+                                    
+                                    realm.delete(accountToDelete);
+                                });
+                                Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountScheduledForDeletion', 'Account scheduled for deletion.'));
+                            }
+                            
+                            navigation.goBack();
+                        } catch (error) {
+                            Alert.alert(t('common.error'), `${t('addNewAccountScreen.error.failedToDelete', 'Failed to delete account')}: ${error.message}`);
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     const BottomSheet = ({ visible, onClose, title, children }) => (
         <Modal
@@ -539,16 +565,6 @@ const AddAccountScreen = ({ navigation, route }) => {
                                     >
                                         <Text style={styles.buttonText}>{existingAccount ? t('addNewAccountScreen.updateAccount') : t('addNewAccountScreen.addAccount')}</Text>
                                     </TouchableOpacity>
-                                    {existingAccount && (
-                                        <TouchableOpacity
-                                            style={[styles.saveButton, { backgroundColor: colors.error, marginTop: 12 }]}
-                                            onPress={handleDeleteAccount}
-                                            disabled={isLoading}
-                                            activeOpacity={0.85}
-                                        >
-                                            <Text style={styles.buttonText}>{t('addNewAccountScreen.deleteAccount')}</Text>
-                                        </TouchableOpacity>
-                                    )}
                                 </View>
                             </View>
                         </ScrollView>

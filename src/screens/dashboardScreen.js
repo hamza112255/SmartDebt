@@ -5,8 +5,9 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import React, { useEffect, useState } from 'react';
 import { realm, getAllObjects, deleteObject } from '../realm';
-import { supabase } from '../supabase';
+import { supabase, deleteAccountInSupabase } from '../supabase';
 import { useTranslation } from 'react-i18next';
+import NetInfo from '@react-native-community/netinfo';
 
 const colors = {
     primary: '#2563eb',
@@ -52,7 +53,6 @@ const CARD_COLORS = {
 const DashboardScreen = ({ navigation }) => {
     const [accounts, setAccounts] = useState([]);
     const [user, setUser] = useState(null);
-    const [balanceVisibility, setBalanceVisibility] = useState({});
     const { t } = useTranslation();
     console.log('transactions',realm.objects('Transaction'))
 
@@ -131,11 +131,15 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     // Toggle balance visibility for a specific account
-    const toggleBalanceVisibility = (accountId) => {
-        setBalanceVisibility(prev => ({
-            ...prev,
-            [accountId]: !prev[accountId]
-        }));
+    const toggleBalanceVisibility = (account) => {
+        try {
+            realm.write(() => {
+                account.showBalance = !account.showBalance;
+            });
+        } catch (error) {
+            console.error("Failed to toggle balance visibility:", error);
+            Alert.alert("Error", "Could not update balance visibility.");
+        }
     };
 
     const getTranslatedAccountType = (typeCode) => {
@@ -164,10 +168,111 @@ const DashboardScreen = ({ navigation }) => {
                 })
             },
             {
+                text: t('common.delete'),
+                onPress: () => handleDeleteAccount(account),
+                style: 'destructive',
+            },
+            {
                 text: t('common.cancel'),
                 style: 'cancel'
             },
         ]);
+    };
+
+    const handleDeleteAccount = async (account) => {
+        if (!account?.id) return;
+
+        const performDelete = async () => {
+            try {
+                const accountId = account.id;
+                const userId = account.userId;
+
+                const netState = await NetInfo.fetch();
+                const isOnline = netState.isConnected && netState.isInternetReachable;
+
+                if (user?.userType === 'paid' && isOnline) {
+                    await deleteAccountInSupabase(accountId);
+
+                    realm.write(() => {
+                        const accountToDelete = realm.objectForPrimaryKey('Account', accountId);
+                        if (accountToDelete) {
+                            const transactionsToDelete = realm.objects('Transaction').filtered('accountId == $0', accountId);
+                            realm.delete(transactionsToDelete);
+                            realm.delete(accountToDelete);
+                        }
+                    });
+                    Alert.alert(t('common.success'), t('accountDetailsScreen.success.accountDeleted', 'Account deleted successfully.'));
+                } else {
+                    realm.write(() => {
+                        const accountToDelete = realm.objectForPrimaryKey('Account', accountId);
+                        if (!accountToDelete) return;
+
+                        // Handle associated transactions
+                        const transactionsToDelete = realm.objects('Transaction').filtered('accountId == $0', accountId);
+                        transactionsToDelete.forEach(tx => {
+                            const pendingTxLogs = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', tx.id);
+                            const isTxNewAndUnsynced = pendingTxLogs.some(log => log.operation === 'create');
+
+                            if (isTxNewAndUnsynced) {
+                                if (pendingTxLogs.length > 0) realm.delete(pendingTxLogs);
+                            } else {
+                                const updateTxLogs = pendingTxLogs.filtered('operation == "update"');
+                                if (updateTxLogs.length > 0) realm.delete(updateTxLogs);
+                                
+                                realm.create('SyncLog', {
+                                    id: new Date().toISOString() + `_tx_del_log_${tx.id}`,
+                                    userId: userId,
+                                    tableName: 'transactions',
+                                    recordId: tx.id,
+                                    operation: 'delete',
+                                    status: 'pending',
+                                    createdOn: new Date(),
+                                });
+                            }
+                        });
+                        realm.delete(transactionsToDelete);
+
+                        // Handle the account itself
+                        const pendingAccountLogs = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', accountId);
+                        const isAccountNewAndUnsynced = pendingAccountLogs.some(log => log.operation === 'create');
+
+                        if (isAccountNewAndUnsynced) {
+                            if (pendingAccountLogs.length > 0) realm.delete(pendingAccountLogs);
+                        } else {
+                            const updateAccLogs = pendingAccountLogs.filtered('operation == "update"');
+                            if (updateAccLogs.length > 0) realm.delete(updateAccLogs);
+                            
+                            realm.create('SyncLog', {
+                                id: new Date().toISOString() + `_acc_del_log_${accountId}`,
+                                userId: userId,
+                                tableName: 'accounts',
+                                recordId: accountId,
+                                operation: 'delete',
+                                status: 'pending',
+                                createdOn: new Date(),
+                            });
+                        }
+                        realm.delete(accountToDelete);
+                    });
+                    Alert.alert(t('common.success'), t('accountDetailsScreen.success.accountScheduledForDeletion', 'Account scheduled for deletion.'));
+                }
+            } catch (error) {
+                 Alert.alert(t('common.error'), `${t('accountDetailsScreen.error.failedToDelete', 'Failed to delete account')}: ${error.message}`);
+            }
+        };
+
+        Alert.alert(
+            t('accountDetailsScreen.deleteAccountTitle', 'Delete Account'),
+            t('accountDetailsScreen.deleteAccountMessage', 'Are you sure you want to delete this account? All associated transactions will also be deleted permanently.'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                    text: t('common.delete'),
+                    style: 'destructive',
+                    onPress: performDelete,
+                },
+            ]
+        );
     };
     
     const handleAccountPress = (account) => {
@@ -194,7 +299,7 @@ const DashboardScreen = ({ navigation }) => {
                         const palette = ['green', 'yellow', 'blue', 'red'];
                         const computedColorKey = account.color ?? palette[index % palette.length];
                         const cardColors = CARD_COLORS[computedColorKey] || CARD_COLORS.default;
-                        const isVisible = balanceVisibility[account.id] ?? true;
+                        const isVisible = account.showBalance;
                         return (
                             <TouchableOpacity
                                 key={account.id}
@@ -237,7 +342,7 @@ const DashboardScreen = ({ navigation }) => {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <TouchableOpacity
                                             style={styles.eyeButton}
-                                            onPress={() => toggleBalanceVisibility(account.id)}
+                                            onPress={() => toggleBalanceVisibility(account)}
                                             activeOpacity={0.7}
                                         >
                                             <Icon

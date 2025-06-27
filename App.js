@@ -596,25 +596,42 @@ function App({ currentLanguage }) {
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  backgroundColor: '#2563eb',
-                  padding: 16,
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  justifyContent: 'center',
                   alignItems: 'center',
+                  flex: 1,
+                  height: '100%',
+                  width: '100%'
                 }}>
-                  <Text style={{ color: '#ffffff' }}>{syncMessage}</Text>
                   <View style={{
-                    width: '100%',
-                    height: 4,
-                    backgroundColor: '#ffffff',
-                    borderRadius: 2,
-                    overflow: 'hidden',
+                    backgroundColor: MyTheme.colors.white,
+                    borderRadius: 10,
+                    padding: 20,
+                    alignItems: 'center',
+                    width: '80%',
                   }}>
+                    <ActivityIndicator size="large" color={MyTheme.colors.primary} />
+                    <Text style={{
+                      marginTop: 15,
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: MyTheme.colors.text,
+                    }}>{syncMessage}</Text>
                     <View style={{
-                      width: `${syncProgress}%`,
-                      height: 4,
-                      backgroundColor: '#2563eb',
-                    }} />
+                      height: 8,
+                      width: '100%',
+                      borderRadius: 4,
+                      backgroundColor: MyTheme.colors.lightGray,
+                      overflow: 'hidden',
+                      marginTop: 15,
+                    }}>
+                      <View style={{
+                        width: `${syncProgress}%`,
+                        height: '100%',
+                        backgroundColor: MyTheme.colors.primary,
+                        borderRadius: 4,
+                      }} />
+                    </View>
                   </View>
                 </View>
               )}

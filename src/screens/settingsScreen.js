@@ -87,39 +87,53 @@ const SettingsScreen = ({ navigation }) => {
 
     const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-    
-
-    const handleSave = () => {
-        const now = new Date();
+    const saveSettings = async (settingsToUpdate) => {
+        if (!userId) {
+            Alert.alert(t('common.error'), t('settingsScreen.errors.noUserFound'));
+            return false;
+        }
         try {
-            if (userId) {
-                updateObject('User', userId, {
-                    ...form,
-                    updatedOn: now,
-                    syncStatus: 'pending',
-                    needsUpload: true,
-                });
-            } else {
-                const newId = uuid.v4();
-                createObject('User', {
-                    id: newId,
-                    ...form,
-                    emailConfirmed: form.emailConfirmed,
-                    biometricEnabled: form.biometricEnabled,
-                    pinEnabled: form.pinEnabled,
-                    userType: 'free',
-                    isActive: true,
-                    createdOn: now,
-                    updatedOn: now,
-                    syncStatus: 'pending',
-                    lastSyncAt: null,
-                    needsUpload: true,
-                });
-                setUserId(newId);
+            realm.write(() => {
+                realm.create('User', {
+                    id: userId,
+                    ...settingsToUpdate,
+                    updatedOn: new Date(),
+                }, 'modified');
+
+                // Check if a 'create' log already exists for this unsynced user.
+                const createLog = realm.objects('SyncLog').filtered('recordId == $0 AND operation == "create" AND (status == "pending" OR status == "failed")', userId)[0];
+                
+                if (!createLog) {
+                    // Only create an 'update' log if the user record has been synced before.
+                    realm.create('SyncLog', {
+                        id: `${Date.now()}_log`,
+                        userId: userId,
+                        tableName: 'users',
+                        recordId: userId,
+                        operation: 'update',
+                        status: 'pending',
+                        createdOn: new Date(),
+                    });
+                }
+            });
+
+            // Update secure store and context
+            if (settingsToUpdate.biometricEnabled !== undefined) {
+                await SecureStore.setItemAsync('biometricEnabled', String(settingsToUpdate.biometricEnabled));
+                updateBiometricState(settingsToUpdate.biometricEnabled);
             }
-            Alert.alert(t('common.success'), t('settingsScreen.success.profileSaved'));
+            if (settingsToUpdate.pinEnabled !== undefined) {
+                await SecureStore.setItemAsync('pinEnabled', String(settingsToUpdate.pinEnabled));
+                const pinToUpdate = settingsToUpdate.pinCode ?? form.pinCode;
+                if (settingsToUpdate.pinCode) {
+                    await SecureStore.setItemAsync('pinCode', settingsToUpdate.pinCode);
+                }
+                updatePinState(settingsToUpdate.pinEnabled, pinToUpdate);
+            }
+            return true;
         } catch (error) {
             Alert.alert(t('common.error'), t('settingsScreen.errors.saveSettings'));
+            return false;
         }
     };
 
@@ -151,53 +165,18 @@ const SettingsScreen = ({ navigation }) => {
         return unsubscribe;
     }, [navigation]);
 
-    const saveUserSettings = async (field, value, pinCode = null) => {
-        try {
-            await initializeRealm();
-            const users = getAllObjects('User');
-            if (users.length === 0) {
-                throw new Error(t('settingsScreen.errors.noUserFound'));
-            }
-
-            realm.write(() => {
-                if (field === 'biometricEnabled') {
-                    users[0].biometricEnabled = value;
-                } else if (field === 'pinEnabled') {
-                    users[0].pinEnabled = value;
-                    if (pinCode) {
-                        users[0].pinCode = pinCode;
-                    }
-                }
-                users[0].updatedOn = new Date();
-            });
-
-            if (field === 'biometricEnabled') {
-                await SecureStore.setItemAsync('biometricEnabled', value.toString());
-                updateBiometricState(value);
-            } else if (field === 'pinEnabled') {
-                await SecureStore.setItemAsync('pinEnabled', value.toString());
-                if (pinCode) {
-                    await SecureStore.setItemAsync('pinCode', pinCode);
-                }
-                updatePinState(value, pinCode ?? users[0].pinCode);
-            }
-            return true;
-        } catch (error) {
-            Alert.alert(t('common.error'), t('settingsScreen.errors.saveSettings'));
-            return false;
-        }
-    };
-
     const handlePinToggle = async (value) => {
         updateField('pinEnabled', value);
         if (value) {
+            // If enabling PIN and one already exists, just save. Otherwise, show setup.
             if (form.pinCode) {
-                await saveUserSettings('pinEnabled', true);
+                await saveSettings({ pinEnabled: true });
             } else {
                 setShowPinSetup(true);
             }
         } else {
-            await saveUserSettings('pinEnabled', false);
+            // Disabling PIN
+            await saveSettings({ pinEnabled: false });
         }
     };
 
@@ -206,38 +185,19 @@ const SettingsScreen = ({ navigation }) => {
     };
 
     const handlePinSetupComplete = async (pin) => {
-        try {
-            const now = new Date();
-            updateField('pinEnabled', true);
-            updateField('pinCode', pin);
-
-            await SecureStore.setItemAsync('pinCode', pin);
-            await SecureStore.setItemAsync('pinEnabled', 'true');
-
-            updatePinState(true, pin);
-            setShowPinSetup(false);
-
-            if (userId) {
-                updateObject('User', userId, {
-                    pinEnabled: true,
-                    pinCode: pin,
-                    updatedOn: now,
-                    syncStatus: 'pending',
-                    needsUpload: true,
-                });
-            }
-        } catch (error) {
-            Alert.alert(t('common.error'), t('settingsScreen.errors.setPin'));
-        }
+        updateField('pinEnabled', true);
+        updateField('pinCode', pin);
+        await saveSettings({ pinEnabled: true, pinCode: pin });
+        setShowPinSetup(false);
     };
 
     const toggleBiometric = async (val) => {
         setShowBiometricConfirm(false);
         const prevValue = form.biometricEnabled;
-        setForm((prev) => ({ ...prev, biometricEnabled: val }));
-        const success = await saveUserSettings('biometricEnabled', val);
+        updateField('biometricEnabled', val);
+        const success = await saveSettings({ biometricEnabled: val });
         if (!success) {
-            setForm((prev) => ({ ...prev, biometricEnabled: prevValue }));
+            updateField('biometricEnabled', prevValue); // Revert on failure
         }
     };
 

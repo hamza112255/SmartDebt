@@ -166,8 +166,8 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
     const record = realm.objectForPrimaryKey(schemaName, recordId);
 
     if (!record && operation !== 'delete') {
-      console.error(`[SYNC-PROCESS] CRITICAL: Record with ID ${recordId} not found in Realm schema ${schemaName} for a non-delete operation.`);
-      return false;
+      console.log(`[SYNC-PROCESS] Record with ID ${recordId} for a ${operation} operation was not found in Realm. It was likely deleted. Skipping.`);
+      return true; // Treat as success to clear the log
     }
 
     const data = record ? { ...record.toJSON() } : {};
@@ -176,6 +176,9 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
     delete data.syncStatus;
     delete data.supabaseId;
     delete data.passwordHash;
+    if (schemaName === 'Account') {
+      delete data.showBalance;
+    }
 
     const snakeCaseData = transformKeysToSnakeCase(data);
     // Ensure parent_transaction_id is null if empty string
@@ -187,6 +190,12 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
     }
     if (snakeCaseData.remind_me_type === '') {
       snakeCaseData.remind_me_type = null;
+    }
+    if (snakeCaseData.on_behalf_of_contact_id === '') {
+      snakeCaseData.on_behalf_of_contact_id = null;
+    }
+    if (snakeCaseData.contact_id === '') {
+      snakeCaseData.contact_id = null;
     }
     console.log('[SYNC-PROCESS] Original data (camelCase):', JSON.stringify(data, null, 2));
     console.log('[SYNC-PROCESS] Transformed data for Supabase (snake_case):', JSON.stringify(snakeCaseData, null, 2));
@@ -367,7 +376,8 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
         }
 
       case 'update':
-        console.log(`[SYNC-PROCESS] Sending UPDATE request to Supabase table: ${tableName} for ID: ${recordId}`);
+        const idToUpdate = idMapping[tableName]?.[recordId] || recordId;
+        console.log(`[SYNC-PROCESS] Sending UPDATE request to Supabase table: ${tableName} for ID: ${idToUpdate} (local ID was: ${recordId})`);
 
         // Update foreign keys using ID mapping
         if (tableName === 'accounts' || tableName === 'contacts' || tableName === 'transactions') {
@@ -402,7 +412,7 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
         }
 
         await delay(500); // 500ms delay
-        result = await supabase.from(tableName).update(snakeCaseData).eq('id', recordId).select().single();
+        result = await supabase.from(tableName).update(snakeCaseData).eq('id', idToUpdate).select().single();
 
         if (result.error) {
           console.error('[SYNC-PROCESS] Supabase UPDATE failed:', result.error.message);
@@ -708,12 +718,32 @@ export async function updateAccountInSupabase(accountId, accountData) {
  * @returns {Promise<boolean>} - True if deleted, throws error otherwise.
  */
 export async function deleteAccountInSupabase(accountId) {
-  const { error } = await supabase
+  // First, delete all transactions associated with the account
+  const { error: transactionError } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('account_id', accountId);
+
+  if (transactionError) {
+    // If the error is that the transaction table is empty, we can ignore it.
+    // RLS might prevent seeing rows, which looks like a 404 (PGRST116)
+    if (transactionError.code !== 'PGRST116') {
+      console.error('Error deleting transactions for account:', transactionError);
+      throw transactionError;
+    }
+  }
+
+  // Then, delete the account itself
+  const { error: accountError } = await supabase
     .from('accounts')
     .delete()
     .eq('id', accountId);
 
-  if (error) throw error;
+  if (accountError) {
+    console.error('Error deleting account:', accountError);
+    throw accountError;
+  }
+
   return true;
 }
 

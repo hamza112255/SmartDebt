@@ -50,6 +50,7 @@ export const AccountSchema = {
     borrow: { type: "double", default: 0 },
     lend: { type: "double", default: 0 },
     isActive: "bool",
+    showBalance: { type: "bool", default: false },
     createdOn: "date",
     updatedOn: "date",
     syncStatus: "string",

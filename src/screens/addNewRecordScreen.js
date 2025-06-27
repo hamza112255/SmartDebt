@@ -56,6 +56,28 @@ const colors = {
     cardShadow: 'rgba(102, 126, 234, 0.15)',
 };
 
+const mapUiTypeToStorageType = (uiType) => {
+    if (['cash_in', 'receive', 'credit'].includes(uiType)) return 'credit';
+    if (['cash_out', 'send_out', 'debit'].includes(uiType)) return 'debit';
+    return uiType; // for 'borrow', 'lend'
+};
+
+const getUiTypeFromStorageType = (storageType, accountType) => {
+    if (!accountType) return storageType; 
+
+    if (storageType === 'credit') {
+        if (accountType === 'cash_in_out') return 'cash_in';
+        if (accountType === 'receive_send') return 'receive';
+        if (accountType === 'debit_credit') return 'credit';
+    }
+    if (storageType === 'debit') {
+        if (accountType === 'cash_in_out') return 'cash_out';
+        if (accountType === 'receive_send') return 'send_out';
+        if (accountType === 'debit_credit') return 'debit';
+    }
+    return storageType; // 'borrow', 'lend', and fallbacks
+};
+
 const getAvailableTransactionTypes = (accountType) => {
     console.log('ghjgjhgjh',accountType)
     switch (accountType) {
@@ -101,7 +123,8 @@ const NewRecordScreen = ({ navigation, route }) => {
         transactionId,
         accountId,
         userId,
-        sourceScreen // 'account' or 'calendar'
+        sourceScreen, // 'account' or 'calendar'
+        isDuplicating // Add this parameter to check if we're duplicating a transaction
     } = route.params || {};
     const [type, setType] = useState('');
     const [availableTypes, setAvailableTypes] = useState([
@@ -166,12 +189,12 @@ const NewRecordScreen = ({ navigation, route }) => {
         ]).start();
 
         if (transactionId) {
-            setIsEditing(true);
+            setIsEditing(!isDuplicating); // Only set editing mode if not duplicating
             loadTransactionData();
         }
-    }, [transactionId]);
+    }, [transactionId, isDuplicating, loadTransactionData]);
 
-    // Re-compute available types if accountId changes, preserve type on edit
+    // Re-compute available types if accountId changes
     useEffect(() => {
         if (!accountId) return;
         const account = realm.objectForPrimaryKey('Account', accountId);
@@ -180,22 +203,12 @@ const NewRecordScreen = ({ navigation, route }) => {
 
         const types = getAvailableTransactionTypes(account.type);
         setAvailableTypes(types);
-        
-        // Only update type if not in edit mode and type isn't already set
-        if (!isEditing && !type) {
+
+        // Only set default type for NEW transactions
+        if (!transactionId) {
             setType(types[0]?.value || '');
         }
-    }, [accountId, isEditing, type]);
-
-    // Set type after availableTypes are set and transaction is loaded (edit mode)
-    useEffect(() => {
-        if (!isEditing || !originalTransaction) return;
-        // Try to match transaction type to availableTypes, fallback to original
-        let txType = originalTransaction.type;
-        const found = availableTypes.find(t => t.value.toLowerCase() === txType.toLowerCase());
-        if (found) setType(found.value);
-        else setType(txType);
-    }, [isEditing, availableTypes, originalTransaction]);
+    }, [accountId, transactionId]);
 
     // Contact fetching
     useEffect(() => {
@@ -262,22 +275,42 @@ const NewRecordScreen = ({ navigation, route }) => {
     }, [userId]);
 
     const loadTransactionData = useCallback(() => {
+        if (!transactionId) return;
         try {
             const transaction = realm.objectForPrimaryKey('Transaction', transactionId);
+            console.log('transaction', transaction)
             if (transaction) {
                 setOriginalTransaction(transaction);
+
+                const account = realm.objectForPrimaryKey('Account', transaction.accountId);
+                const uiType = getUiTypeFromStorageType(transaction.type, account?.type);
+                setType(uiType);
+                
                 setAmount(transaction.amount?.toString() || '');
-                setTransactionDate(transaction.transactionDate || new Date());
                 setRemarks(transaction.remarks || '');
                 setPurpose(transaction.purpose || '');
                 setImageUri(transaction.photoUrl || null);
                 setContactPerson(transaction.contactId || '');
+
+                if (transaction.contactId) {
+                    const contact = realm.objectForPrimaryKey('Contact', transaction.contactId);
+                    setContactName(contact?.name || '');
+                }
+
+                setIsProxyPayment(transaction.is_proxy_payment || false);
+                setOnBehalfOfContactId(transaction.on_behalf_of_contact_id || '');
+                if (transaction.on_behalf_of_contact_id) {
+                    const onBehalfContact = realm.objectForPrimaryKey('Contact', transaction.on_behalf_of_contact_id);
+                    setOnBehalfOfContactName(onBehalfContact?.name || '');
+                }
+
+                setTransactionDate(transaction.transactionDate || new Date());
             }
         } catch (error) {
             console.error('Error loading transaction:', error);
             safeAlert('Error', 'Failed to load transaction data');
         }
-    }, [transactionId]);
+    }, [transactionId, isDuplicating]);
 
     const pickImage = useCallback(async () => {
         try {
@@ -304,18 +337,6 @@ const NewRecordScreen = ({ navigation, route }) => {
         }
     }, [userId]);
 
-    // When editing, load proxy fields
-    useEffect(() => {
-        if (isEditing && originalTransaction) {
-            setIsProxyPayment(originalTransaction.is_proxy_payment || false);
-            setOnBehalfOfContactId(originalTransaction.on_behalf_of_contact_id || '');
-            if (originalTransaction.on_behalf_of_contact_id) {
-                const c = realm.objectForPrimaryKey('Contact', originalTransaction.on_behalf_of_contact_id);
-                setOnBehalfOfContactName(c?.name || '');
-            }
-        }
-    }, [isEditing, originalTransaction]);
-
     // Exclude selected contacts from each other's dropdowns
     const availableContactsForContact = contacts.filter(c => c.id !== onBehalfOfContactId);
     const availableContactsForOnBehalf = contacts.filter(c => c.id !== contactPerson);
@@ -332,18 +353,17 @@ const NewRecordScreen = ({ navigation, route }) => {
         const type = tx.type;
         // Only update if not a proxy adjustment (on_behalf_of_contact_id must be null or empty)
         if (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '') {
-            // Add "cash_in" to the list that increases balance
-            if (['credit', 'borrow', 'cash_in'].includes(type)) {
+            if (['credit', 'borrow'].includes(type)) {
                 balanceChange = amount;
-            } else {
+            } else { // debit, lend
                 balanceChange = -amount;
             }
             if (isRevert) balanceChange = -balanceChange;
-            realm.create('Account', {
-                ...account,
-                currentBalance: (account.currentBalance || 0) + balanceChange,
-                updatedOn: new Date()
-            }, 'modified');
+
+            // This function is called within a realm.write() block,
+            // so we can modify the managed object directly instead of using realm.create.
+            account.currentBalance = (account.currentBalance || 0) + balanceChange;
+            account.updatedOn = new Date();
         }
     }
 
@@ -495,7 +515,7 @@ const NewRecordScreen = ({ navigation, route }) => {
             // Prepare transaction data
             const transactionData = {
                 id: isEditing && transactionId ? transactionId : new Date().toISOString(),
-                type: type || '',
+                type: mapUiTypeToStorageType(type),
                 purpose: purpose || '',
                 amount: parseFloat(amount) || 0,
                 accountId: accountId || '',
@@ -564,17 +584,22 @@ const NewRecordScreen = ({ navigation, route }) => {
                     // Update transaction locally
                     realm.create('Transaction', transactionData, 'modified');
 
-                    // Create sync log for main transaction only
-                    realm.create('SyncLog', {
-                        id: Date.now().toString() + '_log',
-                        userId: userId,
-                        tableName: 'transactions',
-                        recordId: transactionData.id,
-                        operation: 'update',
-                        status: 'pending',
-                        createdOn: new Date(),
-                        processedAt: null
-                    });
+                    // Check if a 'create' log already exists for this unsynced record.
+                    const createLog = realm.objects('SyncLog').filtered('recordId == $0 AND operation == "create" AND (status == "pending" OR status == "failed")', transactionId)[0];
+
+                    if (!createLog) {
+                        // Only create an 'update' log if the record has been synced before.
+                        realm.create('SyncLog', {
+                            id: Date.now().toString() + '_log',
+                            userId: userId,
+                            tableName: 'transactions',
+                            recordId: transactionData.id,
+                            operation: 'update',
+                            status: 'pending',
+                            createdOn: new Date(),
+                            processedAt: null
+                        });
+                    }
 
                     // Handle proxy payment updates
                     if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
@@ -658,13 +683,13 @@ const NewRecordScreen = ({ navigation, route }) => {
                     ];
                     // Prepare payload for Supabase
                     const supabaseTxData = supabaseSafe(
-                        { ...transactionData, type: mapTypeForSupabase(transactionData.type) },
+                        { ...transactionData }, // type is already mapped
                         nullFields
                     );
 
                     let supaTx;
                     if (isEditing) {
-                        supaTx = await updateTransactionInSupabase(supabaseTxData, supabaseUserId);
+                        supaTx = await updateTransactionInSupabase(transactionData.id, supabaseTxData);
                     } else {
                         supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
                         finalTransactionId = supaTx.id; // Get the new ID from Supabase
@@ -774,97 +799,8 @@ const NewRecordScreen = ({ navigation, route }) => {
         isLoading, amount, type, accountId, userId, transactionId, originalTransaction, isEditing,
         contactPerson, transactionDate, remarks, purpose, imageUri, navigation,
         isProxyPayment, onBehalfOfContactId, showProxySwitch, userType,
-        route.params?.onTransactionSaved, route.params?.onSave
+        route.params?.onTransactionSaved, route.params?.onSave, isDuplicating, originalTransaction
     ]);
-
-    const handleDelete = useCallback(async () => {
-        if (isLoading || !isEditing || !originalTransaction) return;
-
-        Alert.alert(
-            t('addNewRecordScreen.alerts.success.confirmDeleteLabel'),
-            t('addNewRecordScreen.alerts.success.confirmDeleteDescription'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('common.delete'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        setIsLoading(true);
-                        try {
-                            const user = realm.objectForPrimaryKey('User', userId);
-                            const supabaseUserId = user?.supabaseId;
-                            const netState = await NetInfo.fetch();
-                            const netOn = netState.isConnected && netState.isInternetReachable;
-                            const paid = user?.userType === 'paid';
-                            const transactionIdToDelete = originalTransaction.id;
-
-                            if (paid && netOn) {
-                                // Delete from Supabase first (only main transaction)
-                                try {
-                                    await deleteTransactionInSupabase(transactionIdToDelete);
-                                } catch (e) {
-                                    console.error('Supabase transaction delete error:', e);
-                                }
-                            }
-
-                            // Delete from Realm (after Supabase, or always if offline/free)
-                            realm.write(() => {
-                                // Delete related ProxyPayment and debt adjustment if exists
-                                if (originalTransaction.is_proxy_payment && originalTransaction.on_behalf_of_contact_id) {
-                                    // Find ProxyPayment by originalTransactionId
-                                    const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', originalTransaction.id)[0];
-                                    if (proxyPayment) {
-                                        // Delete debt adjustment transaction if exists
-                                        if (proxyPayment.debtAdjustmentTransactionId) {
-                                            const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
-                                            if (debtTx) {
-                                                const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
-                                                if (adjAccount) {
-                                                    updateAccountBalance(adjAccount, debtTx, true);
-                                                }
-                                                realm.delete(debtTx);
-                                            }
-                                        }
-                                        realm.delete(proxyPayment);
-                                    }
-                                }
-                                // Update account balance for main transaction
-                                const account = realm.objectForPrimaryKey('Account', originalTransaction.accountId);
-                                if (account) {
-                                    updateAccountBalance(account, originalTransaction, true);
-                                }
-                                realm.delete(originalTransaction);
-                            });
-
-                            // If offline or free, add SyncLog for delete (only main transaction)
-                            if (!paid || !netOn) {
-                                realm.write(() => {
-                                    realm.create('SyncLog', {
-                                        id: Date.now().toString() + '_log',
-                                        userId: userId,
-                                        tableName: 'transactions',
-                                        recordId: transactionIdToDelete,
-                                        operation: 'delete',
-                                        status: 'pending',
-                                        createdOn: new Date(),
-                                        processedAt: null
-                                    });
-                                });
-                            }
-
-                            safeAlert('Success', 'Transaction deleted successfully.');
-                            navigation.goBack();
-                        } catch (error) {
-                            console.error('Failed to delete transaction:', error);
-                            safeAlert('Error', 'Failed to delete transaction. Please try again.');
-                        } finally {
-                            setIsLoading(false);
-                        }
-                    },
-                },
-            ]
-        );
-    }, [isLoading, isEditing, originalTransaction, navigation, userId]);
 
     const handleCancel = useCallback(() => {
         navigation.goBack();
@@ -1141,7 +1077,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         style={styles.header}
                     >
                         <Text style={styles.headerTitle}>
-                            {isEditing ? t('newRecordScreen.editTitle') : t('newRecordScreen.title')}
+                            {isEditing ? t('newRecordScreen.editTitle') : isDuplicating ? t('newRecordScreen.duplicateTitle', 'Duplicate Transaction') : t('newRecordScreen.title')}
                         </Text>
                         <View style={styles.placeholder} />
                     </LinearGradient>
@@ -1169,6 +1105,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             style={[styles.dropdownInput, onBehalfOfContactId && styles.inputFocused]}
                                             onPress={() => setShowOnBehalfDropdown(!showOnBehalfDropdown)}
                                             activeOpacity={0.8}
+                                            disabled={isDuplicating}
                                         >
                                             <Text style={[styles.inputText, !onBehalfOfContactName && styles.placeholderText]}>
                                                 {onBehalfOfContactName || t('newRecordScreen.selectContactPlaceholder')}
@@ -1213,6 +1150,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             type === item.value && styles.typeButtonActive
                                         ]}
                                         onPress={() => setType(item.value)}
+                                        disabled={isDuplicating}
                                     >
                                         <Text style={[
                                             styles.typeButtonText,
@@ -1235,7 +1173,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         setIsDateFocused(true);
                                     }}
                                     activeOpacity={0.8}
-                                    disabled={isLoading}
+                                    disabled={isLoading || isDuplicating}
                                 >
                                     <Icon name="calendar-today" size={RFValue(20)} color={colors.primary} />
                                     <Text style={styles.dateTimeText}>{formatDate(transactionDate)}</Text>
@@ -1248,7 +1186,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         setIsTimeFocused(true);
                                     }}
                                     activeOpacity={0.8}
-                                    disabled={isLoading}
+                                    disabled={isLoading || isDuplicating}
                                 >
                                     <Icon name="access-time" size={RFValue(20)} color={colors.primary} />
                                     <Text style={styles.dateTimeText}>{formatTime(transactionDate)}</Text>
@@ -1279,6 +1217,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 style={[styles.dropdownInput, contactPerson && styles.inputFocused]}
                                 onPress={handleContactPress}
                                 activeOpacity={0.8}
+                                disabled={isDuplicating}
                             >
                                 <Text style={[styles.inputText, !contactName && styles.placeholderText]}>
                                     {contactName || t('newRecordScreen.selectContactPlaceholder')}
@@ -1326,6 +1265,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                             <TouchableOpacity 
                                 style={styles.selectInput}
                                 onPress={() => setShowPurposeModal(true)}
+                                disabled={isDuplicating}
                             >
                                 <Text style={purpose ? styles.selectInputText : styles.selectInputPlaceholder}>
                                     {purpose || t('newRecordScreen.selectPurpose')}
@@ -1348,7 +1288,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         onChangeText={setAmount}
                                         onFocus={() => setIsAmountFocused(true)}
                                         onBlur={() => setIsAmountFocused(false)}
-                                        editable={!isLoading}
+                                        editable={!isLoading && !isDuplicating}
                                     />
                                 </View>
                                 <LinearGradient
@@ -1374,7 +1314,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     onBlur={() => setIsRemarksFocused(false)}
                                     multiline
                                     textAlignVertical="top"
-                                    editable={!isLoading}
+                                    editable={!isLoading && !isDuplicating}
                                 />
                             </View>
                         </View>
@@ -1386,7 +1326,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     style={[styles.attachmentButton, imageUri && styles.attachmentButtonWithImage]}
                                     activeOpacity={0.8}
                                     onPress={pickImage}
-                                    disabled={isLoading}
+                                    disabled={isLoading || isDuplicating}
                                 >
                                     {imageUri ? (
                                         <View style={styles.imageContainer}>
@@ -1428,20 +1368,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 >
                                     <Text style={[styles.buttonText, { color: colors.textSecondary }]}>{t('newRecordScreen.cancelButton')}</Text>
                                 </TouchableOpacity>
-                                {isEditing && (
-                                    <TouchableOpacity
-                                        style={[styles.floatingButton, styles.deleteButton]}
-                                        onPress={handleDelete}
-                                        activeOpacity={0.8}
-                                        disabled={isLoading}
-                                    >
-                                        {isLoading ? (
-                                            <ActivityIndicator color={colors.error} size="small" />
-                                        ) : (
-                                            <Text style={[styles.buttonText, { color: colors.error }]}>{t('newRecordScreen.deleteButton')}</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                )}
                                 <TouchableOpacity
                                     style={[styles.floatingButton, styles.saveButton]}
                                     onPress={handleSave}
@@ -1456,7 +1382,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             <ActivityIndicator color={colors.white} size="small" />
                                         ) : (
                                             <Text style={[styles.buttonText, { color: colors.white }]}>
-                                                {isEditing ? t('newRecordScreen.updateButton') : t('newRecordScreen.saveButton')}
+                                                {isEditing ? t('newRecordScreen.updateButton') : isDuplicating ? t('newRecordScreen.duplicateButton', 'Duplicate') : t('newRecordScreen.saveButton')}
                                             </Text>
                                         )}
                                     </LinearGradient>

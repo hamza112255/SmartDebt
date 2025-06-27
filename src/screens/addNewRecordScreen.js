@@ -1105,7 +1105,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             style={[styles.dropdownInput, onBehalfOfContactId && styles.inputFocused]}
                                             onPress={() => setShowOnBehalfDropdown(!showOnBehalfDropdown)}
                                             activeOpacity={0.8}
-                                            disabled={isDuplicating}
                                         >
                                             <Text style={[styles.inputText, !onBehalfOfContactName && styles.placeholderText]}>
                                                 {onBehalfOfContactName || t('newRecordScreen.selectContactPlaceholder')}
@@ -1150,7 +1149,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             type === item.value && styles.typeButtonActive
                                         ]}
                                         onPress={() => setType(item.value)}
-                                        disabled={isDuplicating}
                                     >
                                         <Text style={[
                                             styles.typeButtonText,
@@ -1173,7 +1171,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         setIsDateFocused(true);
                                     }}
                                     activeOpacity={0.8}
-                                    disabled={isLoading || isDuplicating}
+                                    disabled={isLoading}
                                 >
                                     <Icon name="calendar-today" size={RFValue(20)} color={colors.primary} />
                                     <Text style={styles.dateTimeText}>{formatDate(transactionDate)}</Text>
@@ -1186,7 +1184,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         setIsTimeFocused(true);
                                     }}
                                     activeOpacity={0.8}
-                                    disabled={isLoading || isDuplicating}
+                                    disabled={isLoading}
                                 >
                                     <Icon name="access-time" size={RFValue(20)} color={colors.primary} />
                                     <Text style={styles.dateTimeText}>{formatTime(transactionDate)}</Text>
@@ -1217,7 +1215,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 style={[styles.dropdownInput, contactPerson && styles.inputFocused]}
                                 onPress={handleContactPress}
                                 activeOpacity={0.8}
-                                disabled={isDuplicating}
                             >
                                 <Text style={[styles.inputText, !contactName && styles.placeholderText]}>
                                     {contactName || t('newRecordScreen.selectContactPlaceholder')}
@@ -1265,7 +1262,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                             <TouchableOpacity 
                                 style={styles.selectInput}
                                 onPress={() => setShowPurposeModal(true)}
-                                disabled={isDuplicating}
                             >
                                 <Text style={purpose ? styles.selectInputText : styles.selectInputPlaceholder}>
                                     {purpose || t('newRecordScreen.selectPurpose')}
@@ -1288,7 +1284,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         onChangeText={setAmount}
                                         onFocus={() => setIsAmountFocused(true)}
                                         onBlur={() => setIsAmountFocused(false)}
-                                        editable={!isLoading && !isDuplicating}
+                                        editable={!isLoading}
                                     />
                                 </View>
                                 <LinearGradient
@@ -1314,7 +1310,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     onBlur={() => setIsRemarksFocused(false)}
                                     multiline
                                     textAlignVertical="top"
-                                    editable={!isLoading && !isDuplicating}
+                                    editable={!isLoading}
                                 />
                             </View>
                         </View>
@@ -1326,7 +1322,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     style={[styles.attachmentButton, imageUri && styles.attachmentButtonWithImage]}
                                     activeOpacity={0.8}
                                     onPress={pickImage}
-                                    disabled={isLoading || isDuplicating}
+                                    disabled={isLoading}
                                 >
                                     {imageUri ? (
                                         <View style={styles.imageContainer}>
@@ -1364,7 +1360,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     style={[styles.floatingButton, styles.cancelButton]}
                                     onPress={handleCancel}
                                     activeOpacity={0.8}
-                                    disabled={isLoading}
                                 >
                                     <Text style={[styles.buttonText, { color: colors.textSecondary }]}>{t('newRecordScreen.cancelButton')}</Text>
                                 </TouchableOpacity>
@@ -1372,7 +1367,6 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     style={[styles.floatingButton, styles.saveButton]}
                                     onPress={handleSave}
                                     activeOpacity={0.8}
-                                    disabled={isLoading}
                                 >
                                     <LinearGradient
                                         colors={[colors.primary, colors.primaryDark]}

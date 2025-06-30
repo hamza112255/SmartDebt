@@ -202,16 +202,19 @@ const SettingsScreen = ({ navigation }) => {
     }, [navigation]);
 
     const handlePinToggle = async (value) => {
-        updateField('pinEnabled', value);
         if (value) {
-            // If enabling PIN and one already exists, just save. Otherwise, show setup.
+            if (form.biometricEnabled) {
+                updateField('biometricEnabled', false);
+                await saveSettings({ biometricEnabled: false });
+            }
+            updateField('pinEnabled', true);
             if (form.pinCode) {
                 await saveSettings({ pinEnabled: true });
             } else {
                 setShowPinSetup(true);
             }
         } else {
-            // Disabling PIN
+            updateField('pinEnabled', false);
             await saveSettings({ pinEnabled: false });
         }
     };
@@ -229,11 +232,23 @@ const SettingsScreen = ({ navigation }) => {
 
     const toggleBiometric = async (val) => {
         setShowBiometricConfirm(false);
-        const prevValue = form.biometricEnabled;
+        const prevBiometricValue = form.biometricEnabled;
+        const prevPinValue = form.pinEnabled;
+
+        const settingsToSave = { biometricEnabled: val };
         updateField('biometricEnabled', val);
-        const success = await saveSettings({ biometricEnabled: val });
+
+        if (val && prevPinValue) {
+            updateField('pinEnabled', false);
+            settingsToSave.pinEnabled = false;
+        }
+
+        const success = await saveSettings(settingsToSave);
         if (!success) {
-            updateField('biometricEnabled', prevValue); // Revert on failure
+            updateField('biometricEnabled', prevBiometricValue);
+            if (settingsToSave.pinEnabled === false) {
+                updateField('pinEnabled', prevPinValue);
+            }
         }
     };
 
@@ -300,7 +315,9 @@ const SettingsScreen = ({ navigation }) => {
                     onPress={handleChangePin}
                     disabled={!form.pinEnabled}
                 >
-                    <Text style={[styles.changePinText, !form.pinEnabled && styles.disabledText]}>{t('settingsScreen.buttons.changePin')}</Text>
+                    <Text style={[styles.changePinText, !form.pinEnabled && styles.disabledText]}>
+                        {form.pinCode ? t('settingsScreen.buttons.changePin') : t('settingsScreen.buttons.createPin', 'Create New PIN')}
+                    </Text>
                 </TouchableOpacity>
 
                 <Modal visible={showBiometricConfirm} transparent={true}>
@@ -331,7 +348,9 @@ const SettingsScreen = ({ navigation }) => {
                     onAuthenticated={handlePinSetupComplete}
                     onCancel={() => {
                         setShowPinSetup(false);
-                        setForm((prev) => ({ ...prev, pinEnabled: false }));
+                        if (!form.pinCode) {
+                            setForm((prev) => ({ ...prev, pinEnabled: false }));
+                        }
                     }}
                     title={t('settingsScreen.modals.setupPinTitle')}
                     isPinCreationFlow={true}

@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   Alert,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -157,76 +158,80 @@ const PinModal = ({
 
   return (
     <Modal visible={visible} transparent animationType="none">
-      <SafeAreaView style={styles.container}>
-        <GestureDetector gesture={panGesture}>
-          <Animated.View style={[styles.bottomSheet, animatedStyle]}>
-            <View style={styles.dragIndicator} />
-            <Text style={styles.title}>
-              {mode === 'create'
-                ? t('pin.createTitle', title || t('pin.createTitle'))
-                : mode === 'confirm'
-                ? t('pin.confirmTitle')
-                : t('pin.enterTitle')}
-            </Text>
-            <Text style={styles.subtitle}>
-              {mode === 'create'
-                ? t('pin.createSubtitle')
-                : mode === 'confirm'
-                ? t('pin.confirmSubtitle')
-                : t('pin.enterSubtitle')}
-            </Text>
-            <View style={styles.pinContainer}>
-              {[...Array(4)].map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.pinDot,
-                    ((mode === 'create' || mode === 'verify') && i < pin.length) ||
-                    (mode === 'confirm' && i < confirmPin.length)
-                      ? styles.pinDotFilled
-                      : null,
-                  ]}
-                />
-              ))}
-            </View>
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <View style={styles.numberPad}>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, 'backspace'].map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.numberButton,
-                    item === '' ? styles.emptyButton : null,
-                  ]}
-                  onPress={() => {
-                    if (item === 'backspace') handleBackspace();
-                    else if (item !== '') handleNumberPress(item);
-                  }}
-                  disabled={item === ''}
-                >
-                  {item === 'backspace' ? (
-                    <Icon name="backspace" size={24} color={colors.text} />
-                  ) : (
-                    <Text style={styles.numberText}>{item}</Text>
+      <TouchableWithoutFeedback onPress={handleCancel}>
+        <SafeAreaView style={styles.container}>
+          <TouchableWithoutFeedback>
+            <GestureDetector gesture={panGesture}>
+              <Animated.View style={[styles.bottomSheet, animatedStyle]}>
+                <View style={styles.dragIndicator} />
+                <Text style={styles.title}>
+                  {mode === 'create'
+                    ? t('pin.createTitle', title || t('pin.createTitle'))
+                    : mode === 'confirm'
+                    ? t('pin.confirmTitle')
+                    : t('pin.enterTitle')}
+                </Text>
+                <Text style={styles.subtitle}>
+                  {mode === 'create'
+                    ? t('pin.createSubtitle')
+                    : mode === 'confirm'
+                    ? t('pin.confirmSubtitle')
+                    : t('pin.enterSubtitle')}
+                </Text>
+                <View style={styles.pinContainer}>
+                  {[...Array(4)].map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.pinDot,
+                        ((mode === 'create' || mode === 'verify') && i < pin.length) ||
+                        (mode === 'confirm' && i < confirmPin.length)
+                          ? styles.pinDotFilled
+                          : null,
+                      ]}
+                    />
+                  ))}
+                </View>
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                <View style={styles.numberPad}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, 'backspace'].map((item, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.numberButton,
+                        item === '' ? styles.emptyButton : null,
+                      ]}
+                      onPress={() => {
+                        if (item === 'backspace') handleBackspace();
+                        else if (item !== '') handleNumberPress(item);
+                      }}
+                      disabled={item === ''}
+                    >
+                      {item === 'backspace' ? (
+                        <Icon name="backspace" size={24} color={colors.text} />
+                      ) : (
+                        <Text style={styles.numberText}>{item}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.footer}>
+                  {showCancel && (
+                    <TouchableOpacity onPress={handleCancel}>
+                      <Text style={styles.cancelText}>{t('common.cancel')}</Text>
+                    </TouchableOpacity>
                   )}
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.footer}>
-              {showCancel && (
-                <TouchableOpacity onPress={handleCancel}>
-                  <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
-              )}
-              {onEmergencyReset && mode === 'verify' && (
-                <TouchableOpacity onPress={onEmergencyReset}>
-                  <Text style={styles.emergencyText}>{t('pin.forgot')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </Animated.View>
-        </GestureDetector>
-      </SafeAreaView>
+                  {onEmergencyReset && mode === 'verify' && (
+                    <TouchableOpacity onPress={onEmergencyReset}>
+                      <Text style={styles.emergencyText}>{t('pin.forgot')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </Animated.View>
+            </GestureDetector>
+          </TouchableWithoutFeedback>
+        </SafeAreaView>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };

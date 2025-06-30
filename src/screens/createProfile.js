@@ -6,7 +6,6 @@ import {
     SafeAreaView,
     ScrollView,
     TouchableOpacity,
-    TextInput,
     Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -15,10 +14,11 @@ import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { getAllObjects, createObject, updateObject } from '../realm';
 import uuid from 'react-native-uuid';
 import { useTranslation } from 'react-i18next';
-import { Picker } from '@react-native-picker/picker';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { realm } from '../realm';
 import { updateUserInSupabase } from '../supabase';
+import StyledTextInput from '../components/shared/StyledTextInput';
+import StyledPicker from '../components/shared/StyledPicker';
 
 const colors = {
     primary: '#2563eb',
@@ -231,64 +231,47 @@ export default function CreateProfileScreen({ navigation, route }) {
                     {/* First Name */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>{t('createProfileScreen.labels.firstName')}</Text>
-                        <View style={styles.inputWrapper}>
-                            <Icon name="person-outline" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                value={form.firstName}
-                                onChangeText={text => updateField('firstName', text)}
-                                placeholder={t('createProfileScreen.placeholders.firstName')}
-                                placeholderTextColor={colors.gray}
-                                autoCapitalize="words"
-                            />
-                        </View>
+                        <StyledTextInput
+                            value={form.firstName}
+                            onChangeText={text => updateField('firstName', text)}
+                            placeholder={t('createProfileScreen.placeholders.firstName')}
+                            iconName="person-outline"
+                            autoCapitalize="words"
+                        />
                     </View>
                     {/* Last Name */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>{t('createProfileScreen.labels.lastName')}</Text>
-                        <View style={styles.inputWrapper}>
-                            <Icon name="person-outline" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                value={form.lastName}
-                                onChangeText={text => updateField('lastName', text)}
-                                placeholder={t('createProfileScreen.placeholders.lastName')}
-                                placeholderTextColor={colors.gray}
-                                autoCapitalize="words"
-                            />
-                        </View>
+                        <StyledTextInput
+                            value={form.lastName}
+                            onChangeText={text => updateField('lastName', text)}
+                            placeholder={t('createProfileScreen.placeholders.lastName')}
+                            iconName="person-outline"
+                            autoCapitalize="words"
+                        />
                     </View>
                     {/* Email */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>{t('createProfileScreen.labels.email')}</Text>
-                        <View style={styles.inputWrapper}>
-                            <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                value={form.email}
-                                onChangeText={text => updateField('email', text)}
-                                placeholder={t('createProfileScreen.placeholders.email')}
-                                placeholderTextColor={colors.gray}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
-                        </View>
+                        <StyledTextInput
+                            value={form.email}
+                            onChangeText={text => updateField('email', text)}
+                            placeholder={t('createProfileScreen.placeholders.email')}
+                            iconName="email"
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                        />
                     </View>
                     {/* Language */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>{t('createProfileScreen.labels.language')}</Text>
-                        <View style={styles.inputWrapper}>
-                            <Icon name="language" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                            <Picker
-                                selectedValue={form.language}
-                                style={pickerStyles.picker}
-                                onValueChange={(itemValue) => updateField('language', itemValue)}
-                            >
-                                {languageOptions.map(lang => (
-                                    <Picker.Item label={lang.label} value={lang.value} key={lang.value} />
-                                ))}
-                            </Picker>
-                        </View>
+                        <StyledPicker
+                            selectedValue={form.language}
+                            onValueChange={(itemValue) => updateField('language', itemValue)}
+                            items={languageOptions}
+                            iconName="language"
+                            showSearch={false}
+                        />
                     </View>
 
                     <View style={styles.buttonContainer}>
@@ -301,15 +284,6 @@ export default function CreateProfileScreen({ navigation, route }) {
         </SafeAreaView>
     );
 }
-
-const pickerStyles = StyleSheet.create({
-    picker: {
-        flex: 1,
-        height: hp(6.5),
-        color: colors.text,
-        fontSize: RFPercentage(2.2),
-    },
-});
 
 const styles = StyleSheet.create({
     container: {
@@ -348,29 +322,6 @@ const styles = StyleSheet.create({
         fontFamily: 'Sora-SemiBold',
         color: colors.gray,
         marginBottom: hp(1),
-    },
-    inputWrapper: {
-        backgroundColor: colors.white,
-        borderRadius: wp(3),
-        flexDirection: 'row',
-        alignItems: 'center',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: hp(0.25) },
-        borderWidth: 1,
-        borderColor: colors.border,
-        paddingHorizontal: wp(3),
-    },
-    inputIcon: {
-        marginRight: wp(3),
-    },
-    input: {
-        flex: 1,
-        paddingVertical: hp(1.75),
-        fontSize: RFPercentage(2.2),
-        fontFamily: 'Sora-Regular',
-        color: colors.text,
     },
     buttonContainer: {
         marginTop: hp(1.5),

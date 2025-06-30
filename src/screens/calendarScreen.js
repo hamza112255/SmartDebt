@@ -452,19 +452,21 @@ const CalendarScreen = ({ navigation, route }) => {
     };
 
     const getStatValue = (side, account, stats) => {
-        if (account?.type === 'cash_in_out') {
-            return side === 'left' ? stats.cash_in : stats.cash_out;
+        if (!account || !stats) return 0;
+        const type = account.type;
+        if (side === 'left') { // Corresponds to Credit/Receiving Money
+            if (type === 'cash_in_out') return stats.cash_in;
+            if (type === 'receive_send') return stats.receive;
+            if (type === 'borrow_lend') return stats.borrow;
+            if (type === 'debit_credit') return stats.creditType;
+            return stats.credit;
+        } else { // Corresponds to Debit/Sending Money
+            if (type === 'cash_in_out') return stats.cash_out;
+            if (type === 'receive_send') return stats.send_out;
+            if (type === 'borrow_lend') return stats.lend;
+            if (type === 'debit_credit') return stats.debitType;
+            return stats.debit;
         }
-        if (account?.type === 'receive_send') {
-            return side === 'left' ? stats.receive : stats.send_out;
-        }
-        if (account?.type === 'borrow_lend') {
-            return side === 'left' ? stats.borrow : stats.lend;
-        }
-        if (account?.type === 'debit_credit') {
-            return side === 'left' ? stats.creditType : stats.debitType;
-        }
-        return side === 'left' ? stats.credit : stats.debit;
     };
 
     const currency = safeGet(selectedAccount, 'currency', 'PKR');

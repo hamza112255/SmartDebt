@@ -43,6 +43,25 @@ const toSnake = (str) => {
   });
 };
 
+const mapSpecificToGenericType = (specificType) => {
+  const creditTypes = ['cash_in', 'receive', 'borrow', 'credit'];
+  const debitTypes = ['cash_out', 'send_out', 'lend', 'debit'];
+
+  if (creditTypes.includes(specificType)) return 'credit';
+  if (debitTypes.includes(specificType)) return 'debit';
+  return specificType; // Fallback
+};
+
+const getSpecificTransactionType = (genericType, accountType) => {
+  const mapping = {
+    'cash_in_out': { 'credit': 'cash_in', 'debit': 'cash_out' },
+    'receive_send': { 'credit': 'receive', 'debit': 'send_out' },
+    'borrow_lend': { 'credit': 'borrow', 'debit': 'lend' },
+    'debit_credit': { 'credit': 'credit', 'debit': 'debit' },
+  };
+  return mapping[accountType]?.[genericType] || genericType;
+};
+
 const transformAccountType = (type) => {
   const typeMap = {
     'cash_in_cash_out': 'cash_in_out',
@@ -286,6 +305,19 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
               throw new Error('Transaction sync failed: Missing account_id');
             }
 
+            // --- TYPE MAPPING LOGIC ---
+            const accountForTx = realm.objectForPrimaryKey('Account', data.accountId);
+            if (accountForTx) {
+              // The type from Realm `data.type` is the specific one (e.g., 'cash_in')
+              // We need to map it to the generic one for Supabase ('credit')
+              const genericType = mapSpecificToGenericType(data.type);
+              console.log(`[SYNC-PROCESS] Mapping specific type '${data.type}' to generic type '${genericType}' for Supabase.`);
+              snakeCaseData.type = genericType;
+            } else {
+              console.warn(`[SYNC-PROCESS] Could not find account ${data.accountId} to map transaction type. Using original type: ${snakeCaseData.type}`);
+            }
+            // --- END TYPE MAPPING ---
+
             // Map contact_id using idMapping if exists
             if (snakeCaseData.contact_id) {
               const mappedContactId = idMapping.contacts[snakeCaseData.contact_id];
@@ -350,7 +382,13 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
 
             if (tableName === 'accounts' && operation === 'create') {
               finalData.currentBalance = data.currentBalance;
-              console.log(`[SYNC-PROCESS] Restored original balance for account ${finalData.id}: ${data.currentBalance}`);
+              finalData.receiving_money = data.receiving_money;
+              finalData.sending_money = data.sending_money;
+              console.log(`[SYNC-PROCESS] Restored original balances for account ${finalData.id}:`, {
+                currentBalance: data.currentBalance,
+                receiving_money: data.receiving_money,
+                sending_money: data.sending_money
+              });
             }
             
             realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
@@ -407,6 +445,17 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
               throw new Error(`Account ID ${snakeCaseData.account_id} not found in ID mapping for update`);
             }
           }
+
+          // --- TYPE MAPPING LOGIC for UPDATE ---
+          const accountForTx = realm.objectForPrimaryKey('Account', data.accountId);
+          if (accountForTx) {
+            const genericType = mapSpecificToGenericType(data.type);
+            console.log(`[SYNC-PROCESS] Mapping transaction type for UPDATE from '${data.type}' to '${genericType}' for Supabase.`);
+            snakeCaseData.type = genericType;
+          } else {
+            console.warn(`[SYNC-PROCESS] Could not find account ${data.accountId} to map transaction type for UPDATE. Using original type: ${snakeCaseData.type}`);
+          }
+          // --- END TYPE MAPPING ---
 
           // Map contact_id using idMapping if exists
           if (snakeCaseData.contact_id) {

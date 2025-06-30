@@ -406,18 +406,18 @@ const AccountDetailScreen = ({ navigation, route }) => {
 
     const getStatLabels = () => {
         if (!accountData?.type) {
-            return { in: t('terms.credit'), out: t('terms.debit') };
+            return { left: t('terms.credit'), right: t('terms.debit') };
         }
         const typeName = t(`accountTypes.${accountData.type}`);
         if (typeName && typeName.includes(' - ')) {
             const parts = typeName.split(' - ');
             // Handle 'Debit - Credit' case specifically if needed
             if (accountData.type === 'debit_credit') {
-                 return { in: parts[1], out: parts[0] };
+                 return { left: parts[1], right: parts[0] };
             }
-            return { in: parts[0], out: parts[1] };
+            return { left: parts[0], right: parts[1] };
         }
-        return { in: t('terms.credit'), out: t('terms.debit') };
+        return { left: t('terms.credit'), right: t('terms.debit') };
     };
 
     const openMenu = (transaction, event, isProxy = false) => {
@@ -543,7 +543,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
         if (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '') {
             if (['credit', 'borrow', 'cash_in', 'receive'].includes(type)) {
                 balanceChange = amount;
-            } else { 
+            } else {
                 balanceChange = -amount;
             }
 
@@ -599,13 +599,13 @@ const AccountDetailScreen = ({ navigation, route }) => {
                             const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', txToDelete.id)[0];
                             if (proxyPayment) {
                                 if (proxyPayment.debtAdjustmentTransactionId) {
-                                    const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
-                                    if (debtTx) {
-                                        const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
-                                        if (adjAccount) {
-                                            updateAccountBalanceForDelete(adjAccount, debtTx, true);
-                                        }
-                                        realm.delete(debtTx);
+                                const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
+                                if (debtTx) {
+                                    const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
+                                    if (adjAccount) {
+                                        updateAccountBalanceForDelete(adjAccount, debtTx, true);
+                                    }
+                                    realm.delete(debtTx);
                                     }
                                 }
                                 realm.delete(proxyPayment);
@@ -931,7 +931,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
     if (!accountData) return null;
 
     const groupedTransactions = Array.isArray(transactions) ? groupTransactions(transactions) : [];
-    const { in: inLabel, out: outLabel } = getStatLabels();
+    const { left: leftLabel, right: rightLabel } = getStatLabels();
 
     return (
         <SafeAreaView style={styles.container}>
@@ -947,18 +947,18 @@ const AccountDetailScreen = ({ navigation, route }) => {
                         </View>
                     </View>
                     <View style={styles.balanceContainer}>
-                        <Text style={styles.balanceLabel}>{t('accountDetailsScreen.balance')}</Text>
+                        <Text style={styles.balanceLabel}>{t('accountDetailsScreen.currentBalance')}</Text>
                         <Text style={styles.balanceAmount}>{formatAmount(accountData.currentBalance)}</Text>
                     </View>
 
-                    <View style={styles.moneyFlowContainer}>
-                        <View style={[styles.moneyFlowCard, { marginRight: 8 }]}>
-                            <Text style={styles.moneyFlowLabel}>{inLabel}</Text>
-                            <Text style={[styles.moneyFlowValue, { color: colors.success }]}>{formatAmount(accountData.receiving_money)}</Text>
+                    <View style={styles.typeSplitContainer}>
+                        <View style={styles.typeSplitItem}>
+                            <Text style={styles.typeSplitLabel}>{leftLabel}</Text>
+                            <Text style={styles.typeSplitValue}>{formatAmount(accountData?.receiving_money || 0)}</Text>
                         </View>
-                        <View style={[styles.moneyFlowCard, { marginLeft: 8 }]}>
-                            <Text style={styles.moneyFlowLabel}>{outLabel}</Text>
-                            <Text style={[styles.moneyFlowValue, { color: colors.error }]}>{formatAmount(accountData.sending_money)}</Text>
+                        <View style={styles.typeSplitItem}>
+                            <Text style={styles.typeSplitLabel}>{rightLabel}</Text>
+                            <Text style={styles.typeSplitValue}>{formatAmount(accountData?.sending_money || 0)}</Text>
                         </View>
                     </View>
                 </View>

@@ -93,9 +93,9 @@ const allTransactionTypes = [
     { label: 'Debit', value: 'debit' },
     { label: 'Borrow', value: 'borrow' },
     { label: 'Lend', value: 'lend' },
-    { label: 'Cash In', value: 'cash_in' },
+                { label: 'Cash In', value: 'cash_in' },
     { label: 'Cash Out', value: 'cash_out' },
-    { label: 'Receive', value: 'receive' },
+                { label: 'Receive', value: 'receive' },
     { label: 'Send Out', value: 'send_out' },
 ];
 
@@ -108,10 +108,10 @@ function mapTypeForSupabase(type) {
 }
 
 const transactionTypeMapping = {
-    'cash_in_out': ['cash_in', 'cash_out'],
-    'debit_credit': ['credit', 'debit'],
-    'receive_send': ['receive', 'send_out'],
-    'borrow_lend': ['borrow', 'lend'],
+    'cash_in_out': { credit: 'cash_in', debit: 'cash_out' },
+    'debit_credit': { credit: 'credit', debit: 'debit' },
+    'receive_send': { credit: 'receive', debit: 'send_out' },
+    'borrow_lend': { credit: 'borrow', debit: 'lend' },
 };
 
 const NewRecordScreen = ({ navigation, route }) => {
@@ -198,7 +198,7 @@ const NewRecordScreen = ({ navigation, route }) => {
         if (!account) return;
         
         const accountType = account.type;
-        const relevantTypeValues = transactionTypeMapping[accountType] || [];
+        const relevantTypeValues = transactionTypeMapping[accountType] ? Object.values(transactionTypeMapping[accountType]) : [];
         const filteredTypes = allTransactionTypes.filter(t => relevantTypeValues.includes(t.value));
 
         setAvailableTypes(filteredTypes.length > 0 ? filteredTypes : allTransactionTypes);
@@ -520,10 +520,17 @@ const NewRecordScreen = ({ navigation, route }) => {
                 throw new Error('Account ID is missing');
             }
 
+            const account = realm.objectForPrimaryKey('Account', accountId);
+            if (!account) {
+                throw new Error('Account not found');
+            }
+            // Map the simple UI type (credit/debit) to the specific storage type
+            const storageType = transactionTypeMapping[account.type]?.[type] || type;
+
             // Prepare transaction data
             const transactionData = {
                 id: isEditing && transactionId ? transactionId : new Date().toISOString(),
-                type: mapUiTypeToStorageType(type),
+                type: type, // Use the direct type from the UI picker
                 purpose: purpose || '',
                 amount: parseFloat(amount) || 0,
                 accountId: accountId || '',
@@ -576,6 +583,9 @@ const NewRecordScreen = ({ navigation, route }) => {
             let finalTransactionId = transactionData.id; // Keep track of final ID
 
             realm.write(() => {
+                // Before doing anything, map the UI type to the generic storage type for the log
+                const transactionForLog = { ...transactionData, type: mapUiTypeToStorageType(transactionData.type) };
+
                 if (isEditing) {
                     // --- UPDATE LOGIC ---
                     const existingTransaction = realm.objectForPrimaryKey('Transaction', transactionId);
@@ -1115,7 +1125,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             items={availableContactsForOnBehalf.map(c => ({ label: c.name, value: c.id }))}
                                             icon="person-outline"
                                             renderFooter={(closeModal) => (
-                                                <TouchableOpacity
+                                        <TouchableOpacity
                                                     style={styles.addContactBtn}
                                                     onPress={() => {
                                                         closeModal();
@@ -1124,7 +1134,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                                 >
                                                     <Icon name="add" size={20} color={colors.primary} />
                                                     <Text style={styles.addContactBtnText}>{t('addNewContact')}</Text>
-                                                </TouchableOpacity>
+                                        </TouchableOpacity>
                                             )}
                                         />
                                     </View>
@@ -1221,7 +1231,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                         <Icon name="add" size={20} color={colors.primary} />
                                         <Text style={styles.addContactBtnText}>{t('addNewContact')}</Text>
                                     </TouchableOpacity>
-                                )}
+                            )}
                             />
                         </View>
 
@@ -1233,7 +1243,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 items={purposes.map(p => ({ label: p.description, value: p.element }))}
                                 icon="assignment"
                                 renderFooter={(closeModal) => (
-                                    <TouchableOpacity
+                            <TouchableOpacity 
                                         style={styles.addContactBtn}
                                         onPress={() => {
                                             closeModal();
@@ -1242,7 +1252,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     >
                                         <Icon name="add" size={20} color={colors.primary} />
                                         <Text style={styles.addContactBtnText}>{t('newRecordScreen.addNewPurpose')}</Text>
-                                    </TouchableOpacity>
+                            </TouchableOpacity>
                                 )}
                             />
                         </View>
@@ -1250,29 +1260,29 @@ const NewRecordScreen = ({ navigation, route }) => {
                         <View style={styles.cardContainer}>
                             <StyledTextInput
                                 label={t('newRecordScreen.amountLabel')}
-                                value={amount}
-                                onChangeText={setAmount}
+                                        value={amount}
+                                        onChangeText={setAmount}
                                 keyboardType="numeric"
                                 placeholder="0.00"
                                 currency={currency}
-                                onFocus={() => setIsAmountFocused(true)}
-                                onBlur={() => setIsAmountFocused(false)}
-                                editable={!isLoading}
-                            />
+                                        onFocus={() => setIsAmountFocused(true)}
+                                        onBlur={() => setIsAmountFocused(false)}
+                                        editable={!isLoading}
+                                    />
                         </View>
 
                         <View style={styles.cardContainer}>
                             <StyledTextInput
                                 label={t('newRecordScreen.remarksLabel')}
-                                value={remarks}
-                                onChangeText={setRemarks}
+                                    value={remarks}
+                                    onChangeText={setRemarks}
                                 placeholder={t('newRecordScreen.remarksPlaceholder')}
                                 multiline
                                 icon="note"
-                                onFocus={() => setIsRemarksFocused(true)}
-                                onBlur={() => setIsRemarksFocused(false)}
-                                editable={!isLoading}
-                            />
+                                    onFocus={() => setIsRemarksFocused(true)}
+                                    onBlur={() => setIsRemarksFocused(false)}
+                                    editable={!isLoading}
+                                />
                         </View>
 
                         <View style={styles.cardContainer}>
@@ -1393,31 +1403,31 @@ const NewRecordScreen = ({ navigation, route }) => {
                             <View style={styles.bottomSheetContent}>
                                 <View style={styles.bottomSheetHandle} />
                                 <Text style={styles.bottomSheetTitle}>{t('newRecordScreen.selectPurpose')}</Text>
-                                <FlatList
-                                    data={purposes}
-                                    keyExtractor={item => item.id}
+                                    <FlatList
+                                        data={purposes}
+                                        keyExtractor={item => item.id}
                                     renderItem={({ item }) => (
-                                        <TouchableOpacity
+                                            <TouchableOpacity 
                                             style={styles.bottomSheetOption}
-                                            onPress={() => {
-                                                setPurpose(item.element);
-                                                setShowPurposeModal(false);
-                                            }}
-                                        >
+                                                onPress={() => {
+                                                    setPurpose(item.element);
+                                                    setShowPurposeModal(false);
+                                                }}
+                                            >
                                             <Text style={styles.bottomSheetText}>{item.description}</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                />
-                                <TouchableOpacity
-                                    style={styles.addNewButton}
-                                    onPress={() => {
-                                        setShowPurposeModal(false);
-                                        setShowNewPurposeModal(true);
-                                    }}
-                                >
-                                    <Text style={styles.addNewText}>+ {t('newRecordScreen.addNewPurpose')}</Text>
-                                </TouchableOpacity>
-                            </View>
+                                            </TouchableOpacity>
+                                        )}
+                                    />
+                                    <TouchableOpacity 
+                                        style={styles.addNewButton}
+                                        onPress={() => {
+                                            setShowPurposeModal(false);
+                                            setShowNewPurposeModal(true);
+                                        }}
+                                    >
+                                        <Text style={styles.addNewText}>+ {t('newRecordScreen.addNewPurpose')}</Text>
+                                    </TouchableOpacity>
+                                </View>
                         </View>
                     </Modal>
                     <Modal

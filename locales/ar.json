@@ -105,7 +105,8 @@
     "buttons": {
       "proceed": "متابعة",
       "editProfile": "تعديل الملف الشخصي",
-      "changePin": "تغيير الرمز السري"
+      "changePin": "تغيير الرمز السري",
+      "createPin": "إنشاء رمز سري"
     },
     "sections": {
       "userInformation": "معلومات المستخدم",

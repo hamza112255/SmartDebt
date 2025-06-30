@@ -101,7 +101,8 @@
     "buttons": {
       "proceed": "Continuer",
       "editProfile": "Modifier le profil",
-      "changePin": "Changer le code PIN"
+      "changePin": "Changer le code PIN",
+      "createPin": "Créer un code PIN"
     },
     "sections": {
       "userInformation": "Informations utilisateur",

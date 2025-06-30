@@ -80,6 +80,7 @@
     "biometricEnabled": "Biometric Enabled",
     "pinEnabled": "PIN Enabled",
     "changePin": "Change PIN",
+    "createPin": "Create PIN",
     "confirmChange": "Confirm Change",
     "title": "Settings",
     "areYouSureBiometric": "Are you sure you want to {biometricEnabled ? 'disable' : 'enable'} biometric authentication?",
@@ -101,7 +102,8 @@
     "buttons": {
       "proceed": "Proceed",
       "editProfile": "Edit Profile",
-      "changePin": "Change PIN"
+      "changePin": "Change PIN",
+      "createPin": "Create PIN"
     },
     "sections": {
       "userInformation": "User Information",

@@ -101,7 +101,8 @@
     "buttons": {
       "proceed": "Continuar",
       "editProfile": "Editar perfil",
-      "changePin": "Cambiar PIN"
+      "changePin": "Cambiar PIN",
+      "createPin": "Crear PIN"
     },
     "sections": {
       "userInformation": "Información del usuario",

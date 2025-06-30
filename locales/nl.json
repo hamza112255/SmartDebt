@@ -192,6 +192,7 @@
   "settingsScreen.buttons.proceed": "Doorgaan",
   "settingsScreen.buttons.editProfile": "Profiel bewerken",
   "settingsScreen.buttons.changePin": "Pincode wijzigen",
+  "settingsScreen.buttons.createPin": "Pincode aanmaken",
   "settingsScreen.sections.userInformation": "Gebruikersinformatie",
   "settingsScreen.sections.security": "Beveiliging",
   "settingsScreen.labels.firstName": "Voornaam",

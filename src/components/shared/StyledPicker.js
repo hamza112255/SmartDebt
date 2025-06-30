@@ -26,11 +26,11 @@ const colors = {
     error: '#f56565',
 };
 
-const StyledPicker = ({ label, items, selectedValue, onValueChange, placeholder, error, icon, renderFooter }) => {
+const StyledPicker = ({ label, items, selectedValue, onValueChange, placeholder, error, icon, renderFooter, showSearch = true, iconName }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const selectedLabel = items.find(item => item.value === selectedValue)?.label || placeholder || `Select ${label}`;
+    const selectedLabel = items.find(item => item.value === selectedValue)?.label || placeholder || `Select...`;
 
     const filteredItems = items.filter(item =>
         item.label.toLowerCase().includes(searchQuery.toLowerCase())
@@ -53,7 +53,7 @@ const StyledPicker = ({ label, items, selectedValue, onValueChange, placeholder,
         <View style={styles.container}>
             {label && <Text style={styles.label}>{label}</Text>}
             <TouchableOpacity onPress={() => setModalVisible(true)} style={[styles.pickerButton, { borderColor: error ? colors.error : colors.border }]}>
-                {icon && <Icon name={icon} size={20} color={colors.textSecondary} style={styles.icon} />}
+                {iconName && <Icon name={iconName} size={20} color={colors.textSecondary} style={styles.icon} />}
                 <Text style={[styles.pickerButtonText, { color: selectedValue ? colors.textPrimary : colors.textSecondary }]}>
                     {selectedLabel}
                 </Text>
@@ -71,16 +71,18 @@ const StyledPicker = ({ label, items, selectedValue, onValueChange, placeholder,
                     <View style={styles.modalOverlay}>
                         <TouchableWithoutFeedback>
                             <View style={styles.modalContent}>
-                                <Text style={styles.modalTitle}>{placeholder || `Select ${label}`}</Text>
-                                <View style={styles.searchContainer}>
-                                    <Icon name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-                                    <TextInput
-                                        style={styles.searchInput}
-                                        placeholder="Search..."
-                                        value={searchQuery}
-                                        onChangeText={setSearchQuery}
-                                    />
-                                </View>
+                                <Text style={styles.modalTitle}>{placeholder || `Select ${label || ''}`}</Text>
+                                {showSearch && (
+                                    <View style={styles.searchContainer}>
+                                        <Icon name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+                                        <TextInput
+                                            style={styles.searchInput}
+                                            placeholder="Search..."
+                                            value={searchQuery}
+                                            onChangeText={setSearchQuery}
+                                        />
+                                    </View>
+                                )}
                                 <FlatList
                                     data={filteredItems}
                                     renderItem={renderItem}

@@ -271,6 +271,7 @@ export default function CreateProfileScreen({ navigation, route }) {
                             items={languageOptions}
                             iconName="language"
                             showSearch={false}
+                            placeholder={t('createProfileScreen.placeholders.language', 'Select Language')}
                         />
                     </View>
 

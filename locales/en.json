@@ -1,4 +1,28 @@
 {
+  "common": {
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "done": "Done",
+    "add": "Add",
+    "close": "Close",
+    "search": "Search",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "error": "Error",
+    "success": "Success",
+    "loading": "Loading...",
+    "noContact": "No Contact",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "reset": "Reset",
+    "logout": "Logout",
+    "notSet": "Not Set",
+    "account": "Account"
+  },
   "loginScreen.title": "Welcome Back!",
   "loginScreen.subtitle": "Sign in to continue",
   "loginScreen.emailLabel": "Email Address",
@@ -341,16 +365,6 @@
   "addNewContactScreen.city": "City",
   "addNewContactScreen.state": "State",
   "addNewContactScreen.country": "Country",
-  "common": {
-    "confirm": "Confirm",
-    "error": "Error",
-    "success": "Success",
-    "ok": "OK",
-    "cancel": "Cancel",
-    "delete": "Delete",
-    "edit": "Edit",
-    "logout": "Logout"
-  },
   "navigation": {
     "tabs": {
       "settings": "Settings",
@@ -376,7 +390,8 @@
     "authFailed": "PIN authentication failed:"
   },
   "screens": {
-    "accountDetails": "Account Details"
+    "accountDetails": "Account Details",
+    "dashboard": "Dashboard"
   },
   "languages.en": "English",
   "languages.es": "Español",

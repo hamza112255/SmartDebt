@@ -913,14 +913,16 @@ const AccountDetailScreen = ({ navigation, route }) => {
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <View style={StyleSheet.absoluteFill}>
                     <View style={[styles.menuContainer, { top: menuPosition.y, left: menuPosition.x }]}>
-                        <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
-                            <Text style={styles.menuText}>Edit</Text>
-                        </TouchableOpacity>
+                        {selectedTx && !selectedTx.isProxy &&
+                            <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                                <Text style={styles.menuText}>{t('common.edit')}</Text>
+                            </TouchableOpacity>
+                        }
                         <TouchableOpacity style={styles.menuOption} onPress={handleDuplicate}>
-                            <Text style={styles.menuText}>Duplicate</Text>
+                            <Text style={styles.menuText}>{t('common.duplicate')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
-                            <Text style={[styles.menuText, { color: colors.error }]}>Delete</Text>
+                            <Text style={[styles.menuText, { color: colors.error }]}>{t('common.delete')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

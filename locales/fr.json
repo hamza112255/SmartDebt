@@ -405,7 +405,7 @@
     "borrow": "Emprunter",
     "lend": "Prêter",
     "cash_inCashOut": "Entrée - Sortie d'argent",
-    "debitCredit": "Débit - Crédit",
+    "creditDebit": "Débit - Crédit",
     "receiveSendOut": "Recevoir - Envoyer",
     "borrowLend": "Emprunter - Prêter"
   },

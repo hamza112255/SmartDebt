@@ -21,6 +21,7 @@ import { realm } from '../realm';
 import { useTranslation } from 'react-i18next';
 import NetInfo from '@react-native-community/netinfo';
 import { createContactInSupabase } from '../supabase';
+import StyledTextInput from '../components/shared/StyledTextInput';
 
 const colors = {
     primary: '#2563eb',
@@ -269,13 +270,29 @@ const NewContactScreen = ({ navigation, route }) => {
                                 )}
                             </TouchableOpacity>
                         </View>
-                        <ContactNameInput
-                            contactName={contactName}
-                            setContactName={setContactName}
-                            t={t}
+                        <StyledTextInput
+                            label={t('addNewContactScreen.formLabels.name')}
+                            value={contactName}
+                            onChangeText={setContactName}
+                            placeholder={t('addNewContactScreen.placeholders.name')}
+                            icon="person"
                         />
-                        <SettingRow titleKey="addNewContactScreen.formLabels.contactNo" value={contactNo} onChangeText={setContactNo} t={t} />
-                        <SettingRow titleKey="addNewContactScreen.formLabels.email" value={email} onChangeText={setEmail} t={t} />
+                        <StyledTextInput
+                            label={t('addNewContactScreen.formLabels.contactNo')}
+                            value={contactNo}
+                            onChangeText={setContactNo}
+                            placeholder={t('addNewContactScreen.placeholders.contactNo')}
+                            keyboardType="phone-pad"
+                            icon="phone"
+                        />
+                        <StyledTextInput
+                            label={t('addNewContactScreen.formLabels.email')}
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder={t('addNewContactScreen.placeholders.email')}
+                            keyboardType="email-address"
+                            icon="email"
+                        />
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity
                                 style={[

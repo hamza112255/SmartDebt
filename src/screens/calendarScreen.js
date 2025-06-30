@@ -50,6 +50,7 @@ const CalendarScreen = ({ navigation, route }) => {
         debit: 0, credit: 0, balance: 0, cash_in: 0, cash_out: 0,
         receive: 0, send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
     });
+    const [balanceForDate, setBalanceForDate] = useState(0);
     const [expandedProxyGroups, setExpandedProxyGroups] = useState({}); // Track expanded proxy groups
     const { t } = useTranslation();
     const [isMenuVisible, setMenuVisible] = useState(false);
@@ -335,16 +336,42 @@ const CalendarScreen = ({ navigation, route }) => {
                 if (refreshedAccount) {
                     const plainAccount = JSON.parse(JSON.stringify(refreshedAccount));
                     setSelectedAccount(plainAccount);
+                    calculateBalanceForDate(plainAccount, selectedDate);
                 }
             }
-        }, [selectedAccount?.id, realm])
+        }, [selectedAccount?.id, realm, selectedDate])
     );
 
     useEffect(() => {
         if (selectedAccount?.id) {
             loadTransactions(selectedAccount.id);
+            calculateBalanceForDate(selectedAccount, selectedDate);
         }
     }, [selectedAccount?.id, selectedDate, loadTransactions]);
+
+    const calculateBalanceForDate = (account, date) => {
+        if (!account) {
+            setBalanceForDate(0);
+            return;
+        }
+
+        const currentBalance = account.currentBalance || 0;
+        const endDate = moment(date).endOf('day').toDate();
+
+        const futureTransactions = realm.objects('Transaction')
+            .filtered('accountId == $0 AND transactionDate > $1', account.id, endDate);
+            
+        let futureBalanceChange = 0;
+        futureTransactions.forEach(tx => {
+            if (['cash_in', 'receive', 'borrow', 'credit'].includes(tx.type)) {
+                futureBalanceChange -= tx.amount;
+            } else {
+                futureBalanceChange += tx.amount;
+            }
+        });
+
+        setBalanceForDate(currentBalance + futureBalanceChange);
+    };
 
     const activeAccount = selectedAccount || accounts[0] || { id: null, name: 'Select Account' };
     const getDayOfWeek = (dateStr) => moment(dateStr).format('dddd');
@@ -411,40 +438,36 @@ const CalendarScreen = ({ navigation, route }) => {
     };
 
     const getStatLabel = (side, account) => {
-        if (!account?.type) return side === 'left' ? t('terms.debit') : t('terms.credit');
-        
-        // Get the translated type name
-        const typeName = t(`accountTypes.${account.type}`);
-        
-        // Split into parts if it contains a dash
-        if (typeName.includes(' - ')) {
-            const [left, right] = typeName.split(' - ');
-            return side === 'left' ? left : right;
+        if (account?.type) {
+            const typeName = t(`accountTypes.${account.type}`);
+            if (typeName && typeName.includes(' - ')) {
+                const parts = typeName.split(' - ');
+                if (account.type === 'debit_credit') {
+                    return side === 'left' ? parts[1] : parts[0]; 
+                }
+                return side === 'left' ? parts[0] : parts[1];
+            }
         }
-        
-        // Fallback for simple types
-        return side === 'left' ? t('terms.debit') : t('terms.credit');
+        return side === 'left' ? t('terms.credit') : t('terms.debit');
     };
 
     const getStatValue = (side, account, stats) => {
-        if (account?.type === 'Cash In - Cash Out') {
+        if (account?.type === 'cash_in_out') {
             return side === 'left' ? stats.cash_in : stats.cash_out;
         }
-        if (account?.type === 'Receive - Send Out') {
+        if (account?.type === 'receive_send') {
             return side === 'left' ? stats.receive : stats.send_out;
         }
-        if (account?.type === 'Borrow - Lend') {
+        if (account?.type === 'borrow_lend') {
             return side === 'left' ? stats.borrow : stats.lend;
+        }
+        if (account?.type === 'debit_credit') {
+            return side === 'left' ? stats.creditType : stats.debitType;
         }
         return side === 'left' ? stats.credit : stats.debit;
     };
 
     const currency = safeGet(selectedAccount, 'currency', 'PKR');
-    const currentBalance = selectedAccount?.id && accountMap[selectedAccount.id]?.currentBalance !== undefined
-        ? Number(accountMap[selectedAccount.id]?.currentBalance)
-        : 0;
-
-    const statForDate = currentBalance;
 
     // Helper to get proxy payment mapping for quick lookup
     const getProxyPaymentMap = () => {
@@ -641,7 +664,7 @@ const CalendarScreen = ({ navigation, route }) => {
                     <View style={[styles.statCard, { backgroundColor: colors.primary }]}>
                         <Text style={[styles.statLabel, { color: colors.white }]}>{t('accountDetailsScreen.balance')}</Text>
                         <Text style={[styles.statValue, { color: colors.white }]}>
-                            {currency}{currentBalance < 0 && ' -'}{Math.abs(currentBalance).toFixed(2)}
+                            {currency}{balanceForDate < 0 && ' -'}{Math.abs(balanceForDate).toFixed(2)}
                         </Text>
                     </View>
                 </View>
@@ -653,7 +676,7 @@ const CalendarScreen = ({ navigation, route }) => {
                         </Text>
                         {selectedAccount && (
                             <Text style={styles.transactionTotal}>
-                                {currency}{statForDate < 0 && ' -'}{Math.abs(statForDate).toFixed(2)}
+                                {currency}{balanceForDate < 0 && ' -'}{Math.abs(balanceForDate).toFixed(2)}
                             </Text>
                         )}
                     </View>

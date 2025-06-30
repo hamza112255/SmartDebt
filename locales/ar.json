@@ -402,7 +402,7 @@
     "borrow": "اقتراض",
     "lend": "إقراض",
     "cash_inCashOut": "إيداع - سحب نقدي",
-    "debitCredit": "مدين - دائن",
+    "creditDebit": "مدين - دائن",
     "receiveSendOut": "استلام - إرسال",
     "borrowLend": "اقتراض - إقراض"
   },

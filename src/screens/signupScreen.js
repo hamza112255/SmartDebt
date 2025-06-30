@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { useTranslation } from 'react-i18next'; // Import useTranslation
+import StyledTextInput from '../components/shared/StyledTextInput';
 
 const colors = {
     primary: '#2563eb',
@@ -38,8 +39,6 @@ const SignupScreen = ({ navigation }) => {
         password: '',
         confirmPassword: '',
     });
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const { t } = useTranslation(); // Initialize useTranslation
@@ -156,75 +155,40 @@ const SignupScreen = ({ navigation }) => {
                         <Text style={styles.subtitle}>{t('signupScreen.subtitle')}</Text>
                     </View>
                     <View style={styles.formContainer}>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>{t('signupScreen.emailAddressLabel')}</Text>
-                            <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
-                                <Icon name="email" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder={t('signupScreen.placeholders.email')}
-                                    placeholderTextColor={colors.gray}
-                                    value={formData.email}
-                                    onChangeText={(text) => updateFormData('email', text)}
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                />
-                            </View>
-                            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-                        </View>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>{t('signupScreen.passwordLabel')}</Text>
-                            <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-                                <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder={t('signupScreen.placeholders.password')}
-                                    placeholderTextColor={colors.gray}
-                                    value={formData.password}
-                                    onChangeText={(text) => updateFormData('password', text)}
-                                    secureTextEntry={!showPassword}
-                                    autoCapitalize="none"
-                                />
-                                <TouchableOpacity
-                                    onPress={() => setShowPassword(!showPassword)}
-                                    style={styles.eyeIcon}
-                                >
-                                    <Icon
-                                        name={showPassword ? 'visibility' : 'visibility-off'}
-                                        size={RFValue(20)}
-                                        color={colors.gray}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-                        </View>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>{t('signupScreen.confirmPasswordLabel')}</Text>
-                            <View style={[styles.inputWrapper, errors.confirmPassword && styles.inputError]}>
-                                <Icon name="lock" size={RFValue(20)} color={colors.gray} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder={t('signupScreen.placeholders.confirmPassword')}
-                                    placeholderTextColor={colors.gray}
-                                    value={formData.confirmPassword}
-                                    onChangeText={(text) => updateFormData('confirmPassword', text)}
-                                    secureTextEntry={!showConfirmPassword}
-                                    autoCapitalize="none"
-                                />
-                                <TouchableOpacity
-                                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    style={styles.eyeIcon}
-                                >
-                                    <Icon
-                                        name={showConfirmPassword ? 'visibility' : 'visibility-off'}
-                                        size={RFValue(20)}
-                                        color={colors.gray}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                            {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-                        </View>
+                        <StyledTextInput
+                            label={t('signupScreen.emailAddressLabel')}
+                            value={formData.email}
+                            onChangeText={(text) => updateFormData('email', text)}
+                            placeholder={t('signupScreen.placeholders.email')}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            icon="email"
+                            error={errors.email}
+                        />
+
+                        <StyledTextInput
+                            label={t('signupScreen.passwordLabel')}
+                            value={formData.password}
+                            onChangeText={(text) => updateFormData('password', text)}
+                            placeholder={t('signupScreen.placeholders.password')}
+                            autoCapitalize="none"
+                            icon="lock"
+                            isPassword
+                            error={errors.password}
+                        />
+
+                        <StyledTextInput
+                            label={t('signupScreen.confirmPasswordLabel')}
+                            value={formData.confirmPassword}
+                            onChangeText={(text) => updateFormData('confirmPassword', text)}
+                            placeholder={t('signupScreen.placeholders.confirmPassword')}
+                            autoCapitalize="none"
+                            icon="lock"
+                            isPassword
+                            error={errors.confirmPassword}
+                        />
+
                         <View style={styles.passwordRequirements}>
                             <Text style={styles.requirementsTitle}>{t('signupScreen.passwordRequirements.title')}</Text>
                             <Text style={styles.requirementItem}>{t('signupScreen.atLeast8Chars')}</Text>

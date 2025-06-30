@@ -435,7 +435,7 @@
     "borrow": "Borrow",
     "lend": "Lend",
     "cash_inCashOut": "Cash In - Cash Out",
-    "debitCredit": "Debit - Credit",
+    "creditDebit": "Debit - Credit",
     "receiveSendOut": "Receive - Send Out",
     "borrowLend": "Borrow - Lend"
   },

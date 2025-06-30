@@ -274,27 +274,53 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
         marginTop: hp(1), // ~8px
     },
+    attachmentContainer: {
+        marginTop: hp(1),
+    },
     attachmentButton: {
-        backgroundColor: colors.white,
-        borderRadius: wp(3), // ~12px
-        width: wp(17.5), // ~70px
-        height: wp(17.5),
+        borderWidth: 2,
+        borderColor: colors.primary,
+        borderStyle: 'dashed',
+        borderRadius: wp(4),
+        height: hp(15),
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: hp(0.25) }, // ~2px
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderStyle: 'dashed',
-        marginTop: hp(1), // ~8px
+        backgroundColor: 'rgba(102, 126, 234, 0.05)',
     },
-    floatingButtonsWrapper: {
+    attachmentPlaceholder: {
+        alignItems: 'center',
+    },
+    attachmentText: {
+        marginTop: hp(1),
+        fontSize: RFPercentage(2),
+        fontFamily: 'Sora-Medium',
+        color: colors.primary,
+    },
+    imagePreviewContainer: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    imagePreview: {
+        width: wp(25),
+        height: wp(25),
+        borderRadius: wp(3),
+    },
+    removeImageButton: {
         position: 'absolute',
+        top: -hp(1),
+        right: -wp(1),
+        backgroundColor: colors.error,
+        borderRadius: wp(5),
+        padding: wp(1),
+        elevation: 2,
+    },
+    floatingButtonsContainer: {
+        position: 'absolute',
+        bottom: 0,
         left: 0,
         right: 0,
-        bottom: 0,
         pointerEvents: 'box-none',
         alignItems: 'center',
     },
@@ -444,36 +470,6 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    imagePreview: {
-        width: '100%',
-        height: '100%',
-    },
-    removeImageButton: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        backgroundColor: colors.error,
-        padding: wp(1),
-        borderRadius: wp(2),
-    },
-    modalContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContent: {
-        width: '80%',
-        backgroundColor: colors.white,
-        borderRadius: 16,
-        padding: 20,
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        color: colors.textPrimary,
-        textAlign: 'center',
     },
     addContactBtn: {
         padding: 12,

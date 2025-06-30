@@ -248,8 +248,9 @@ const makeStyles = (accountColor) => StyleSheet.create({
     },
     typeSplitValue: {
         fontSize: RFPercentage(2.0),
+        color: colors.white,
         fontFamily: 'Sora-Bold',
-        marginTop: hp('0.5%')
+        marginTop: 4
     },
     menuContainer: {
         position: 'absolute',
@@ -361,19 +362,63 @@ const makeStyles = (accountColor) => StyleSheet.create({
         fontSize: RFValue(12),
         color: colors.primary,
         marginRight: 4,
+    },
+    moneyFlowContainer: {
+        flexDirection: 'row',
+        marginTop: hp('2%'),
+        marginHorizontal: wp('2%'),
+        justifyContent: 'space-between',
+    },
+    moneyFlowCard: {
+        flex: 1,
+        borderRadius: 12,
+        padding: 12,
+        alignItems: 'center',
+    },
+    moneyFlowLabel: {
+        fontFamily: 'Sora-Regular',
+        fontSize: RFValue(14),
+        color: 'rgba(255, 255, 255, 0.9)',
+        marginBottom: 4,
+    },
+    moneyFlowValue: {
+        fontFamily: 'Sora-Bold',
+        fontSize: RFValue(16),
     }
 });
 
 const AccountDetailScreen = ({ navigation, route }) => {
+    const { accountId, color } = route.params;
     const { t, i18n } = useTranslation();
-    const accountId = route.params?.account?.id || route.params?.accountId;
     const [accountData, setAccountData] = useState(null);
     const [transactions, setTransactions] = useState([]);
-    const [showAccountSheet, setShowAccountSheet] = useState(false);
+    const [stats, setStats] = useState({
+        debit: 0,
+        credit: 0,
+        balance: 0,
+    });
     const [isMenuVisible, setMenuVisible] = useState(false);
     const [selectedTx, setSelectedTx] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const [expandedProxyGroups, setExpandedProxyGroups] = useState({});
+
+    const styles = makeStyles(color || colors.primary);
+
+    const getStatLabels = () => {
+        if (!accountData?.type) {
+            return { in: t('terms.credit'), out: t('terms.debit') };
+        }
+        const typeName = t(`accountTypes.${accountData.type}`);
+        if (typeName && typeName.includes(' - ')) {
+            const parts = typeName.split(' - ');
+            // Handle 'Debit - Credit' case specifically if needed
+            if (accountData.type === 'debit_credit') {
+                 return { in: parts[1], out: parts[0] };
+            }
+            return { in: parts[0], out: parts[1] };
+        }
+        return { in: t('terms.credit'), out: t('terms.debit') };
+    };
 
     const openMenu = (transaction, event, isProxy = false) => {
         const { pageX, pageY } = event.nativeEvent;
@@ -491,16 +536,20 @@ const AccountDetailScreen = ({ navigation, route }) => {
     };
 
     function updateAccountBalanceForDelete(account, tx, isRevert = false) {
-        let balanceChange = 0;
         const amount = parseFloat(tx.amount) || 0;
         const type = tx.type;
+        let balanceChange = 0;
+
         if (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '') {
             if (['credit', 'borrow', 'cash_in', 'receive'].includes(type)) {
                 balanceChange = amount;
-            } else {
+            } else { 
                 balanceChange = -amount;
             }
-            if (isRevert) balanceChange = -balanceChange;
+
+            if (isRevert) {
+                balanceChange = -balanceChange;
+            }
 
             account.currentBalance = (account.currentBalance || 0) + balanceChange;
             account.updatedOn = new Date();
@@ -549,13 +598,15 @@ const AccountDetailScreen = ({ navigation, route }) => {
                         if (txToDelete.is_proxy_payment) {
                             const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', txToDelete.id)[0];
                             if (proxyPayment) {
-                                const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
-                                if (debtTx) {
-                                    const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
-                                    if (adjAccount) {
-                                        updateAccountBalanceForDelete(adjAccount, debtTx, true);
+                                if (proxyPayment.debtAdjustmentTransactionId) {
+                                    const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
+                                    if (debtTx) {
+                                        const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
+                                        if (adjAccount) {
+                                            updateAccountBalanceForDelete(adjAccount, debtTx, true);
+                                        }
+                                        realm.delete(debtTx);
                                     }
-                                    realm.delete(debtTx);
                                 }
                                 realm.delete(proxyPayment);
                             }
@@ -571,15 +622,6 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 },
             },
         ]);
-    };
-
-    const accountColor = accountData?.color || colors.primary;
-    const dynamicStyles = makeStyles(accountColor);
-
-    const getDebtAdjustmentTxIds = () => {
-        return new Set(
-            (realm.objects('ProxyPayment') || []).map(p => p.debtAdjustmentTransactionId)
-        );
     };
 
     const loadAccountData = useCallback(() => {
@@ -615,6 +657,8 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 currentBalance: account.currentBalance,
                 currency: account.currency,
                 userId: account.userId,
+                receiving_money: account.receiving_money,
+                sending_money: account.sending_money,
                 ...stats,
             });
         }
@@ -724,12 +768,12 @@ const AccountDetailScreen = ({ navigation, route }) => {
     useLayoutEffect(() => {
         navigation.setOptions({
             title: accountData?.name || t('screens.accountDetails'),
-            headerStyle: { backgroundColor: accountColor, elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
+            headerStyle: { backgroundColor: color || colors.primary, elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
             headerTintColor: colors.white,
             headerTitleStyle: { fontFamily: 'Sora-Bold', fontSize: RFValue(18), color: colors.white },
             headerLeft: () => (
-                <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles.backButton}>
-                    <Icon name="arrow-back" size={RFValue(24)} color={colors.white} />
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <Icon name="arrow-back" size={24} color={colors.white} />
                 </TouchableOpacity>
             ),
             headerRight: () => (
@@ -738,26 +782,18 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
             ),
         });
-    }, [navigation, accountData, accountColor, dynamicStyles.backButton]);
+    }, [navigation, accountData, color, styles.backButton]);
 
-    const getAccountTypeColumns = () => {
-        if (!accountData?.type) return [];
-        const termKey = `terms.${accountData.type.replace(/ /g, '').replace('-', '')}`;
-        const translatedTerm = t(termKey);
-        if (translatedTerm === termKey) return [];
-        const subTerms = translatedTerm.split(' - ');
-        const keys = accountData.type.toLowerCase().replace(/ /g, '').split('-');
-        if (subTerms?.length === 2 && keys?.length === 2) {
-            return [{ key: keys[0], label: subTerms[0] }, { key: keys[1], label: subTerms[1] }];
-        }
-        return [];
+    const getDebtAdjustmentTxIds = () => {
+        return new Set(
+            (realm.objects('ProxyPayment') || []).map(p => p.debtAdjustmentTransactionId)
+        );
     };
 
-    const accountColumns = getAccountTypeColumns();
-
     const formatAmount = (amount, code = accountData?.currency) => {
-        const numeric = Number(amount ?? 0);
-        return `${code} ${numeric.toLocaleString()}`;
+        const value = Math.abs(Number(amount) || 0);
+        const sign = Number(amount) < 0 ? '-' : '';
+        return `${sign}${code} ${value.toLocaleString()}`;
     };
 
     const formatDate = (dateStr) => {
@@ -767,8 +803,8 @@ const AccountDetailScreen = ({ navigation, route }) => {
     };
 
     const getTransactionIcon = (type) => {
-        if (['cash_in', 'credit', 'receive', 'borrow'].includes(type)) return 'arrow-downward';
-        return 'arrow-upward';
+        if (['cash_in', 'credit', 'receive', 'borrow'].includes(type)) return 'arrow-upward';
+        return 'arrow-downward';
     };
 
     const getTransactionColor = (type) => {
@@ -839,31 +875,31 @@ const AccountDetailScreen = ({ navigation, route }) => {
         const typeText = typeTextMap[type] || type;
 
         return (
-            <View style={dynamicStyles.transactionRow} key={item.id}>
+            <View style={styles.transactionRow} key={item.id}>
                 <TouchableOpacity 
                     style={{flexDirection: 'row', alignItems: 'center', flex: 1, padding: 12}} 
                     >
-                    <View style={[dynamicStyles.transactionIcon, { backgroundColor: transactionColor + '20' }]}>
+                    <View style={[styles.transactionIcon, { backgroundColor: transactionColor + '20' }]}>
                         <Icon name={iconName} size={RFValue(20)} color={transactionColor} />
                     </View>
-                    <View style={dynamicStyles.transactionDetails}>
-                        <Text style={dynamicStyles.transactionName} numberOfLines={1}>{item?.purpose || t('accountDetailsScreen.noDescription')}</Text>
-                        <Text style={dynamicStyles.transactionDate}>{item?.transactionDate ? formatDate(item.transactionDate) : t('accountDetailsScreen.noDate')}</Text>
+                    <View style={styles.transactionDetails}>
+                        <Text style={styles.transactionName} numberOfLines={1}>{item?.purpose || t('accountDetailsScreen.noDescription')}</Text>
+                        <Text style={styles.transactionDate}>{item?.transactionDate ? formatDate(item.transactionDate) : t('accountDetailsScreen.noDate')}</Text>
                     </View>
-                    <View style={dynamicStyles.amountContainer}>
-                        <Text style={[dynamicStyles.transactionAmountText, { color: transactionColor }]}>
+                    <View style={styles.amountContainer}>
+                        <Text style={[styles.transactionAmountText, { color: transactionColor }]}>
                             {['cash_in', 'credit', 'receive', 'borrow'].includes(type) ? '+' : '-'}
                             {formatAmount(amount, accountData?.currency)}
                         </Text>
-                        <Text style={dynamicStyles.transactionType}>{typeText}</Text>
+                        <Text style={styles.transactionType}>{typeText}</Text>
                     </View>
                 </TouchableOpacity>
-                <TouchableOpacity style={dynamicStyles.menuTrigger} onPress={(e) => openMenu(item, e, item.is_proxy_payment)}>
+                <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item, e, item.is_proxy_payment)}>
                     <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
                 </TouchableOpacity>
             </View>
         );
-    }, [accountData?.currency, dynamicStyles, t, navigation]);
+    }, [accountData?.currency, styles, t, navigation]);
 
     const handleTransactionSave = useCallback(() => {
         loadTransactions();
@@ -872,39 +908,19 @@ const AccountDetailScreen = ({ navigation, route }) => {
         }
     }, [loadTransactions, updateAccountBalance, accountData?.id]);
 
-    const getTypeAmount = (account, direction) => {
-        switch(account.type) {
-            case 'cash_in_out': return direction === 'in' ? account.cash_in : account.cash_out;
-            case 'debit_credit': return direction === 'in' ? account.credit : account.debit;
-            case 'receive_send_out': return direction === 'in' ? account.receive : account.send_out;
-            case 'borrow_lend': return direction === 'in' ? account.borrow : account.lend;
-            default: return 0;
-        }
-    };
-
-    const getTranslatedAccountType = (typeCode) => {
-        switch(typeCode) {
-            case 'cash_in_out': return t('accountTypes.cash_in_out');
-            case 'debit_credit': return t('accountTypes.debit_credit');
-            case 'receive_send_out': return t('accountTypes.receive_send_out');
-            case 'borrow_lend': return t('accountTypes.borrow_lend');
-            default: return typeCode;
-        }
-    };
-
     const renderMenu = () => (
         <Modal visible={isMenuVisible} transparent animationType="fade" onRequestClose={closeMenu}>
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <View style={StyleSheet.absoluteFill}>
-                    <View style={[dynamicStyles.menuContainer, { top: menuPosition.y, left: menuPosition.x }]}>
-                        <TouchableOpacity style={dynamicStyles.menuOption} onPress={handleEdit}>
-                            <Text style={dynamicStyles.menuText}>Edit</Text>
+                    <View style={[styles.menuContainer, { top: menuPosition.y, left: menuPosition.x }]}>
+                        <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                            <Text style={styles.menuText}>Edit</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={dynamicStyles.menuOption} onPress={handleDuplicate}>
-                            <Text style={dynamicStyles.menuText}>Duplicate</Text>
+                        <TouchableOpacity style={styles.menuOption} onPress={handleDuplicate}>
+                            <Text style={styles.menuText}>Duplicate</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={dynamicStyles.menuOption} onPress={handleDelete}>
-                            <Text style={[dynamicStyles.menuText, { color: colors.error }]}>Delete</Text>
+                        <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
+                            <Text style={[styles.menuText, { color: colors.error }]}>Delete</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -915,56 +931,41 @@ const AccountDetailScreen = ({ navigation, route }) => {
     if (!accountData) return null;
 
     const groupedTransactions = Array.isArray(transactions) ? groupTransactions(transactions) : [];
+    const { in: inLabel, out: outLabel } = getStatLabels();
 
     return (
-        <SafeAreaView style={dynamicStyles.container}>
+        <SafeAreaView style={styles.container}>
             {renderMenu()}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={dynamicStyles.scrollContent}>
-                <View style={dynamicStyles.header}>
-                    <View style={dynamicStyles.headerTop}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles.backButton}>
-                            <Icon name="arrow-back" size={RFValue(24)} color={colors.white} />
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.header}>
+                    <View style={styles.headerTop}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                            <Icon name="arrow-back" size={24} color={colors.white} />
                         </TouchableOpacity>
-                        <View style={dynamicStyles.headerTitleContainer}>
-                            <Text style={dynamicStyles.accountName}>{accountData.name || t('common.account')}</Text>
-                            {accountData.type && <Text style={dynamicStyles.accountType}>{getTranslatedAccountType(accountData.type)}</Text>}
+                        <View style={styles.headerTitleContainer}>
+                            <Text style={styles.accountName}>{accountData.name || t('common.account')}</Text>
                         </View>
                     </View>
-
-                    <View style={dynamicStyles.balanceContainer}>
-                        <Text style={dynamicStyles.balanceLabel}>{t('accountDetailsScreen.currentBalance')}</Text>
-                        <Text style={dynamicStyles.balanceAmount}>{formatAmount(accountData.currentBalance, accountData.currency)}</Text>
-                        
-                        {accountData?.type && (
-                            <View style={dynamicStyles.typeSplitContainer}>
-                                <View style={dynamicStyles.typeSplitItem}>
-                                    <Text style={dynamicStyles.typeSplitLabel}>{getTranslatedAccountType(accountData.type).split(' - ')[0]}</Text>
-                                    <Text style={[dynamicStyles.typeSplitValue, {color: colors.success}]}>{formatAmount(getTypeAmount(accountData, 'in'), accountData.currency)}</Text>
-                                </View>
-                                <View style={dynamicStyles.typeSplitItem}>
-                                    <Text style={dynamicStyles.typeSplitLabel}>{getTranslatedAccountType(accountData.type).split(' - ')[1]}</Text>
-
-                                    <Text style={[dynamicStyles.typeSplitValue, {color: colors.error}]}>{formatAmount(getTypeAmount(accountData, 'out'), accountData.currency)}</Text>
-                                </View>
-                            </View>
-                        )}
+                    <View style={styles.balanceContainer}>
+                        <Text style={styles.balanceLabel}>{t('accountDetailsScreen.balance')}</Text>
+                        <Text style={styles.balanceAmount}>{formatAmount(accountData.currentBalance)}</Text>
                     </View>
-                    
-                    {accountColumns?.length > 0 && (
-                        <View style={dynamicStyles.typeContainer}>
-                            {accountColumns.map((col, index) => (
-                                <View key={index} style={dynamicStyles.typeBox}>
-                                    <Text style={dynamicStyles.typeLabel}>{col.label}</Text>
-                                    <Text style={dynamicStyles.typeAmount}>{formatAmount(accountData[col.key] || 0)}</Text>
-                                </View>
-                            ))}
+
+                    <View style={styles.moneyFlowContainer}>
+                        <View style={[styles.moneyFlowCard, { marginRight: 8 }]}>
+                            <Text style={styles.moneyFlowLabel}>{inLabel}</Text>
+                            <Text style={[styles.moneyFlowValue, { color: colors.success }]}>{formatAmount(accountData.receiving_money)}</Text>
                         </View>
-                    )}
+                        <View style={[styles.moneyFlowCard, { marginLeft: 8 }]}>
+                            <Text style={styles.moneyFlowLabel}>{outLabel}</Text>
+                            <Text style={[styles.moneyFlowValue, { color: colors.error }]}>{formatAmount(accountData.sending_money)}</Text>
+                        </View>
+                    </View>
                 </View>
 
-                <View style={dynamicStyles.transactionsSection}>
-                    <View style={dynamicStyles.transactionsHeader}>
-                        <Text style={dynamicStyles.sectionTitle}>{t('accountDetailsScreen.recentTransactions')}</Text>
+                <View style={styles.transactionsSection}>
+                    <View style={styles.transactionsHeader}>
+                        <Text style={styles.sectionTitle}>{t('accountDetailsScreen.recentTransactions')}</Text>
                     </View>
 
                     {groupedTransactions?.length > 0 ? (
@@ -973,22 +974,22 @@ const AccountDetailScreen = ({ navigation, route }) => {
                                 const groupKey = item.main.id;
                                 const expanded = !!expandedProxyGroups[groupKey];
                                 return (
-                                    <View key={groupKey} style={dynamicStyles.proxyCard}>
-                                        <View style={dynamicStyles.transactionRow}>
+                                    <View key={groupKey} style={styles.proxyCard}>
+                                        <View style={styles.transactionRow}>
                                             <TouchableOpacity
-                                                style={[dynamicStyles.transactionItem, {flex: 1, padding: 12}]}
+                                                style={[styles.transactionItem, {flex: 1, padding: 12}]}
                                                 onPress={() => setExpandedProxyGroups(prev => ({...prev, [groupKey]: !prev[groupKey]}))}
                                                 activeOpacity={0.8}
                                             >
-                                                <View style={[dynamicStyles.transactionIcon, { backgroundColor: colors.primary + '20' }]}>
+                                                <View style={[styles.transactionIcon, { backgroundColor: colors.primary + '20' }]}>
                                                     <Icon name="swap-horiz" size={RFValue(20)} color={colors.primary} />
                                                 </View>
-                                                <View style={dynamicStyles.transactionDetails}>
-                                                     <Text style={dynamicStyles.transactionName}>Proxy Payment</Text>
-                                                     <Text style={dynamicStyles.transactionType}>{item.main.purpose || 'Tap to see details'}</Text>
+                                                <View style={styles.transactionDetails}>
+                                                     <Text style={styles.transactionName}>Proxy Payment</Text>
+                                                     <Text style={styles.transactionType}>{item.main.purpose || 'Tap to see details'}</Text>
                                                 </View>
                                                 <View style={{alignItems: 'center'}}>
-                                                    <Text style={[dynamicStyles.transactionAmountText, { color: getTransactionColor(item.main.type) }]}>
+                                                    <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.main.type) }]}>
                                                         {['cash_in', 'receive', 'borrow', 'credit'].includes(item.main.type) ? '+' : '-'}
                                                         {formatAmount(item.main.amount, accountData.currency)}
                                                     </Text>
@@ -997,40 +998,40 @@ const AccountDetailScreen = ({ navigation, route }) => {
                                             </TouchableOpacity>
                                         </View>
                                         {expanded && (
-                                            <View style={dynamicStyles.proxyBody}>
-                                                <View style={dynamicStyles.transactionRow}>
+                                            <View style={styles.proxyBody}>
+                                                <View style={styles.transactionRow}>
                                                     <TouchableOpacity 
                                                         style={{flexDirection: 'row', alignItems: 'center', flex: 1, padding: 12}}
                                                     >
-                                                        <View style={[dynamicStyles.transactionIcon, { backgroundColor: getTransactionColor(item.main.type) + '20' }]}>
+                                                        <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(item.main.type) + '20' }]}>
                                                             <Icon name={getTransactionIcon(item.main.type)} size={RFValue(20)} color={getTransactionColor(item.main.type)} />
                                                         </View>
-                                                        <View style={dynamicStyles.transactionDetails}>
-                                                            <Text style={dynamicStyles.transactionName}>{item.main.purpose || 'Original Payment'}</Text>
-                                                            <Text style={dynamicStyles.transactionDate}>{item.main.contactName || 'N/A'}</Text>
+                                                        <View style={styles.transactionDetails}>
+                                                            <Text style={styles.transactionName}>{item.main.purpose || 'Original Payment'}</Text>
+                                                            <Text style={styles.transactionDate}>{item.main.contactName || 'N/A'}</Text>
                                                         </View>
-                                                        <View style={dynamicStyles.amountContainer}>
-                                                            <Text style={[dynamicStyles.transactionAmountText, { color: getTransactionColor(item.main.type) }]}>
+                                                        <View style={styles.amountContainer}>
+                                                            <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.main.type) }]}>
                                                                 {['cash_in', 'credit', 'receive', 'borrow'].includes(item.main.type) ? '+' : '-'}
                                                                 {formatAmount(item.main.amount, accountData?.currency)}
                                                             </Text>
                                                         </View>
                                                     </TouchableOpacity>
-                                                    <TouchableOpacity style={dynamicStyles.menuTrigger} onPress={(e) => openMenu(item.main, e, true)}>
+                                                    <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item.main, e, true)}>
                                                         <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
                                                     </TouchableOpacity>
                                                 </View>
                                                 
-                                                <View style={[dynamicStyles.transactionItem, { elevation: 0, shadowOpacity: 0, backgroundColor: '#f9f9f9', padding: 12 }]}>
-                                                    <View style={[dynamicStyles.transactionIcon, { backgroundColor: getTransactionColor(item.adjustment.type) + '20' }]}>
+                                                <View style={[styles.transactionItem, { elevation: 0, shadowOpacity: 0, backgroundColor: '#f9f9f9', padding: 12 }]}>
+                                                    <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(item.adjustment.type) + '20' }]}>
                                                         <Icon name={getTransactionIcon(item.adjustment.type)} size={RFValue(20)} color={getTransactionColor(item.adjustment.type)} />
                                                     </View>
-                                                    <View style={dynamicStyles.transactionDetails}>
-                                                        <Text style={dynamicStyles.transactionName}>{item.adjustment.purpose || 'Debt Adjustment'}</Text>
-                                                        <Text style={dynamicStyles.transactionDate}>{item.adjustment.contactName || 'N/A'}</Text>
+                                                    <View style={styles.transactionDetails}>
+                                                        <Text style={styles.transactionName}>{item.adjustment.purpose || 'Debt Adjustment'}</Text>
+                                                        <Text style={styles.transactionDate}>{item.adjustment.contactName || 'N/A'}</Text>
                                                     </View>
-                                                    <View style={dynamicStyles.amountContainer}>
-                                                        <Text style={[dynamicStyles.transactionAmountText, { color: getTransactionColor(item.adjustment.type) }]}>
+                                                    <View style={styles.amountContainer}>
+                                                        <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.adjustment.type) }]}>
                                                             {['cash_in', 'credit', 'receive', 'borrow'].includes(item.adjustment.type) ? '+' : '-'}
                                                             {formatAmount(item.adjustment.amount, accountData?.currency)}
                                                         </Text>
@@ -1044,16 +1045,16 @@ const AccountDetailScreen = ({ navigation, route }) => {
                             return <View key={item.tx.id}>{renderTransactionItem({ item: item.tx })}</View>;
                         })
                     ) : (
-                        <View style={dynamicStyles.noTransactions}>
+                        <View style={styles.noTransactions}>
                             <Icon name="receipt" size={RFValue(40)} color={colors.lightGray} />
-                            <Text style={dynamicStyles.noTransactionsText}>{t('accountDetailsScreen.noTransactions')}</Text>
-                            <Text style={dynamicStyles.noTransactionsSubtext}>{t('accountDetailsScreen.addFirstTransaction')}</Text>
+                            <Text style={styles.noTransactionsText}>{t('accountDetailsScreen.noTransactions')}</Text>
+                            <Text style={styles.noTransactionsSubtext}>{t('accountDetailsScreen.addFirstTransaction')}</Text>
                         </View>
                     )}
                 </View>
             </ScrollView>
             <TouchableOpacity
-                style={[dynamicStyles.fab, { backgroundColor: accountColor }]}
+                style={[styles.fab, { backgroundColor: color || colors.primary }]}
                 onPress={() => {
                     navigation.navigate(screens.NewRecord, {
                         accountId: accountData.id,

@@ -23,6 +23,8 @@ import uuid from 'react-native-uuid';
 import { useTranslation } from 'react-i18next';
 import NetInfo from '@react-native-community/netinfo';
 import { createAccountInSupabase, updateAccountInSupabase, deleteAccountInSupabase } from '../supabase';
+import StyledTextInput from '../components/shared/StyledTextInput';
+import StyledPicker from '../components/shared/StyledPicker';
 
 const colors = {
     primary: '#2563eb',
@@ -69,8 +71,8 @@ const AccountNameInput = memo(({ accountName, setAccountName, t }) => {
 const AddAccountScreen = ({ navigation, route }) => {
     const { t, i18n } = useTranslation();
     const [accountName, setAccountName] = useState('');
-    const [currency, setCurrency] = useState('USD');
-    const [terms, setTerms] = useState('cash_in_out');
+    const [currency, setCurrency] = useState('');
+    const [terms, setTerms] = useState('');
     const [showCurrencySheet, setShowCurrencySheet] = useState(false);
     const [showTermsSheet, setShowTermsSheet] = useState(false);
     const [currencies, setCurrencies] = useState([]);
@@ -78,21 +80,21 @@ const AddAccountScreen = ({ navigation, route }) => {
     const [userType, setUserType] = useState('free');
     const [supabaseUserId, setSupabaseUserId] = useState(null);
     const [initialAmount, setInitialAmount] = useState('');
+    const [errors, setErrors] = useState({});
 
     useEffect(() => {
-        // Fetch currencies from Realm
         const currencyElements = getAllObjects('CodeListElement')
             .filtered('codeListName == "currencies" && active == true')
             .sorted('sortOrder');
         
-        setCurrencies(Array.from(currencyElements));
+        const currencyData = Array.from(currencyElements).map(c => ({ label: `${c.element} - ${c.description}`, value: c.element }));
+        setCurrencies(currencyData);
         
-        // Realm change listener
         const listener = () => {
             const updatedCurrencies = getAllObjects('CodeListElement')
                 .filtered('codeListName == "currencies" && active == true')
                 .sorted('sortOrder');
-            setCurrencies(Array.from(updatedCurrencies));
+            setCurrencies(Array.from(updatedCurrencies).map(c => ({ label: `${c.element} - ${c.description}`, value: c.element })));
         };
         
         currencyElements.addListener(listener);
@@ -104,7 +106,7 @@ const AddAccountScreen = ({ navigation, route }) => {
     useEffect(() => {
         if (existingAccount) {
             setAccountName(existingAccount.name);
-            setCurrency(existingAccount.currency || 'USD');
+            setCurrency(existingAccount.currency || '');
             setTerms(existingAccount.type);
             setInitialAmount(
                 typeof existingAccount.initial_amount === 'number'
@@ -115,7 +117,6 @@ const AddAccountScreen = ({ navigation, route }) => {
     }, [existingAccount]);
 
     useEffect(() => {
-        // Get user type and supabaseId from Realm
         const users = getAllObjects('User');
         if (users.length > 0) {
             setUserType(users[0].userType || 'free');
@@ -136,18 +137,36 @@ const AddAccountScreen = ({ navigation, route }) => {
     }, [navigation, existingAccount]);
 
     const termOptions = [
-        {code: 'cash_in_out', display: t('terms.cash_inCashOut')},
-        {code: 'debit_credit', display: t('terms.debitCredit')},
-        {code: 'receive_send', display: t('terms.receiveSendOut')},
-        {code: 'borrow_lend', display: t('terms.borrowLend')}
+        {value: 'cash_in_out', label: t('terms.cash_inCashOut')},
+        {value: 'debit_credit', label: t('terms.creditDebit')},
+        {value: 'receive_send', label: t('terms.receiveSendOut')},
+        {value: 'borrow_lend', label: t('terms.borrowLend')}
     ];
 
     const getTranslatedTerm = (typeCode) => {
-        const term = termOptions.find(t => t.code === typeCode);
-        return term ? term.display : t('terms.cash_inCashOut');
+        const term = termOptions.find(t => t.value === typeCode);
+        return term ? term.label : t('terms.cash_inCashOut');
+    };
+
+    const validateForm = () => {
+        const newErrors = {};
+        if (!accountName.trim()) {
+            newErrors.accountName = t('addNewAccountScreen.errors.nameRequired', 'Account name is required.');
+        }
+        if (!currency) {
+            newErrors.currency = t('addNewAccountScreen.errors.currencyRequired', 'Please select a currency.');
+        }
+        if (!terms) {
+            newErrors.terms = t('addNewAccountScreen.errors.termsRequired', 'Please select an account type.');
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleAddAccount = useCallback(async () => {
+        if (!validateForm()) {
+            return;
+        }
         if (isLoading) return;
         setIsLoading(true);
 
@@ -158,13 +177,11 @@ const AddAccountScreen = ({ navigation, route }) => {
             const accounts = getAllObjects('Account');
             const isFirstAccount = accounts.length === 0;
 
-            // Parse initial amount, default to 0 if not entered or invalid
             let parsedInitialAmount = 0;
             if (initialAmount && !isNaN(Number(initialAmount))) {
                 parsedInitialAmount = Number(initialAmount);
             }
 
-            // Only set isPrimary true if first account and not editing
             let isPrimaryValue = false;
             if (!existingAccount && isFirstAccount) {
                 isPrimaryValue = true;
@@ -173,7 +190,6 @@ const AddAccountScreen = ({ navigation, route }) => {
             }
 
             let data = {
-                // id will be set below
                 name: accountName.trim(),
                 currency: currency,
                 type: terms,
@@ -197,150 +213,37 @@ const AddAccountScreen = ({ navigation, route }) => {
                 initial_amount: parsedInitialAmount,
             };
 
-            // Ensure a local user profile exists when working offline
             if (users.length === 0) {
-                const userData = {
-                    id: currentUserId,
-                    firstName: null,
-                    lastName: null,
-                    email: null,
-                    emailConfirmed: false,
-                    biometricEnabled: false,
-                    pinEnabled: false,
-                    pinCode: null,
-                    language: null,
-                    passwordHash: null,
-                    userType: 'free',
-                    profilePictureUrl: null,
-                    timezone: null,
-                    isActive: true,
-                    lastLoginAt: null,
-                    createdOn: now,
-                    updatedOn: now,
-                    syncStatus: 'pending',
-                    lastSyncAt: null,
-                    needsUpload: true,
-                };
+                const userData = { id: currentUserId, createdOn: now, updatedOn: now, syncStatus: 'pending', needsUpload: true };
                 createObject('User', userData);
             }
 
-            // Check network status
             const netState = await NetInfo.fetch();
             const isOnline = netState.isConnected && netState.isInternetReachable;
 
-            // --- PAID USER + ONLINE: Always use Supabase, then save response in Realm ---
             if (userType === 'paid' && isOnline) {
                 if (!supabaseUserId) throw new Error('Supabase user ID missing.');
 
                 if (existingAccount) {
-                    // Update in Supabase
-                    const supabaseAccountId = existingAccount.id;
-                    const supabaseResult = await updateAccountInSupabase(supabaseAccountId, {
-                        ...data,
-                        userId: supabaseUserId
-                    });
-                    // Save Supabase response in Realm (update)
-                    updateObject('Account', supabaseAccountId, {
-                        ...supabaseResult,
-                        id: supabaseResult.id,
-                        userId: supabaseUserId,
-                        isPrimary: typeof supabaseResult.is_primary !== 'undefined'
-                            ? !!supabaseResult.is_primary
-                            : (typeof supabaseResult.isPrimary !== 'undefined'
-                                ? !!supabaseResult.isPrimary
-                                : !!data.isPrimary),
-                        syncStatus: 'synced',
-                        needsUpload: false,
-                        updatedOn: new Date(),
-                        // Ensure currentBalance is set
-                        currentBalance: typeof supabaseResult.current_balance !== 'undefined'
-                            ? supabaseResult.current_balance
-                            : (typeof supabaseResult.currentBalance !== 'undefined'
-                                ? supabaseResult.currentBalance
-                                : (typeof data.currentBalance !== 'undefined'
-                                    ? data.currentBalance
-                                    : parsedInitialAmount)),
-                        // Ensure isActive is set
-                        isActive: typeof supabaseResult.is_active !== 'undefined'
-                            ? supabaseResult.is_active
-                            : (typeof supabaseResult.isActive !== 'undefined'
-                                ? supabaseResult.isActive
-                                : true),
-                    });
+                    const supabaseResult = await updateAccountInSupabase(existingAccount.id, { ...data, userId: supabaseUserId });
+                    updateObject('Account', existingAccount.id, { ...supabaseResult, id: supabaseResult.id, userId: supabaseUserId, syncStatus: 'synced', needsUpload: false, updatedOn: new Date() });
                     Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
                 } else {
-                    // Create in Supabase
-                    const supabaseResult = await createAccountInSupabase({
-                        ...data,
-                        userId: supabaseUserId
-                    });
-                    // Save Supabase response in Realm (create)
-                    createObject('Account', {
-                        ...supabaseResult,
-                        id: supabaseResult.id,
-                        userId: supabaseUserId,
-                        isPrimary: typeof supabaseResult.is_primary !== 'undefined'
-                            ? !!supabaseResult.is_primary
-                            : (typeof supabaseResult.isPrimary !== 'undefined'
-                                ? !!supabaseResult.isPrimary
-                                : !!data.isPrimary),
-                        syncStatus: 'synced',
-                        needsUpload: false,
-                        createdOn: new Date(supabaseResult.created_on || now),
-                        updatedOn: new Date(supabaseResult.updated_on || now),
-                        // Ensure currentBalance is set
-                        currentBalance: typeof supabaseResult.current_balance !== 'undefined'
-                            ? supabaseResult.current_balance
-                            : (typeof supabaseResult.currentBalance !== 'undefined'
-                                ? supabaseResult.currentBalance
-                                : (typeof data.currentBalance !== 'undefined'
-                                    ? data.currentBalance
-                                    : parsedInitialAmount)),
-                        // Ensure isActive is set
-                        isActive: typeof supabaseResult.is_active !== 'undefined'
-                            ? supabaseResult.is_active
-                            : (typeof supabaseResult.isActive !== 'undefined'
-                                ? supabaseResult.isActive
-                                : true),
-                    });
+                    const supabaseResult = await createAccountInSupabase({ ...data, userId: supabaseUserId });
+                    createObject('Account', { ...supabaseResult, id: supabaseResult.id, userId: supabaseUserId, syncStatus: 'synced', needsUpload: false, createdOn: new Date(supabaseResult.created_on || now), updatedOn: new Date(supabaseResult.updated_on || now) });
                     Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
                 }
             } else {
-                // --- FREE USER or OFFLINE: Add to SyncLog as before ---
                 if (existingAccount) {
-                    updateObject('Account', existingAccount.id, {
-                        ...data,
-                        id: existingAccount.id,
-                        updatedOn: now,
-                        syncStatus: 'pending',
-                        needsUpload: true,
-                    });
+                    updateObject('Account', existingAccount.id, { ...data, id: existingAccount.id, updatedOn: now, syncStatus: 'pending', needsUpload: true });
                     Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
                 } else {
                     const newId = uuid.v4();
-                    createObject('Account', {
-                        ...data,
-                        id: newId,
-                        createdOn: now,
-                        updatedOn: now,
-                        syncStatus: 'pending',
-                        needsUpload: true,
-                    });
-                    // Create sync log
-                    createObject('SyncLog', {
-                        id: Date.now().toString() + '_log',
-                        userId: currentUserId,
-                        tableName: 'accounts',
-                        recordId: newId,
-                        operation: 'create',
-                        status: 'pending',
-                        createdOn: new Date(),
-                        processedAt: null
-                    });
+                    createObject('Account', { ...data, id: newId, createdOn: now, updatedOn: now, syncStatus: 'pending', needsUpload: true });
+                    createObject('SyncLog', { id: Date.now().toString() + '_log', userId: currentUserId, tableName: 'accounts', recordId: newId, operation: 'create', status: 'pending', createdOn: new Date() });
                     Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
                 }
             }
-
             navigation.goBack();
         } catch (error) {
             Alert.alert('Error', 'Failed to create/update account: ' + error.message);
@@ -456,7 +359,6 @@ const AddAccountScreen = ({ navigation, route }) => {
             onPress={() => {
                 console.log('Selected currency:', item.element);
                 setCurrency(item.element);
-                setShowCurrencySheet(false);
             }}
         >
             <Text style={styles.currencyCode}>{item.element}</Text>
@@ -486,7 +388,7 @@ const AddAccountScreen = ({ navigation, route }) => {
     );
 
     // Find the selected currency object
-    const selectedCurrency = currencies.find(c => c.element === currency) || { element: 'USD' };
+    const selectedCurrency = currencies.find(c => c.value === currency) || { value: 'USD' };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -517,50 +419,55 @@ const AddAccountScreen = ({ navigation, route }) => {
                             }}
                         >
                             <View style={[styles.formWrapper, { maxWidth: wp(90), width: '100%' }]}>
-                                <AccountNameInput
-                                    accountName={accountName}
-                                    setAccountName={setAccountName}
-                                    t={t}
+                                <StyledTextInput
+                                    label={t('addNewAccountScreen.accountName')}
+                                    value={accountName}
+                                    onChangeText={(text) => {
+                                        setAccountName(text);
+                                        if (errors.accountName) setErrors(p => ({...p, accountName: null}));
+                                    }}
+                                    placeholder={t('addNewAccountScreen.placeholders.accountName')}
+                                    error={errors.accountName}
+                                    icon="account-balance"
                                 />
-                                {/* Initial Amount Field */}
-                                <View style={styles.inputContainer}>
-                                    <Text style={styles.label}>
-                                        {t('addNewAccountScreen.initialAmount') || 'Initial Amount'}
-                                        <Text style={styles.optionalText}> ({t('addNewAccountScreen.optional') || 'optional'})</Text>
-                                    </Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={initialAmount}
-                                        onChangeText={setInitialAmount}
-                                        placeholder={t('addNewAccountScreen.placeholders.initialAmount') || 'Enter initial amount'}
-                                        placeholderTextColor={colors.gray}
-                                        keyboardType="numeric"
-                                        returnKeyType="done"
-                                    />
-                                </View>
-                                <View style={styles.settingsContainer}>
-                                    <SettingRow
-                                        title={t('addNewAccountScreen.currency')}
-                                        value={selectedCurrency.element}
-                                        onPress={() => setShowCurrencySheet(true)}
-                                        isRequired={true}
-                                        icon={<CurrencyIcon />}
-                                    />
-                                    <SettingRow
-                                        title={t('addNewAccountScreen.terms')}
-                                        value={getTranslatedTerm(terms)}
-                                        onPress={() => setShowTermsSheet(true)}
-                                        isRequired={true}
-                                    />
-                                </View>
+                                <StyledTextInput
+                                    label={`${t('addNewAccountScreen.initialAmount')} (${t('addNewAccountScreen.optional')})`}
+                                    value={initialAmount}
+                                    onChangeText={setInitialAmount}
+                                    placeholder="0.00"
+                                    keyboardType="numeric"
+                                    icon="attach-money"
+                                />
+                                <StyledPicker
+                                    label={t('addNewAccountScreen.currency')}
+                                    items={currencies}
+                                    selectedValue={currency}
+                                    onValueChange={(value) => {
+                                        setCurrency(value);
+                                        if (errors.currency) setErrors(p => ({...p, currency: null}));
+                                    }}
+                                    placeholder={t('addNewAccountScreen.placeholders.selectCurrency', 'Select a currency...')}
+                                    error={errors.currency}
+                                />
+                                <StyledPicker
+                                    label={t('addNewAccountScreen.terms')}
+                                    items={termOptions}
+                                    selectedValue={terms}
+                                    onValueChange={(value) => {
+                                        setTerms(value);
+                                        if (errors.terms) setErrors(p => ({...p, terms: null}));
+                                    }}
+                                    placeholder={t('addNewAccountScreen.placeholders.selectTerms', 'Select account type...')}
+                                    error={errors.terms}
+                                />
                                 <View style={styles.buttonContainer}>
                                     <TouchableOpacity
                                         style={[
                                             styles.saveButton,
-                                            !accountName.trim() && styles.disabledButton
+                                            isLoading && styles.disabledButton
                                         ]}
                                         onPress={handleAddAccount}
-                                        disabled={!accountName.trim()}
+                                        disabled={isLoading}
                                         activeOpacity={0.85}
                                     >
                                         <Text style={styles.buttonText}>{existingAccount ? t('addNewAccountScreen.updateAccount') : t('addNewAccountScreen.addAccount')}</Text>
@@ -570,49 +477,6 @@ const AddAccountScreen = ({ navigation, route }) => {
                         </ScrollView>
                     </View>
                 </TouchableWithoutFeedback>
-                {/* Terms Bottom Sheet */}
-                <BottomSheet
-                    visible={showTermsSheet}
-                    onClose={() => setShowTermsSheet(false)}
-                    title={t('addNewAccountScreen.selectTransactionType')}
-                >
-                    {termOptions.map((option) => (
-                        <TouchableOpacity
-                            key={option.code}
-                            style={[
-                                styles.sheetOption,
-                                terms === option.code && { backgroundColor: colors.lightGray }
-                            ]}
-                            onPress={() => {
-                                setTerms(option.code);
-                                setShowTermsSheet(false);
-                            }}
-                        >
-                            <Text style={[
-                                styles.sheetOptionText,
-                                terms === option.code && { color: colors.primary, fontFamily: 'Sora-Bold' }
-                            ]}>
-                                {option.display}
-                            </Text>
-                            {terms === option.code && (
-                                <Icon name="check" size={RFValue(22)} color={colors.primary} />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </BottomSheet>
-                {/* Currency Bottom Sheet */}
-                <BottomSheet
-                    visible={showCurrencySheet}
-                    onClose={() => setShowCurrencySheet(false)}
-                    title={t('addNewAccountScreen.selectCurrency')}
-                >
-                    <FlatList
-                        data={currencies}
-                        renderItem={renderCurrencyItem}
-                        keyExtractor={item => item.id}
-                        contentContainerStyle={styles.currencyList}
-                    />
-                </BottomSheet>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );

@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
-  TextInput
 } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -19,6 +18,7 @@ import { realm } from '../realm';
 import { useTranslation } from 'react-i18next';
 import { createContactInSupabase } from '../supabase';
 import NetInfo from '@react-native-community/netinfo';
+import StyledTextInput from '../components/shared/StyledTextInput';
 
 const colors = {
   primary: '#2563eb',
@@ -274,13 +274,12 @@ const ImportContactsScreen = ({ navigation, route }) => {
       </View>
 
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
+        <StyledTextInput
           placeholder={t('importContactsScreen.placeholders.search')}
           value={searchQuery}
           onChangeText={setSearchQuery}
+          icon="search"
         />
-        <Icon name="search" size={24} color={colors.gray} />
       </View>
 
       <FlatList

@@ -418,7 +418,7 @@
     "borrow": "Tomar prestado",
     "lend": "Prestar",
     "cash_inCashOut": "Entrada - Salida de efectivo",
-    "debitCredit": "Débito - Crédito",
+    "creditDebit": "Débito - Crédito",
     "receiveSendOut": "Recibir - Enviar",
     "borrowLend": "Tomar prestado - Prestar"
   },

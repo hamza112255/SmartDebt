@@ -6,7 +6,6 @@ import {
     SafeAreaView,
     ScrollView,
     TouchableOpacity,
-    TextInput,
     Platform,
     Modal,
     Animated,
@@ -17,7 +16,8 @@ import {
     Image,
     Dimensions,
     FlatList,
-    Switch // Add this import for the Switch component
+    Switch,
+    TextInput
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -33,6 +33,8 @@ import { useTranslation } from 'react-i18next';
 import { createTransactionInSupabase, deleteTransactionInSupabase, updateTransactionInSupabase } from '../supabase';
 import NetInfo from '@react-native-community/netinfo';
 import styles from '../css/newRecordCss';
+import StyledPicker from '../components/shared/StyledPicker';
+import StyledTextInput from '../components/shared/StyledTextInput';
 
 const colors = {
     primary: '#667eea',
@@ -56,6 +58,14 @@ const colors = {
     cardShadow: 'rgba(102, 126, 234, 0.15)',
 };
 
+const currencies = [
+    { label: 'PKR', value: 'PKR' },
+    { label: 'USD', value: 'USD' },
+    { label: 'EUR', value: 'EUR' },
+    { label: 'GBP', value: 'GBP' },
+    { label: 'INR', value: 'INR' },
+];
+
 const mapUiTypeToStorageType = (uiType) => {
     if (['cash_in', 'receive', 'credit'].includes(uiType)) return 'credit';
     if (['cash_out', 'send_out', 'debit'].includes(uiType)) return 'debit';
@@ -78,36 +88,16 @@ const getUiTypeFromStorageType = (storageType, accountType) => {
     return storageType; // 'borrow', 'lend', and fallbacks
 };
 
-const getAvailableTransactionTypes = (accountType) => {
-    console.log('ghjgjhgjh',accountType)
-    switch (accountType) {
-        case 'cash_in_out':
-            return [
-                { label: 'Cash In', value: 'cash_in' },
-                { label: 'Cash Out', value: 'cash_out' }
-            ];
-        case 'receive_send':
-            return [
-                { label: 'Receive', value: 'receive' },
-                { label: 'Send Out', value: 'send_out' }
-            ];
-        case 'borrow_lend':
-            return [
-                { label: 'Borrow', value: 'borrow' },
-                { label: 'Lend', value: 'lend' }
-            ];
-        case 'debit_credit':
-            return [
-                { label: 'Debit', value: 'debit' },
-                { label: 'Credit', value: 'credit' }
-            ];
-        default:
-            return [
-                { label: 'Cash In', value: 'cash_in' },
-                { label: 'Cash Out', value: 'cash_out' }
-            ];
-    }
-};
+const allTransactionTypes = [
+    { label: 'Credit', value: 'credit' },
+    { label: 'Debit', value: 'debit' },
+    { label: 'Borrow', value: 'borrow' },
+    { label: 'Lend', value: 'lend' },
+    { label: 'Cash In', value: 'cash_in' },
+    { label: 'Cash Out', value: 'cash_out' },
+    { label: 'Receive', value: 'receive' },
+    { label: 'Send Out', value: 'send_out' },
+];
 
 function mapTypeForSupabase(type) {
     if (['cash_in', 'receive', 'credit'].includes(type)) return 'credit';
@@ -116,6 +106,13 @@ function mapTypeForSupabase(type) {
     if (['lend'].includes(type)) return 'lend';
     return type;
 }
+
+const transactionTypeMapping = {
+    'cash_in_out': ['cash_in', 'cash_out'],
+    'debit_credit': ['credit', 'debit'],
+    'receive_send': ['receive', 'send_out'],
+    'borrow_lend': ['borrow', 'lend'],
+};
 
 const NewRecordScreen = ({ navigation, route }) => {
     const { t } = useTranslation();
@@ -127,10 +124,7 @@ const NewRecordScreen = ({ navigation, route }) => {
         isDuplicating // Add this parameter to check if we're duplicating a transaction
     } = route.params || {};
     const [type, setType] = useState('');
-    const [availableTypes, setAvailableTypes] = useState([
-        { label: 'Cash In', value: 'cash_in' },
-        { label: 'Cash Out', value: 'cash_out' }
-    ]);
+    const [availableTypes, setAvailableTypes] = useState(allTransactionTypes);
     const [transactionDate, setTransactionDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
@@ -191,6 +185,9 @@ const NewRecordScreen = ({ navigation, route }) => {
         if (transactionId) {
             setIsEditing(!isDuplicating); // Only set editing mode if not duplicating
             loadTransactionData();
+        } else {
+            // Set a default type for new transactions
+            setType('credit');
         }
     }, [transactionId, isDuplicating, loadTransactionData]);
 
@@ -199,14 +196,16 @@ const NewRecordScreen = ({ navigation, route }) => {
         if (!accountId) return;
         const account = realm.objectForPrimaryKey('Account', accountId);
         if (!account) return;
-        setAccountType(account.type || '');
+        
+        const accountType = account.type;
+        const relevantTypeValues = transactionTypeMapping[accountType] || [];
+        const filteredTypes = allTransactionTypes.filter(t => relevantTypeValues.includes(t.value));
 
-        const types = getAvailableTransactionTypes(account.type);
-        setAvailableTypes(types);
+        setAvailableTypes(filteredTypes.length > 0 ? filteredTypes : allTransactionTypes);
 
         // Only set default type for NEW transactions
         if (!transactionId) {
-            setType(types[0]?.value || '');
+            setType(filteredTypes[0]?.value || allTransactionTypes[0]?.value || '');
         }
     }, [accountId, transactionId]);
 
@@ -282,9 +281,8 @@ const NewRecordScreen = ({ navigation, route }) => {
             if (transaction) {
                 setOriginalTransaction(transaction);
 
-                const account = realm.objectForPrimaryKey('Account', transaction.accountId);
-                const uiType = getUiTypeFromStorageType(transaction.type, account?.type);
-                setType(uiType);
+                // No need for getUiTypeFromStorageType as types are now direct
+                setType(transaction.type);
                 
                 setAmount(transaction.amount?.toString() || '');
                 setRemarks(transaction.remarks || '');
@@ -348,20 +346,30 @@ const NewRecordScreen = ({ navigation, route }) => {
 
     // Helper: update account balance for a transaction (like your SQL trigger)
     function updateAccountBalance(account, tx, isRevert = false) {
-        let balanceChange = 0;
         const amount = parseFloat(tx.amount) || 0;
         const type = tx.type;
-        // Only update if not a proxy adjustment (on_behalf_of_contact_id must be null or empty)
+        let receivingChange = 0;
+        let sendingChange = 0;
+        let balanceChange = 0;
+
+        // Only update if not a proxy adjustment
         if (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '') {
-            if (['credit', 'borrow'].includes(type)) {
+            if (['credit', 'borrow', 'cash_in', 'receive'].includes(type)) {
+                receivingChange = amount;
                 balanceChange = amount;
-            } else { // debit, lend
+            } else { // debit, lend, cash_out, send_out
+                sendingChange = amount;
                 balanceChange = -amount;
             }
-            if (isRevert) balanceChange = -balanceChange;
 
-            // This function is called within a realm.write() block,
-            // so we can modify the managed object directly instead of using realm.create.
+            if (isRevert) {
+                receivingChange = -receivingChange;
+                sendingChange = -sendingChange;
+                balanceChange = -balanceChange;
+            }
+
+            account.receiving_money = (account.receiving_money || 0) + receivingChange;
+            account.sending_money = (account.sending_money || 0) + sendingChange;
             account.currentBalance = (account.currentBalance || 0) + balanceChange;
             account.updatedOn = new Date();
         }
@@ -1100,39 +1108,25 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 </View>
                                 {isProxyPayment && (
                                     <View>
-                                        <Text style={styles.sectionTitle}>{t('newRecordScreen.onBehalfOfContact')}</Text>
-                                        <TouchableOpacity
-                                            style={[styles.dropdownInput, onBehalfOfContactId && styles.inputFocused]}
-                                            onPress={() => setShowOnBehalfDropdown(!showOnBehalfDropdown)}
-                                            activeOpacity={0.8}
-                                        >
-                                            <Text style={[styles.inputText, !onBehalfOfContactName && styles.placeholderText]}>
-                                                {onBehalfOfContactName || t('newRecordScreen.selectContactPlaceholder')}
-                                            </Text>
-                                            <Icon
-                                                name={showOnBehalfDropdown ? 'expand-less' : 'expand-more'}
-                                                size={24}
-                                                color={colors.gray}
-                                            />
-                                        </TouchableOpacity>
-                                        {showOnBehalfDropdown && (
-                                            <View style={styles.dropdownMenu}>
-                                                <ScrollView style={styles.dropdownScroll}>
-                                                    {availableContactsForOnBehalf.map(contact => (
-                                                        <TouchableOpacity
-                                                            key={contact.id}
-                                                            style={styles.dropdownItem}
-                                                            onPress={() => handleSelectOnBehalfContact(contact)}
-                                                        >
-                                                            <Text style={styles.dropdownItemText}>{contact.name}</Text>
-                                                            {onBehalfOfContactId === contact.id && (
-                                                                <Icon name="check" size={20} color={colors.primary} />
-                                                            )}
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </ScrollView>
-                                            </View>
-                                        )}
+                                        <StyledPicker
+                                            label={t('newRecordScreen.onBehalfOfContact')}
+                                            selectedValue={onBehalfOfContactId}
+                                            onValueChange={setOnBehalfOfContactId}
+                                            items={availableContactsForOnBehalf.map(c => ({ label: c.name, value: c.id }))}
+                                            icon="person-outline"
+                                            renderFooter={(closeModal) => (
+                                                <TouchableOpacity
+                                                    style={styles.addContactBtn}
+                                                    onPress={() => {
+                                                        closeModal();
+                                                        setShowContactOptionsModal(true);
+                                                    }}
+                                                >
+                                                    <Icon name="add" size={20} color={colors.primary} />
+                                                    <Text style={styles.addContactBtnText}>{t('addNewContact')}</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        />
                                     </View>
                                 )}
                             </View>
@@ -1210,109 +1204,75 @@ const NewRecordScreen = ({ navigation, route }) => {
 
                         {/* Main Contact field (exclude onBehalfOfContactId) */}
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>{t('newRecordScreen.contactLabel')}</Text>
-                            <TouchableOpacity
-                                style={[styles.dropdownInput, contactPerson && styles.inputFocused]}
-                                onPress={handleContactPress}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={[styles.inputText, !contactName && styles.placeholderText]}>
-                                    {contactName || t('newRecordScreen.selectContactPlaceholder')}
-                                </Text>
-                                <Icon
-                                    name={showContactDropdown ? 'expand-less' : 'expand-more'}
-                                    size={24}
-                                    color={colors.gray}
-                                />
-                            </TouchableOpacity>
-
-                            {/* Contact dropdown */}
-                            {showContactDropdown && (
-                                <View style={styles.dropdownMenu}>
-                                    <ScrollView style={styles.dropdownScroll}>
-                                        {availableContactsForContact.map(contact => (
-                                            <TouchableOpacity
-                                                key={contact.id}
-                                                style={styles.dropdownItem}
-                                                onPress={() => handleSelectContact(contact)}
-                                            >
-                                                <Text style={styles.dropdownItemText}>{contact.name}</Text>
-                                                {contactPerson === contact.id && (
-                                                    <Icon name="check" size={20} color={colors.primary} />
-                                                )}
-                                            </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
+                            <StyledPicker
+                                label={t('newRecordScreen.contactLabel')}
+                                selectedValue={contactPerson}
+                                onValueChange={setContactPerson}
+                                items={availableContactsForContact.map(c => ({ label: c.name, value: c.id }))}
+                                icon="person"
+                                renderFooter={(closeModal) => (
                                     <TouchableOpacity
                                         style={styles.addContactBtn}
                                         onPress={() => {
-                                            setShowContactDropdown(false);
+                                            closeModal();
                                             setShowContactOptionsModal(true);
                                         }}
                                     >
                                         <Icon name="add" size={20} color={colors.primary} />
                                         <Text style={styles.addContactBtnText}>{t('addNewContact')}</Text>
                                     </TouchableOpacity>
-                                </View>
-                            )}
+                                )}
+                            />
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>{t('newRecordScreen.purposeLabel')}</Text>
-                            <TouchableOpacity 
-                                style={styles.selectInput}
-                                onPress={() => setShowPurposeModal(true)}
-                            >
-                                <Text style={purpose ? styles.selectInputText : styles.selectInputPlaceholder}>
-                                    {purpose || t('newRecordScreen.selectPurpose')}
-                                </Text>
-                                <Icon name="arrow-drop-down" size={24} color={colors.gray} />
-                            </TouchableOpacity>
+                            <StyledPicker
+                                label={t('newRecordScreen.purposeLabel')}
+                                selectedValue={purpose}
+                                onValueChange={setPurpose}
+                                items={purposes.map(p => ({ label: p.description, value: p.element }))}
+                                icon="assignment"
+                                renderFooter={(closeModal) => (
+                                    <TouchableOpacity
+                                        style={styles.addContactBtn}
+                                        onPress={() => {
+                                            closeModal();
+                                            setShowNewPurposeModal(true);
+                                        }}
+                                    >
+                                        <Icon name="add" size={20} color={colors.primary} />
+                                        <Text style={styles.addContactBtnText}>{t('newRecordScreen.addNewPurpose')}</Text>
+                                    </TouchableOpacity>
+                                )}
+                            />
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>{t('newRecordScreen.amountLabel')}</Text>
-                            <View style={styles.amountContainer}>
-                                <View style={[styles.inputWrapper, styles.amountInputWrapper, isAmountFocused && styles.inputWrapperFocused]}>
-                                    <Icon name="attach-money" size={RFValue(20)} color={colors.primary} />
-                                    <TextInput
-                                        style={[styles.input, styles.amountInput]}
-                                        keyboardType="numeric"
-                                        placeholder={t('newRecordScreen.amountPlaceholder')}
-                                        placeholderTextColor={colors.textSecondary}
-                                        value={amount}
-                                        onChangeText={setAmount}
-                                        onFocus={() => setIsAmountFocused(true)}
-                                        onBlur={() => setIsAmountFocused(false)}
-                                        editable={!isLoading}
-                                    />
-                                </View>
-                                <LinearGradient
-                                    colors={[colors.primary, colors.primaryDark]}
-                                    style={styles.currencyButton}
-                                >
-                                    <Text style={styles.currencyText}>{currency}</Text>
-                                </LinearGradient>
-                            </View>
+                            <StyledTextInput
+                                label={t('newRecordScreen.amountLabel')}
+                                value={amount}
+                                onChangeText={setAmount}
+                                keyboardType="numeric"
+                                placeholder="0.00"
+                                currency={currency}
+                                onFocus={() => setIsAmountFocused(true)}
+                                onBlur={() => setIsAmountFocused(false)}
+                                editable={!isLoading}
+                            />
                         </View>
 
                         <View style={styles.cardContainer}>
-                            <Text style={styles.sectionTitle}>{t('newRecordScreen.remarksLabel')}</Text>
-                            <View style={[styles.inputWrapper, styles.remarkWrapper, isRemarksFocused && styles.inputWrapperFocused]}>
-                                <Icon name="note" size={RFValue(20)} color={colors.primary} style={styles.remarkIcon} />
-                                <TextInput
-                                    style={[styles.input, styles.remarkInput]}
-                                    placeholder={t('newRecordScreen.remarksPlaceholder')}
-                                    placeholderTextColor={colors.textSecondary}
-                                    value={remarks}
-                                    onChangeText={setRemarks}
-                                    onFocus={() => setIsRemarksFocused(true)}
-                                    onBlur={() => setIsRemarksFocused(false)}
-                                    multiline
-                                    textAlignVertical="top"
-                                    editable={!isLoading}
-                                />
-                            </View>
+                            <StyledTextInput
+                                label={t('newRecordScreen.remarksLabel')}
+                                value={remarks}
+                                onChangeText={setRemarks}
+                                placeholder={t('newRecordScreen.remarksPlaceholder')}
+                                multiline
+                                icon="note"
+                                onFocus={() => setIsRemarksFocused(true)}
+                                onBlur={() => setIsRemarksFocused(false)}
+                                editable={!isLoading}
+                            />
                         </View>
 
                         <View style={styles.cardContainer}>
@@ -1425,41 +1385,40 @@ const NewRecordScreen = ({ navigation, route }) => {
                         transparent={true}
                         onRequestClose={() => setShowPurposeModal(false)}
                     >
-                        <TouchableOpacity 
-                            style={styles.modalBackdrop}
-                            activeOpacity={1}
-                            onPress={() => setShowPurposeModal(false)}
-                        >
-                            <TouchableWithoutFeedback>
-                                <View style={styles.modalContent}>
-                                    <Text style={styles.modalTitle}>{t('newRecordScreen.selectPurpose')}</Text>
-                                    <FlatList
-                                        data={purposes}
-                                        keyExtractor={item => item.id}
-                                        renderItem={({item}) => (
-                                            <TouchableOpacity 
-                                                style={styles.modalItem}
-                                                onPress={() => {
-                                                    setPurpose(item.element);
-                                                    setShowPurposeModal(false);
-                                                }}
-                                            >
-                                                <Text>{item.description}</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    />
-                                    <TouchableOpacity 
-                                        style={styles.addNewButton}
-                                        onPress={() => {
-                                            setShowPurposeModal(false);
-                                            setShowNewPurposeModal(true);
-                                        }}
-                                    >
-                                        <Text style={styles.addNewText}>+ {t('newRecordScreen.addNewPurpose')}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </TouchableWithoutFeedback>
-                        </TouchableOpacity>
+                        <TouchableWithoutFeedback onPress={() => setShowPurposeModal(false)}>
+                            <View style={styles.modalOverlay} />
+                        </TouchableWithoutFeedback>
+
+                        <View style={styles.bottomSheetContainer}>
+                            <View style={styles.bottomSheetContent}>
+                                <View style={styles.bottomSheetHandle} />
+                                <Text style={styles.bottomSheetTitle}>{t('newRecordScreen.selectPurpose')}</Text>
+                                <FlatList
+                                    data={purposes}
+                                    keyExtractor={item => item.id}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={styles.bottomSheetOption}
+                                            onPress={() => {
+                                                setPurpose(item.element);
+                                                setShowPurposeModal(false);
+                                            }}
+                                        >
+                                            <Text style={styles.bottomSheetText}>{item.description}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                                <TouchableOpacity
+                                    style={styles.addNewButton}
+                                    onPress={() => {
+                                        setShowPurposeModal(false);
+                                        setShowNewPurposeModal(true);
+                                    }}
+                                >
+                                    <Text style={styles.addNewText}>+ {t('newRecordScreen.addNewPurpose')}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </Modal>
                     <Modal
                         visible={showNewPurposeModal}
@@ -1470,7 +1429,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         <View style={styles.modalContainer}>
                             <View style={styles.modalContent}>
                                 <Text style={styles.modalTitle}>{t('newRecordScreen.addNewPurpose')}</Text>
-                                <TextInput
+                                <StyledTextInput
                                     style={styles.modalInput}
                                     placeholder="Enter purpose name"
                                     value={newPurpose}

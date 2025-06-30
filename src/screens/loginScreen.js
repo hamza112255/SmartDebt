@@ -21,6 +21,7 @@ import IconGoogle from 'react-native-vector-icons/MaterialCommunityIcons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage } from 'react-native-responsive-fontsize';
 import { useTranslation } from 'react-i18next';
+import StyledTextInput from '../components/shared/StyledTextInput';
 
 const colors = {
     primary: '#2563eb',
@@ -229,38 +230,26 @@ const LoginScreen = ({ navigation }) => {
                         <Text style={styles.subtitle}>{t('loginScreen.subtitle')}</Text>
                     </View>
                     <View style={styles.formContainer}>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>{t('loginScreen.emailLabel')}</Text>
-                            <View style={styles.inputWrapper}>
-                                <Icon name="email" size={20} color={colors.gray} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder={t('loginScreen.placeholders.email', 'Enter your email')}
-                                    placeholderTextColor={colors.gray}
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                />
-                            </View>
-                        </View>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>{t('loginScreen.passwordLabel')}</Text>
-                            <View style={styles.inputWrapper}>
-                                <Icon name="lock" size={20} color={colors.gray} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder={t('loginScreen.placeholders.password', 'Enter your password')}
-                                    placeholderTextColor={colors.gray}
-                                    value={password}
-                                    onChangeText={setPassword}
-                                    secureTextEntry
-                                />
-                            </View>
-                            <TouchableOpacity style={styles.forgotPasswordButton}>
-                                <Text style={styles.forgotPasswordText}>{t('loginScreen.forgotPassword')}</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <StyledTextInput
+                            label={t('loginScreen.emailLabel')}
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder={t('loginScreen.placeholders.email', 'Enter your email')}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            icon="email"
+                        />
+                        <StyledTextInput
+                            label={t('loginScreen.passwordLabel')}
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder={t('loginScreen.placeholders.password', 'Enter your password')}
+                            isPassword
+                            icon="lock"
+                        />
+                        <TouchableOpacity style={styles.forgotPasswordButton}>
+                            <Text style={styles.forgotPasswordText}>{t('loginScreen.forgotPassword')}</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity style={[styles.signInButton, (isLoading || isSyncing) && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading || isSyncing}>
                             {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>{t('loginScreen.signInButton')}</Text>}
                         </TouchableOpacity>

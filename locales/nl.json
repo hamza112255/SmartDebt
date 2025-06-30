@@ -346,7 +346,7 @@
     "borrow": "Lenen",
     "lend": "Uitlenen",
     "cash_inCashOut": "Geld ontvangen - Uitgeven",
-    "debitCredit": "Debet - Credit",
+    "creditDebit": "Debet - Credit",
     "receiveSendOut": "Ontvangen - Verzenden",
     "borrowLend": "Lenen - Uitlenen"
   },

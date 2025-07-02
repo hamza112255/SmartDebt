@@ -75,6 +75,26 @@ export const ContactSchema = {
   },
 };
 
+export const CategorySchema = {
+  name: "Category",
+  primaryKey: "id",
+  properties: {
+    id: "string",
+    name: "string",
+    description: "string?",
+    color: "string?",
+    icon: "string?",
+    userId: "string?", // null for system defaults
+    parentCategoryId: "string?", // for hierarchical categories
+    isActive: { type: "bool", default: true },
+    createdOn: "date",
+    updatedOn: "date",
+    syncStatus: "string",
+    lastSyncAt: "date?",
+    needsUpload: "bool",
+  },
+};
+
 export const TransactionSchema = {
   name: "Transaction",
   primaryKey: "id",
@@ -86,6 +106,7 @@ export const TransactionSchema = {
     accountId: "string",
     userId: "string",
     contactId: "string?",
+    categoryId: "string?", // Added for categorization
     transactionDate: "date",
     dueDate: "date?",
     remarks: "string?",
@@ -220,14 +241,15 @@ let realm = new Realm({
     AccountSchema,
     ContactSchema,
     TransactionSchema,
+    CategorySchema,
     CodeListSchema,
     CodeListElementSchema,
     UserCodeListElementSchema,
     ReportSchema,
     SyncLogSchema,
-    ProxyPaymentSchema, // Add ProxyPaymentSchema
+    ProxyPaymentSchema,
   ],
-  schemaVersion: 1,
+  schemaVersion: 2,
 });
 export { realm };
 
@@ -241,14 +263,15 @@ export const initializeRealm = async () => {
           AccountSchema,
           ContactSchema,
           TransactionSchema,
+          CategorySchema,
           CodeListSchema,
           CodeListElementSchema,
           UserCodeListElementSchema,
           ReportSchema,
           SyncLogSchema,
-          ProxyPaymentSchema, // Add ProxyPaymentSchema
+          ProxyPaymentSchema,
         ],
-        schemaVersion: 1,
+        schemaVersion: 2,
       });
       console.log('Realm initialized successfully');
     }

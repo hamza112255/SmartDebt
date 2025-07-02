@@ -44,6 +44,8 @@ import PremiumScreen from './src/screens/PremiumScreen';
 import i18n from './src/i18n'; // Import i18n
 import { I18nextProvider, useTranslation } from 'react-i18next'; // Import I18nextProvider
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import CategoriesScreen from './src/screens/categoriesScreen';
+import RecurringTransactionsScreen from './src/screens/recurringTransactionsScreen';
 
 import { DefaultTheme as PaperDefaultTheme } from 'react-native-paper';
 
@@ -567,6 +569,14 @@ function App({ currentLanguage }) {
                   <Stack.Screen
                     name="PremiumScreen"
                     component={PremiumScreen}
+                  />
+                  <Stack.Screen
+                    name="CategoriesScreen"
+                    component={CategoriesScreen}
+                  />
+                  <Stack.Screen
+                    name="RecurringTransactions"
+                    component={RecurringTransactionsScreen}
                   />
                 </Stack.Navigator>
               </NavigationContainer>

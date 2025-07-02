@@ -13,4 +13,8 @@ export const screens = {
     NewRecord: "NewRecord",
     AccountDetails: "AccountDetails",
     ReportDetail: "ReportDetail",
+    Premium: "Premium",
+    Categories: "Categories",
+    RecurringTransactions: "RecurringTransactions",
+    ForgotPassword: "ForgotPassword"
 }

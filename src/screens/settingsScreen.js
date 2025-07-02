@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import {
     StyleSheet,
     Text,
@@ -11,6 +11,7 @@ import {
     ScrollView,
     StatusBar,
     Alert,
+    Image,
 } from 'react-native';
 import { heightPercentageToDP as hp, widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { RFPercentage } from 'react-native-responsive-fontsize';
@@ -19,11 +20,27 @@ import uuid from 'react-native-uuid';
 import LinearGradient from 'react-native-linear-gradient';
 import BiometricContext from '../../src/contexts/BiometricContext';
 import { supabase, updateUserInSupabase } from '../supabase';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import PinModal from '../components/PinModal';
 import * as SecureStore from 'expo-secure-store';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { useTranslation } from 'react-i18next';
 import { useNetInfo } from '@react-native-community/netinfo';
+import PinModal from '../components/PinModal';
+
+// Import Lucide icons
+import {
+    User,
+    Lock,
+    Moon,
+    Fingerprint,
+    Shield,
+    LogOut,
+    ChevronRight,
+    Tag,
+    Repeat,
+    Crown,
+    Edit,
+    X,
+    ArrowLeft,
+} from 'lucide-react-native';
 
 const colors = {
     primary: '#2563eb',
@@ -55,15 +72,29 @@ const SettingsScreen = ({ navigation }) => {
     const [showBiometricConfirm, setShowBiometricConfirm] = useState(false);
     const [showPinSetup, setShowPinSetup] = useState(false);
     const { updateBiometricState, updatePinState } = useContext(BiometricContext);
-    const { t } = useTranslation(); // Initialize useTranslation
-    const [userType, setUserType] = useState('free'); // Default user type
+    const { t } = useTranslation();
+    const [userType, setUserType] = useState('free');
     const netInfo = useNetInfo();
+    const [darkMode, setDarkMode] = useState(false); // Added for UI only
+    const isMounted = useRef(true);
 
     useEffect(() => {
         loadUserData();
         const unsubscribe = navigation.addListener('focus', loadUserData);
         return unsubscribe;
     }, [navigation]);
+
+    useEffect(() => {
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
+    const safeAlert = (...args) => {
+        if (isMounted.current) {
+            Alert.alert(...args);
+        }
+    };
 
     const loadUserData = async () => {
         try {
@@ -80,12 +111,12 @@ const SettingsScreen = ({ navigation }) => {
                     pinEnabled: u.pinEnabled ?? false,
                     pinCode: u.pinCode ?? '',
                 });
-                setUserType(u.userType || 'free'); // Set user type from realm data
+                setUserType(u.userType || 'free');
                 setUserId(u.id);
                 setSupabaseUserId(u.supabaseId);
             }
         } catch (error) {
-            Alert.alert(t('common.error'), t('settingsScreen.errors.loadUser'));
+            safeAlert(t('common.error'), t('settingsScreen.errors.loadUser'));
         }
     };
 
@@ -93,7 +124,7 @@ const SettingsScreen = ({ navigation }) => {
 
     const saveSettings = async (settingsToUpdate) => {
         if (!userId) {
-            Alert.alert(t('common.error'), t('settingsScreen.errors.noUserFound'));
+            safeAlert(t('common.error'), t('settingsScreen.errors.noUserFound'));
             return false;
         }
 
@@ -168,23 +199,27 @@ const SettingsScreen = ({ navigation }) => {
             }
             return true;
         } catch (error) {
-            Alert.alert(t('common.error'), `${t('settingsScreen.errors.saveSettings')}: ${error.message}`);
+            safeAlert(t('common.error'), `${t('settingsScreen.errors.saveSettings')}: ${error.message}`);
             return false;
         }
     };
 
     const handleEditProfile = () => {
-        Alert.alert(t('settingsScreen.confirm.editProfileTitle'), t('settingsScreen.confirm.editProfileMessage'), [
+        safeAlert(t('settingsScreen.confirm.editProfileTitle'), t('settingsScreen.confirm.editProfileMessage'), [
             { text: t('common.cancel'), style: 'cancel' },
-            { text: t('settingsScreen.buttons.proceed'), onPress: () => navigation.navigate('CreateProfile', {
-                mode: 'edit',
-                initialValues: {
-                    firstName: form.firstName,
-                    lastName: form.lastName,
-                    email: form.email,
-                },
-                onSaveKey: 'settingsScreenRefresh',
-            }) }
+            { text: t('settingsScreen.buttons.proceed'), onPress: () => {
+                if (isMounted.current) {
+                    navigation.navigate('CreateProfile', {
+                        mode: 'edit',
+                        initialValues: {
+                            firstName: form.firstName,
+                            lastName: form.lastName,
+                            email: form.email,
+                        },
+                        onSaveKey: 'settingsScreenRefresh',
+                    });
+                }
+            }}
         ]);
     };
 
@@ -252,138 +287,33 @@ const SettingsScreen = ({ navigation }) => {
         }
     };
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-            <LinearGradient
-                colors={[colors.gradientStart, colors.gradientEnd]}
-                style={styles.header}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-            >
-                <Text style={styles.headerTitle}>{t('settingsScreen.title')}</Text>
-                <View style={{ width: RFPercentage(3) }} />
-            </LinearGradient>
+    const getDisplayName = () => {
+        if (form.firstName || form.lastName) {
+            return `${form.firstName || ''} ${form.lastName || ''}`.trim();
+        }
+        return form.email || t('common.notSet');
+    };
 
-            <ScrollView contentContainerStyle={styles.contentWrapper}>
-                <Text style={styles.sectionHeader}>{t('settingsScreen.sections.profile')}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: hp(2) }}>
-                    <View style={{ flexDirection: 'row', flex: 1 }}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.label}>{t('settingsScreen.labels.firstName')}</Text>
-                            <Text style={styles.readonlyValue}>{form.firstName || t('common.notSet')}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.label}>{t('settingsScreen.labels.lastName')}</Text>
-                            <Text style={styles.readonlyValue}>{form.lastName || t('common.notSet')}</Text>
-                        </View>
-                    </View>
-                    <TouchableOpacity onPress={handleEditProfile} style={styles.editBtn}>
-                        <Icon name="edit" size={hp(3)} color={colors.primary} />
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.readonlyGroup}>
-                    <Text style={styles.label}>{t('settingsScreen.labels.emailAddress')}</Text>
-                    <Text style={styles.readonlyValue}>{form.email || t('common.notSet')}</Text>
-                </View>
-                <View style={styles.readonlyGroup}>
-                    <Text style={styles.label}>{t('settingsScreen.labels.language')}</Text>
-                    <Text style={styles.readonlyValue}>{t(`languages.${form.language.toLowerCase()}`)}</Text>
-                </View>
+    const getUserTypeColor = () => {
+        return userType === 'paid' ? '#FFD700' : '#999';
+    };
 
-                <Text style={styles.sectionHeader}>{t('settingsScreen.sections.security')}</Text>
-                <View style={styles.switchRow}>
-                    <Text style={styles.switchLabel}>{t('settingsScreen.labels.enableBiometric')}</Text>
-                    <Switch
-                        value={form.biometricEnabled}
-                        onValueChange={() => setShowBiometricConfirm(true)}
-                        trackColor={{ false: colors.border, true: colors.primary }}
-                        thumbColor={colors.white}
-                    />
-                </View>
-                <View style={styles.switchRow}>
-                    <Text style={styles.switchLabel}>{t('settingsScreen.labels.enablePin')}</Text>
-                    <Switch
-                        value={form.pinEnabled}
-                        onValueChange={handlePinToggle}
-                        trackColor={{ false: colors.border, true: colors.primary }}
-                        thumbColor={colors.white}
-                    />
-                </View>
-                <TouchableOpacity
-                    style={[styles.changePinButton, !form.pinEnabled && styles.disabledButton]}
-                    onPress={handleChangePin}
-                    disabled={!form.pinEnabled}
-                >
-                    <Text style={[styles.changePinText, !form.pinEnabled && styles.disabledText]}>
-                        {form.pinCode ? t('settingsScreen.buttons.changePin') : t('settingsScreen.buttons.createPin', 'Create New PIN')}
-                    </Text>
-                </TouchableOpacity>
+    const getUserTypeLabel = () => {
+        return userType === 'paid' ? t('settingsScreen.labels.premiumUser', 'Premium User') : t('settingsScreen.labels.freeUser', 'Free User');
+    };
 
-                <Modal visible={showBiometricConfirm} transparent={true}>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalContent}>
-                            <Text style={styles.modalTitle}>{t('settingsScreen.modals.biometricTitle')}</Text>
-                            <Text style={styles.modalText}>{t(form.biometricEnabled ? 'settingsScreen.modals.biometricDisableConfirm' : 'settingsScreen.modals.biometricEnableConfirm')}</Text>
-                            <View style={styles.modalButtons}>
-                                <TouchableOpacity
-                                    style={[styles.modalButton, { borderRightWidth: 1, borderColor: colors.border }]}
-                                    onPress={() => setShowBiometricConfirm(false)}
-                                >
-                                    <Text style={styles.modalButtonText}>{t('common.cancel')}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.modalButton}
-                                    onPress={() => toggleBiometric(!form.biometricEnabled)}
-                                >
-                                    <Text style={[styles.modalButtonText, { color: colors.primary }]}>{t('common.confirm')}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                </Modal>
-
-                <PinModal
-                    visible={showPinSetup}
-                    onAuthenticated={handlePinSetupComplete}
-                    onCancel={() => {
-                        setShowPinSetup(false);
-                        if (!form.pinCode) {
-                            setForm((prev) => ({ ...prev, pinEnabled: false }));
-                        }
-                    }}
-                    title={t('settingsScreen.modals.setupPinTitle')}
-                    isPinCreationFlow={true}
-                />
-
-                {form.pinEnabled && (
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>{t('settingsScreen.labels.pinCode')}</Text>
-                        <TextInput
-                            style={[styles.input, { backgroundColor: colors.lightGray }]}
-                            placeholder={t('settingsScreen.placeholders.pinNotSet')}
-                            value={form.pinCode}
-                            editable={false}
-                            keyboardType="number-pad"
-                            secureTextEntry
-                            maxLength={4}
-                            placeholderTextColor={colors.gray}
-                        />
-                    </View>
-                )}
-                {/* Logout Button */}
-                {userType === 'paid' && <TouchableOpacity
-                    style={{
-                        marginTop: 30,
-                        padding: 15,
-                        backgroundColor: colors.error,
-                        borderRadius: 8,
-                        alignItems: 'center',
-                    }}
-                    onPress={async () => {
+    const handleLogout = async () => {
+        Alert.alert(
+            t('common.logout'),
+            t('settingsScreen.confirm.logoutMessage', 'Are you sure you want to logout?'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                    text: t('common.logout'),
+                    style: 'destructive',
+                    onPress: async () => {
                         try {
                             await supabase.auth.signOut();
-                            // Optionally clear local user state here if needed
                             navigation.reset({
                                 index: 0,
                                 routes: [{ name: 'Login' }],
@@ -391,13 +321,183 @@ const SettingsScreen = ({ navigation }) => {
                         } catch (error) {
                             Alert.alert(t('common.error'), error.message || 'Logout failed');
                         }
-                    }}
-                >
-                    <Text style={{ color: colors.white, fontSize: RFPercentage(2.2), fontFamily: 'Sora-Bold' }}>
-                        {t('common.logout') || 'Logout'}
-                    </Text>
-                </TouchableOpacity>}
+                    },
+                },
+            ]
+        );
+    };
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+            
+            {/* Header */}
+            <View style={styles.header}>
+                <User size={24} color={colors.primary} />
+                <Text style={styles.headerTitle}>{t('settingsScreen.title')}</Text>
+                <View style={{ width: 24 }} />
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Profile Section */}
+                <View style={styles.profileSection}>
+                    <View style={styles.profileHeader}>
+                        <View style={styles.avatarContainer}>
+                            <View style={styles.avatarPlaceholder}>
+                                <User size={32} color="#666" />
+                            </View>
+                        </View>
+                        <View style={styles.profileInfo}>
+                            <Text style={styles.userName}>{getDisplayName()}</Text>
+                            <Text style={styles.userEmail}>{form.email || t('common.notSet')}</Text>
+                            <View style={styles.userTypeContainer}>
+                                <Crown size={16} color={getUserTypeColor()} />
+                                <Text style={[styles.userType, { color: getUserTypeColor() }]}>
+                                    {getUserTypeLabel()}
+                                </Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity onPress={handleEditProfile} style={styles.editProfileButton}>
+                            <Edit size={20} color={colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Security Section */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>{t('settingsScreen.sections.security')}</Text>
+                    
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <Fingerprint size={20} color={colors.primary} />
+                            <Text style={styles.menuItemText}>{t('settingsScreen.labels.enableBiometric')}</Text>
+                        </View>
+                        <Switch
+                            value={form.biometricEnabled}
+                            onValueChange={() => setShowBiometricConfirm(true)}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor={colors.white}
+                        />
+                    </View>
+
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <Shield size={20} color={colors.primary} />
+                            <Text style={styles.menuItemText}>{t('settingsScreen.labels.enablePin')}</Text>
+                        </View>
+                        <Switch
+                            value={form.pinEnabled}
+                            onValueChange={handlePinToggle}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor={colors.white}
+                        />
+                    </View>
+
+                    <TouchableOpacity
+                        style={[styles.changePinButton, !form.pinEnabled && styles.disabledButton]}
+                        onPress={handleChangePin}
+                        disabled={!form.pinEnabled}
+                    >
+                        <Text style={[styles.changePinText, !form.pinEnabled && styles.disabledText]}>
+                            {form.pinCode ? t('settingsScreen.buttons.changePin') : t('settingsScreen.buttons.createPin', 'Create New PIN')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* App Settings */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>{t('settingsScreen.sections.appSettings', 'App Settings')}</Text>
+                    
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <Moon size={20} color={colors.primary} />
+                            <Text style={styles.menuItemText}>{t('settingsScreen.labels.darkMode', 'Dark Mode')}</Text>
+                        </View>
+                        <Switch
+                            value={darkMode}
+                            onValueChange={setDarkMode}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor={colors.white}
+                        />
+                    </View>
+                </View>
+
+                {/* Management */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>{t('settingsScreen.sections.management', 'Management')}</Text>
+                    
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => navigation.navigate('CategoriesScreen')}
+                    >
+                        <View style={styles.menuItemLeft}>
+                            <Tag size={20} color={colors.primary} />
+                            <Text style={styles.menuItemText}>{t('settingsScreen.labels.manageCategories', 'Manage Categories')}</Text>
+                        </View>
+                        <ChevronRight size={20} color="#999" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => navigation.navigate('RecurringTransactions')}
+                    >
+                        <View style={styles.menuItemLeft}>
+                            <Repeat size={20} color={colors.primary} />
+                            <Text style={styles.menuItemText}>{t('settingsScreen.labels.manageRecurring', 'Manage Recurring Transactions')}</Text>
+                        </View>
+                        <ChevronRight size={20} color="#999" />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Logout Button */}
+                {userType === 'paid' && (
+                    <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={handleLogout}
+                    >
+                        <LogOut size={20} color={colors.error} />
+                        <Text style={styles.logoutText}>
+                            {t('common.logout')}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </ScrollView>
+
+            {/* Biometric Confirm Modal */}
+            <Modal visible={showBiometricConfirm} transparent={true}>
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{t('settingsScreen.modals.biometricTitle')}</Text>
+                        <Text style={styles.modalText}>{t(form.biometricEnabled ? 'settingsScreen.modals.biometricDisableConfirm' : 'settingsScreen.modals.biometricEnableConfirm')}</Text>
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={[styles.modalButton, { borderRightWidth: 1, borderColor: colors.border }]}
+                                onPress={() => setShowBiometricConfirm(false)}
+                            >
+                                <Text style={styles.modalButtonText}>{t('common.cancel')}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.modalButton}
+                                onPress={() => toggleBiometric(!form.biometricEnabled)}
+                            >
+                                <Text style={[styles.modalButtonText, { color: colors.primary }]}>{t('common.confirm')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* PIN Setup Modal */}
+            <PinModal
+                visible={showPinSetup}
+                onAuthenticated={handlePinSetupComplete}
+                onCancel={() => {
+                    setShowPinSetup(false);
+                    setForm(prev => ({ ...prev, pinEnabled: false }));
+                }}
+                title={t('settingsScreen.pinSetup.title')}
+                isPinCreationFlow={true}
+            />
         </SafeAreaView>
     );
 };
@@ -405,113 +505,119 @@ const SettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background,
+        backgroundColor: '#F8F9FA',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: hp(2),
-        paddingHorizontal: wp(4.5),
+        justifyContent: 'space-between',
+        padding: 20,
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E5E5',
     },
     headerTitle: {
         fontSize: RFPercentage(2.5),
-        color: colors.white,
-        fontFamily: 'Sora-Bold',
+        fontWeight: '700',
+        color: '#333',
     },
-    contentWrapper: {
-        padding: wp(4.5),
+    profileSection: {
+        backgroundColor: '#FFFFFF',
+        marginTop: 16,
+        marginHorizontal: 16,
+        borderRadius: 12,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
-    inputGroup: {
-        marginBottom: hp(2),
-    },
-    label: {
-        fontSize: RFPercentage(2),
-        marginBottom: hp(0.8),
-        color: colors.text,
-        fontFamily: 'Sora-SemiBold',
-    },
-    input: {
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: wp(2),
-        paddingHorizontal: wp(3),
-        paddingVertical: hp(1.2),
-        fontSize: RFPercentage(2),
-        color: colors.text,
-    },
-    readonlyGroup: {
-        marginBottom: hp(2),
-    },
-    readonlyValue: {
-        fontSize: RFPercentage(2),
-        color: colors.gray,
-    },
-    switchRow: {
+    profileHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: hp(1.5),
-        borderBottomWidth: 1,
-        borderColor: colors.border,
     },
-    switchLabel: {
-        fontSize: RFPercentage(2),
-        color: colors.text,
+    avatarContainer: {
+        marginRight: 16,
     },
-    sectionHeader: {
-        fontSize: RFPercentage(2.2),
-        color: colors.primary,
-        fontFamily: 'Sora-Bold',
-        marginTop: hp(2),
-        marginBottom: hp(1),
-    },
-    editBtn: {
-        paddingHorizontal: wp(2),
-        paddingVertical: hp(0.5),
-    },
-    modalContainer: {
-        flex: 1,
+    avatarPlaceholder: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#F0F0F0',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
     },
-    modalContent: {
-        backgroundColor: colors.white,
-        borderRadius: wp(2),
-        width: wp(80),
-        padding: wp(5),
-    },
-    modalTitle: {
-        fontSize: RFPercentage(2.5),
-        fontFamily: 'Sora-Bold',
-        marginBottom: hp(1),
-        color: colors.text,
-    },
-    modalText: {
-        fontSize: RFPercentage(2),
-        marginBottom: hp(2),
-        color: colors.text,
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        borderTopWidth: 1,
-        borderColor: colors.border,
-    },
-    modalButton: {
+    profileInfo: {
         flex: 1,
-        paddingVertical: hp(1.5),
+    },
+    userName: {
+        fontSize: RFPercentage(2.2),
+        fontWeight: '700',
+        color: '#333',
+        marginBottom: 4,
+    },
+    userEmail: {
+        fontSize: RFPercentage(1.8),
+        color: '#666',
+        marginBottom: 8,
+    },
+    userTypeContainer: {
+        flexDirection: 'row',
         alignItems: 'center',
     },
-    modalButtonText: {
+    userType: {
+        fontSize: RFPercentage(1.7),
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+    editProfileButton: {
+        padding: 10,
+        backgroundColor: '#F0F0F0',
+        borderRadius: 20,
+    },
+    section: {
+        backgroundColor: '#FFFFFF',
+        marginTop: 16,
+        marginHorizontal: 16,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    sectionTitle: {
         fontSize: RFPercentage(2),
+        fontWeight: '600',
+        color: '#333',
+        padding: 16,
+        paddingBottom: 8,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    menuItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    menuItemText: {
+        fontSize: RFPercentage(1.9),
+        color: '#333',
+        marginLeft: 12,
     },
     changePinButton: {
-        marginTop: hp(2),
+        margin: 16,
         padding: hp(1.5),
         backgroundColor: colors.white,
-        borderRadius: wp(2),
+        borderRadius: 8,
         alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.primary,
@@ -522,11 +628,66 @@ const styles = StyleSheet.create({
     },
     changePinText: {
         color: colors.primary,
-        fontSize: RFPercentage(2),
-        fontFamily: 'Sora-SemiBold',
+        fontSize: RFPercentage(1.9),
+        fontWeight: '600',
     },
     disabledText: {
         color: colors.gray,
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: 16,
+        marginTop: 30,
+        marginBottom: 30,
+        padding: 16,
+        backgroundColor: '#FFF5F5',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#FFE5E5',
+    },
+    logoutText: {
+        fontSize: RFPercentage(2),
+        fontWeight: '600',
+        color: colors.error,
+        marginLeft: 8,
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalContent: {
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        width: wp(80),
+        padding: 20,
+    },
+    modalTitle: {
+        fontSize: RFPercentage(2.2),
+        fontWeight: '700',
+        marginBottom: 10,
+        color: '#333',
+    },
+    modalText: {
+        fontSize: RFPercentage(2),
+        marginBottom: 20,
+        color: '#666',
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        borderTopWidth: 1,
+        borderColor: colors.border,
+    },
+    modalButton: {
+        flex: 1,
+        paddingVertical: 15,
+        alignItems: 'center',
+    },
+    modalButtonText: {
+        fontSize: RFPercentage(2),
     },
 });
 

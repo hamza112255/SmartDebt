@@ -58,7 +58,18 @@ export default function RecurringForm({
       return;
     }
 
-    onSubmit(formData);
+    // Format dates for JSON serialization
+    const formattedData = {
+      ...formData,
+      start_date: formData.start_date.toISOString(),
+      end_date: formData.end_date ? formData.end_date.toISOString() : undefined,
+      // Convert interval_value to number
+      interval_value: parseInt(formData.interval_value, 10),
+      // Convert max_occurrences to number if it exists
+      max_occurrences: formData.max_occurrences ? parseInt(formData.max_occurrences, 10) : undefined
+    };
+
+    onSubmit(formattedData);
   };
 
   const getFrequencyLabel = () => {

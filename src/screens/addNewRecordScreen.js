@@ -581,9 +581,20 @@ const NewRecordScreen = ({ navigation, route }) => {
     }
 
     const handleRecurringSubmit = (data) => {
-        setRecurringPattern(data);
-        setShowRecurringModal(false);
-        Alert.alert("Recurring Rule Set", "The recurring transaction rule has been configured.");
+        try {
+            // Validate the data structure
+            if (!data.frequency_type || !data.interval_value || !data.start_date) {
+                throw new Error('Invalid recurring pattern data');
+            }
+
+            // Store the formatted data
+            setRecurringPattern(data);
+            setShowRecurringModal(false);
+            Alert.alert("Recurring Rule Set", "The recurring transaction rule has been configured.");
+        } catch (error) {
+            console.error('Error setting recurring pattern:', error);
+            Alert.alert("Error", "Failed to set recurring pattern. Please try again.");
+        }
     };
 
     const handleCancelRecurring = () => {
@@ -837,7 +848,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         
                         // Handle recurring logic on update
                         if (isRecurring && recurringPattern) {
-                            const recurringData = JSON.parse(recurringPattern);
+                            const recurringData = recurringPattern;
                             if (recurringTransaction) { // Rule exists, so update it
                                 await updateRecurringTransactionInSupabase(recurringTransaction.id, recurringData);
                             } else { // No rule existed, create a new one for this transaction
@@ -855,7 +866,7 @@ const NewRecordScreen = ({ navigation, route }) => {
 
                         // Handle recurring logic on create
                         if (isRecurring && recurringPattern) {
-                            const recurringData = JSON.parse(recurringPattern);
+                            const recurringData = recurringPattern;
                             await createRecurringTransactionInSupabase(recurringData, supaTx.id, supabaseUserId);
                         }
                     }

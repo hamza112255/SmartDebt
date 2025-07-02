@@ -19,7 +19,7 @@ import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { realm, getAllObjects, initializeRealm } from './src/realm';
-import { supabase, syncPendingChanges } from './src/supabase';
+import { supabase, syncPendingChanges, syncDownstreamChanges } from './src/supabase';
 import { fetchAndStoreCodeLists } from './src/supabase';
 
 import DashboardScreen from './src/screens/dashboardScreen';
@@ -195,7 +195,7 @@ function MainTabs() {
         name="Notifications"
         component={CalendarScreen}
         options={{
-          tabBarLabel: t('navigation.tabs.alerts'),
+          tabBarLabel: t('navigation.tabs.budget'),
           tabBarBadge: 3,
           tabBarBadgeStyle: {
             backgroundColor: '#ef4444',
@@ -460,39 +460,43 @@ function App({ currentLanguage }) {
           if (
             users.length > 0 &&
             users[0].userType === 'paid' &&
-            syncLogs.length > 0
+            users[0].id
           ) {
             syncing = true;
-            setSyncMessage('Preparing to sync...');
-            setSyncProgress(0);
-
-            const onProgress = ({ current, total, message }) => {
-              const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
-              setSyncProgress(percentage);
-              setSyncMessage(message || `Syncing records (${current}/${total})`);
-            };
-
-            const result = await syncPendingChanges(users[0].id, onProgress);
-
-            if (result.total > 0) {
-              setSyncMessage('Sync complete!');
-              setSyncProgress(100);
-            } else {
-              setSyncMessage('Everything is up to date');
-            }
-            setTimeout(() => {
+            if (syncLogs.length > 0) {
+              setSyncMessage('Preparing to sync...');
               setSyncProgress(0);
-              setSyncMessage('');
-              syncing = false;
-            }, 1500);
+
+              const onProgress = ({ current, total, message }) => {
+                const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+                setSyncProgress(percentage);
+                setSyncMessage(message || `Syncing records (${current}/${total})`);
+              };
+
+              const result = await syncPendingChanges(users[0].id, onProgress);
+
+              if (result.total > 0) {
+                setSyncMessage('Sync complete!');
+                setSyncProgress(100);
+              } else {
+                setSyncMessage('Everything is up to date');
+              }
+              setTimeout(() => {
+                setSyncProgress(0);
+                setSyncMessage('');
+              }, 1500);
+            }
+            await syncDownstreamChanges(users[0].id);
           }
         } catch (error) {
+          console.error('Sync failed:', error);
           setSyncMessage('Sync failed');
           setTimeout(() => {
             setSyncProgress(0);
             setSyncMessage('');
-            syncing = false;
           }, 2000);
+        } finally {
+          syncing = false;
         }
       }
     };

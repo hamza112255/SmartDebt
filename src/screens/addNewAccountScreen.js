@@ -22,7 +22,7 @@ import { createObject, updateObject, getAllObjects, realm } from '../realm';
 import uuid from 'react-native-uuid';
 import { useTranslation } from 'react-i18next';
 import NetInfo from '@react-native-community/netinfo';
-import { createAccountInSupabase, updateAccountInSupabase, deleteAccountInSupabase } from '../supabase';
+import { createAccountInSupabase, updateAccountInSupabase, deleteAccountInSupabase, transformKeysToCamelCase } from '../supabase';
 import StyledTextInput from '../components/shared/StyledTextInput';
 import StyledPicker from '../components/shared/StyledPicker';
 
@@ -197,14 +197,6 @@ const AddAccountScreen = ({ navigation, route }) => {
                 isPrimary: isPrimaryValue,
                 currentBalance: existingAccount ? existingAccount.currentBalance : 0,
                 language: i18n.language,
-                cash_in: existingAccount ? existingAccount.cash_in : 0,
-                cash_out: existingAccount ? existingAccount.cash_out : 0,
-                debit: existingAccount ? existingAccount.debit : 0,
-                credit: existingAccount ? existingAccount.credit : 0,
-                receive: existingAccount ? existingAccount.receive : 0,
-                send_out: existingAccount ? existingAccount.send_out : 0,
-                borrow: existingAccount ? existingAccount.borrow : 0,
-                lend: existingAccount ? existingAccount.lend : 0,
                 isActive: true,
                 createdOn: existingAccount ? existingAccount.createdOn : now,
                 updatedOn: now,
@@ -226,11 +218,13 @@ const AddAccountScreen = ({ navigation, route }) => {
 
                 if (existingAccount) {
                     const supabaseResult = await updateAccountInSupabase(existingAccount.id, { ...data, userId: supabaseUserId });
-                    updateObject('Account', existingAccount.id, { ...supabaseResult, id: supabaseResult.id, userId: supabaseUserId, syncStatus: 'synced', needsUpload: false, updatedOn: new Date() });
+                    const realmData = transformKeysToCamelCase(supabaseResult);
+                    updateObject('Account', existingAccount.id, { ...realmData, id: existingAccount.id, userId: supabaseUserId, syncStatus: 'synced', needsUpload: false, updatedOn: new Date(realmData.updatedOn) });
                     Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountUpdated'));
                 } else {
                     const supabaseResult = await createAccountInSupabase({ ...data, userId: supabaseUserId });
-                    createObject('Account', { ...supabaseResult, id: supabaseResult.id, userId: supabaseUserId, syncStatus: 'synced', needsUpload: false, createdOn: new Date(supabaseResult.created_on || now), updatedOn: new Date(supabaseResult.updated_on || now) });
+                    const realmData = transformKeysToCamelCase(supabaseResult);
+                    createObject('Account', { ...realmData, id: realmData.id, userId: supabaseUserId, currentBalance: parsedInitialAmount, syncStatus: 'synced', needsUpload: false, createdOn: new Date(realmData.createdOn || now), updatedOn: new Date(realmData.updatedOn || now) });
                     Alert.alert(t('common.success'), t('addNewAccountScreen.success.accountAdded'));
                 }
             } else {

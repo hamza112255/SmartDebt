@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.hamza125.SmartDebt'
+    namespace 'com.settly.app'
     defaultConfig {
-        applicationId 'com.hamza125.SmartDebt'
+        applicationId 'com.settly.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

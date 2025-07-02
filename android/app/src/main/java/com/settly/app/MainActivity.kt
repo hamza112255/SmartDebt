@@ -1,4 +1,4 @@
-package com.hamza125.SmartDebt
+package com.settly.app
 
 import android.os.Build
 import android.os.Bundle

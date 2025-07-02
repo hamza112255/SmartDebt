@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal, Alert, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal, Alert, TouchableWithoutFeedback, Dimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { screens } from '../constant/screens';
@@ -9,6 +9,8 @@ import { getAllObjects, realm } from '../realm';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import moment from 'moment';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { deleteTransactionInSupabase, cancelRecurringTransactionInSupabase } from '../supabase';
 
 const colors = {
     primary: '#1e90ff',
@@ -52,15 +54,42 @@ const CalendarScreen = ({ navigation, route }) => {
     });
     const [balanceForDate, setBalanceForDate] = useState(0);
     const [expandedProxyGroups, setExpandedProxyGroups] = useState({}); // Track expanded proxy groups
-    const { t } = useTranslation();
+    const [expandedRecurringGroups, setExpandedRecurringGroups] = useState({});
+    const { t, i18n } = useTranslation();
     const [isMenuVisible, setMenuVisible] = useState(false);
     const [selectedTx, setSelectedTx] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+    const netInfo = useNetInfo();
+
+    const getTransactionIcon = (type) => {
+        if (['cash_in', 'credit', 'receive', 'borrow'].includes(type)) return 'arrow-upward';
+        return 'arrow-downward';
+    };
+
+    const getTransactionColor = (type) => {
+        if (['cash_in', 'credit', 'receive', 'borrow'].includes(type)) return colors.success;
+        return colors.error;
+    };
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const date = moment(dateStr).toDate();
+        return date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' });
+    };
 
     const openMenu = (transaction, event, isProxy = false) => {
         const { pageX, pageY } = event.nativeEvent;
+        const screenWidth = Dimensions.get('window').width;
+        const menuWidth = 150;
+
+        let x = pageX;
+        // If the menu would overflow the right edge of the screen
+        if (pageX + menuWidth > screenWidth) {
+            x = screenWidth - menuWidth - 16; // Position it from the right edge with padding
+        }
+
         setSelectedTx({ ...transaction, isProxy });
-        setMenuPosition({ x: pageX - 120, y: pageY });
+        setMenuPosition({ x, y: pageY });
         setMenuVisible(true);
     };
 
@@ -97,6 +126,7 @@ const CalendarScreen = ({ navigation, route }) => {
     };
 
     function updateAccountBalance(account, tx, isRevert = false) {
+        if (tx.isRecurring) return;
         let balanceChange = 0;
         const amount = parseFloat(tx.amount) || 0;
         const type = tx.type;
@@ -113,6 +143,65 @@ const CalendarScreen = ({ navigation, route }) => {
         }
     }
 
+    const handleCancel = async () => {
+        if (!selectedTx || !selectedTx.isRecurring) return;
+        const txToCancelId = selectedTx.id;
+        closeMenu();
+
+        Alert.alert(
+            "Cancel Recurring Transaction",
+            "Are you sure you want to cancel this recurring transaction? This will stop future transactions from being generated.",
+            [
+                { text: "No", style: "cancel" },
+                {
+                    text: "Yes, Cancel",
+                    style: "destructive",
+                    onPress: async () => {
+                        const user = realm.objectForPrimaryKey('User', selectedAccount.userId);
+                        const isPaidUser = user?.userType === 'paid';
+
+                        const performLocalUpdate = () => {
+                            realm.write(() => {
+                                const tx = realm.objectForPrimaryKey('Transaction', txToCancelId);
+                                if (tx) {
+                                    tx.status = 'cancelled';
+                                    tx.updatedOn = new Date();
+                                }
+                            });
+                            loadTransactions(selectedAccount.id);
+                        };
+
+                        if (isPaidUser && netInfo.isConnected) {
+                            try {
+                                await cancelRecurringTransactionInSupabase(txToCancelId);
+                                performLocalUpdate();
+                            } catch (error) {
+                                console.error("Supabase cancel failed, creating SyncLog", error);
+                                realm.write(() => {
+                                    const tx = realm.objectForPrimaryKey('Transaction', txToCancelId);
+                                    if (tx) {
+                                        tx.status = 'cancelled';
+                                        tx.needsUpload = true;
+                                    }
+                                });
+                                performLocalUpdate();
+                            }
+                        } else {
+                            realm.write(() => {
+                                const tx = realm.objectForPrimaryKey('Transaction', txToCancelId);
+                                if (tx) {
+                                    tx.status = 'cancelled';
+                                    tx.needsUpload = true;
+                                }
+                            });
+                            performLocalUpdate();
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const handleDelete = () => {
         if (!selectedTx) return;
         const txToDeleteId = selectedTx.id;
@@ -123,53 +212,116 @@ const CalendarScreen = ({ navigation, route }) => {
             {
                 text: "Delete",
                 style: "destructive",
-                onPress: () => {
-                    realm.write(() => {
-                        const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
-                        if (!txToDelete) return;
+                onPress: async () => {
+                    const user = realm.objectForPrimaryKey('User', selectedAccount.userId);
+                    const isPaidUser = user?.userType === 'paid';
 
-                        const pendingLogs = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', txToDeleteId);
-                        const isNewAndUnsynced = pendingLogs.some(log => log.operation === 'create');
+                    const performLocalDeletion = (txId) => {
+                        realm.write(() => {
+                            const txToDelete = realm.objectForPrimaryKey('Transaction', txId);
+                            if (!txToDelete) return;
 
-                        if (isNewAndUnsynced) {
-                            if (pendingLogs.length > 0) realm.delete(pendingLogs);
-                        } else {
-                            const updateLogs = pendingLogs.filtered('operation == "update"');
-                            if (updateLogs.length > 0) realm.delete(updateLogs);
-                            
-                            realm.create('SyncLog', {
-                                id: new Date().toISOString() + '_log',
-                                userId: txToDelete.userId,
-                                tableName: 'transactions',
-                                recordId: txToDeleteId,
-                                operation: 'delete',
-                                status: 'pending',
-                                createdOn: new Date(),
-                            });
-                        }
-
-                        if (txToDelete.is_proxy_payment) {
-                            const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', txToDelete.id)[0];
-                            if (proxyPayment) {
-                                const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
-                                if (debtTx) {
-                                    const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
-                                    if (adjAccount) {
-                                        updateAccountBalance(adjAccount, debtTx, true);
+                            if (txToDelete.is_proxy_payment) {
+                                const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', txToDelete.id)[0];
+                                if (proxyPayment) {
+                                    const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
+                                    if (debtTx) {
+                                        const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
+                                        if (adjAccount) {
+                                            updateAccountBalance(adjAccount, debtTx, true);
+                                        }
+                                        realm.delete(debtTx);
                                     }
-                                    realm.delete(debtTx);
+                                    realm.delete(proxyPayment);
                                 }
-                                realm.delete(proxyPayment);
+                            }
+
+                            const account = realm.objectForPrimaryKey('Account', txToDelete.accountId);
+                            if (account) {
+                                updateAccountBalance(account, txToDelete, true);
+                            }
+                            realm.delete(txToDelete);
+                        });
+                        loadTransactions(selectedAccount.id);
+                    };
+
+                    const createSyncLogForDeletion = (tx) => {
+                        realm.write(() => {
+                            const pendingLogs = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', tx.id);
+                            const isNewAndUnsynced = pendingLogs.some(log => log.operation === 'create');
+
+                            if (isNewAndUnsynced) {
+                                if (pendingLogs.length > 0) realm.delete(pendingLogs);
+                            } else {
+                                const updateLogs = pendingLogs.filtered('operation == "update"');
+                                if (updateLogs.length > 0) realm.delete(updateLogs);
+                                realm.create('SyncLog', {
+                                    id: new Date().toISOString() + '_log',
+                                    userId: tx.userId,
+                                    tableName: 'transactions',
+                                    recordId: tx.id,
+                                    operation: 'delete',
+                                    status: 'pending',
+                                    createdOn: new Date(),
+                                });
+                            }
+
+                            if (tx.is_proxy_payment) {
+                                const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', tx.id)[0];
+                                if (proxyPayment?.debtAdjustmentTransactionId) {
+                                    const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
+                                    if (debtTx) {
+                                        const debtTxLogs = realm.objects('SyncLog').filtered('recordId == $0', debtTx.id);
+                                        if (debtTxLogs.filtered('operation == "create"').length > 0) {
+                                            realm.delete(debtTxLogs);
+                                        } else {
+                                            realm.create('SyncLog', {
+                                                id: new Date().toISOString() + '_debt_log',
+                                                userId: debtTx.userId,
+                                                tableName: 'transactions',
+                                                recordId: debtTx.id,
+                                                operation: 'delete',
+                                                status: 'pending',
+                                                createdOn: new Date(),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    };
+
+                    if (isPaidUser && netInfo.isConnected) {
+                        try {
+                             const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
+                            if (!txToDelete) return;
+                             if (txToDelete.id.startsWith('temp_')) {
+                                // unsynced, no need for sync log or supabase call
+                            } else {
+                                await deleteTransactionInSupabase(txToDeleteId);
+                                if (txToDelete.is_proxy_payment) {
+                                    const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', txToDelete.id)[0];
+                                    if (proxyPayment?.debtAdjustmentTransactionId) {
+                                        await deleteTransactionInSupabase(proxyPayment.debtAdjustmentTransactionId);
+                                    }
+                                }
+                            }
+                            performLocalDeletion(txToDeleteId);
+                        } catch (error) {
+                            console.error("Supabase delete failed, falling back to SyncLog", error);
+                            const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
+                            if(txToDelete) {
+                                createSyncLogForDeletion(txToDelete);
+                                performLocalDeletion(txToDeleteId);
                             }
                         }
-
-                        const account = realm.objectForPrimaryKey('Account', txToDelete.accountId);
-                        if (account) {
-                            updateAccountBalance(account, txToDelete, true);
+                    } else {
+                        const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
+                        if (txToDelete) {
+                            createSyncLogForDeletion(txToDelete);
+                            performLocalDeletion(txToDeleteId);
                         }
-                        realm.delete(txToDelete);
-                    });
-                    loadTransactions(selectedAccount.id);
+                    }
                 },
             },
         ]);
@@ -251,6 +403,9 @@ const CalendarScreen = ({ navigation, route }) => {
                     color: ['cash_in', 'receive', 'borrow', 'credit'].includes(tx.type) ? colors.success : colors.error,
                     contactName,
                     contactId: tx.contactId || '',
+                    isRecurring: tx.isRecurring,
+                    parentTransactionId: tx.parentTransactionId,
+                    status: tx.status,
                 };
 
                 transactionsByDate[date].push(transaction);
@@ -359,7 +514,7 @@ const CalendarScreen = ({ navigation, route }) => {
         const endDate = moment(date).endOf('day').toDate();
 
         const futureTransactions = realm.objects('Transaction')
-            .filtered('accountId == $0 AND transactionDate > $1', account.id, endDate);
+            .filtered('accountId == $0 AND transactionDate > $1 AND isRecurring != true', account.id, endDate);
             
         let futureBalanceChange = 0;
         futureTransactions.forEach(tx => {
@@ -484,41 +639,109 @@ const CalendarScreen = ({ navigation, route }) => {
 
     // Group transactions for rendering: proxy payments as group, others as normal
     const groupTransactions = (transactionsArr) => {
+        if (!selectedAccount) return [];
         const proxyMap = getProxyPaymentMap();
         const grouped = [];
         const usedIds = new Set();
+        const localTransactions = [...transactionsArr]; // Transactions on selected day
 
-        transactionsArr.forEach(tx => {
+        const allAccountTransactions = realm.objects('Transaction').filtered('accountId == $0', selectedAccount.id);
+        const allParentTxs = allAccountTransactions.filtered('isRecurring == true');
+
+        // 1. Group Recurring Transactions relevant to the day
+        allParentTxs.forEach(parentTx => {
+            const childrenInDay = localTransactions.filter(t => t.parentTransactionId === parentTx.id);
+            const parentStartsToday = moment(parentTx.transactionDate).isSame(selectedDate, 'day');
+
+            if (parentStartsToday || childrenInDay.length > 0) {
+                grouped.push({
+                    type: 'recurringGroup',
+                    parent: JSON.parse(JSON.stringify(parentTx)),
+                    children: childrenInDay
+                });
+                if (parentStartsToday) usedIds.add(parentTx.id);
+                childrenInDay.forEach(c => usedIds.add(c.id));
+            }
+        });
+
+        // 2. Process all other transactions for the day
+        localTransactions.forEach(tx => {
             if (usedIds.has(tx.id)) return;
+
             const proxy = proxyMap[tx.id];
-            if (proxy) {
-                // This is part of a proxy payment group
-                const mainTxId = proxy.originalTransactionId;
-                const adjTxId = proxy.debtAdjustmentTransactionId;
-                // Find both transactions
-                const mainTx = transactionsArr.find(t => t.id === mainTxId);
-                const adjTx = transactionsArr.find(t => t.id === adjTxId);
-                if (mainTx && adjTx) {
-                    grouped.push({
-                        type: 'proxyGroup',
-                        main: mainTx,
-                        adjustment: adjTx,
-                        proxy,
-                    });
-                    usedIds.add(mainTxId);
-                    usedIds.add(adjTxId);
-                } else {
-                    // Fallback: show as normal if only one found
-                    grouped.push({ type: 'single', tx });
-                    usedIds.add(tx.id);
+
+            // Check if it's a main proxy transaction
+            if (proxy && tx.id === proxy.originalTransactionId) {
+                const adjTx = allAccountTransactions.find(t => t.id === proxy.debtAdjustmentTransactionId);
+                grouped.push({
+                    type: 'proxyGroup',
+                    main: tx,
+                    adjustment: adjTx ? JSON.parse(JSON.stringify(adjTx)) : null,
+                    proxy,
+                });
+                usedIds.add(tx.id);
+                // Also mark the adjustment if it happens to be on the same day
+                if (adjTx && localTransactions.some(t => t.id === adjTx.id)) {
+                    usedIds.add(adjTx.id);
                 }
-            } else {
+            } 
+            // Check if it's an adjustment whose main proxy isn't today
+            else if (proxy && tx.id === proxy.debtAdjustmentTransactionId) {
+                // In this case, the main tx isn't in localTransactions. We'll treat the adjustment as a single transaction.
+                grouped.push({ type: 'single', tx });
+                usedIds.add(tx.id);
+            }
+            // It's a regular single transaction
+            else if (!proxy) {
                 grouped.push({ type: 'single', tx });
                 usedIds.add(tx.id);
             }
         });
-        return grouped;
+
+        return grouped.sort((a, b) => {
+            const dateA = a.tx?.date || a.main?.date || a.parent?.transactionDate;
+            const dateB = b.tx?.date || b.main?.date || b.parent?.transactionDate;
+            return new Date(dateB) - new Date(dateA);
+        });
     };
+
+    const renderTransactionItem = useCallback(({ item, isProxy = false }) => {
+        if (!item) return null;
+
+        const type = item?.type || 'debit';
+        const transactionColor = getTransactionColor(type);
+        const amount = parseFloat(item?.amount) || 0;
+        const iconName = getTransactionIcon(type);
+
+        const typeTextMap = { cash_in: t('terms.cash_in'), cash_out: t('terms.cash_out'), debit: t('terms.debit'), credit: t('terms.credit'), receive: t('terms.receive'), send_out: t('terms.send_out'), borrow: t('terms.borrow'), lend: t('terms.lend') };
+        const typeText = typeTextMap[type] || type;
+
+        return (
+            <View style={styles.transactionRow} key={item.id}>
+                <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1, padding: 12 }}
+                >
+                    <View style={[styles.transactionIcon, { backgroundColor: transactionColor + '20' }]}>
+                        <Icon name={iconName} size={RFValue(20)} color={transactionColor} />
+                    </View>
+                    <View style={styles.transactionDetails}>
+                        <Text style={styles.transactionName} numberOfLines={1}>{item?.name || t('accountDetailsScreen.noDescription')}</Text>
+                        <Text style={styles.transactionDateStyle}>{item?.contactName || t('common.noContact')}</Text>
+                    </View>
+                    <View style={styles.amountContainer}>
+                        <Text style={[styles.transactionAmountText, { color: transactionColor }]}>
+                            {['cash_in', 'credit', 'receive', 'borrow'].includes(type) ? '+' : '-'}
+                            {currency} {amount.toFixed(2)}
+                        </Text>
+                        <Text style={styles.transactionType}>{typeText}</Text>
+                    </View>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item, e, isProxy)}>
+                    <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
+                </TouchableOpacity>
+            </View>
+        );
+    }, [currency, t]);
 
     const renderMenu = () => (
         <Modal
@@ -530,17 +753,44 @@ const CalendarScreen = ({ navigation, route }) => {
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <View style={StyleSheet.absoluteFill}>
                     <View style={[styles.menuContainer, { top: menuPosition.y, left: menuPosition.x }]}>
-                        {selectedTx && !selectedTx.isProxy &&
-                            <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
-                                <Text style={styles.menuText}>{t('common.edit')}</Text>
-                            </TouchableOpacity>
-                        }
-                        <TouchableOpacity style={styles.menuOption} onPress={handleDuplicate}>
-                            <Text style={styles.menuText}>{t('common.duplicate')}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
-                            <Text style={[styles.menuText, { color: colors.error }]}>{t('common.delete')}</Text>
-                        </TouchableOpacity>
+                        {/* Case 1: Parent Recurring Transaction */}
+                        {selectedTx?.isRecurring ? (
+                            <>
+                                {selectedTx.status !== 'cancelled' && (
+                                    <>
+                                        <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                                            <Text style={styles.menuText}>{t('common.edit')}</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.menuOption} onPress={handleCancel}>
+                                            <Text style={[styles.menuText, { color: colors.error }]}>{t('common.cancel')}</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </>
+                        ) : selectedTx?.parentTransactionId ? ( /* Case 2: Child Recurring Transaction */
+                            <>
+                                <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                                    <Text style={styles.menuText}>{t('common.edit')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
+                                    <Text style={[styles.menuText, { color: colors.error }]}>{t('common.delete')}</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : ( /* Case 3: Simple or Proxy Transaction */
+                            <>
+                                {selectedTx && !selectedTx.isProxy &&
+                                    <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                                        <Text style={styles.menuText}>{t('common.edit')}</Text>
+                                    </TouchableOpacity>
+                                }
+                                <TouchableOpacity style={styles.menuOption} onPress={handleDuplicate}>
+                                    <Text style={styles.menuText}>{t('common.duplicate')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
+                                    <Text style={[styles.menuText, { color: colors.error }]}>{t('common.delete')}</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
                     </View>
                 </View>
             </TouchableWithoutFeedback>
@@ -692,6 +942,47 @@ const CalendarScreen = ({ navigation, route }) => {
                         </View>
                     ) : (
                         groupTransactions(safeGetTransactions(selectedDate)).map((item, idx) => {
+                             if (item.type === 'recurringGroup') {
+                                const groupKey = item.parent.id;
+                                const expanded = !!expandedRecurringGroups[groupKey];
+                                const isCancelled = item.parent.status === 'cancelled';
+                                return (
+                                    <View key={groupKey} style={styles.recurringCard}>
+                                        {isCancelled && <View style={styles.disabledOverlay} />}
+                                        <TouchableOpacity
+                                            style={styles.recurringHeader}
+                                            onPress={() => !isCancelled && setExpandedRecurringGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                                            activeOpacity={isCancelled ? 1 : 0.8}
+                                        >
+                                            <View style={[styles.recurringIcon, { backgroundColor: colors.primary + '20' }]}>
+                                                <Icon name="autorenew" size={RFValue(16)} color={colors.primary} />
+                                            </View>
+                                            <View style={styles.recurringDetails}>
+                                                <Text style={styles.transactionName}>{item.parent.name || 'Recurring Transaction'}</Text>
+                                                <Text style={styles.transactionType}>
+                                                     {isCancelled ? 'Cancelled' : (expanded ? 'Tap to collapse' : 'Tap to expand')}
+                                                </Text>
+                                            </View>
+                                            <View style={{alignItems: 'center'}}>
+                                                 {!isCancelled && <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(24)} color={colors.primary} />}
+                                            </View>
+                                             <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item.parent, e)}>
+                                                <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
+                                            </TouchableOpacity>
+                                        </TouchableOpacity>
+                                        
+                                        {expanded && !isCancelled && (
+                                            <View style={styles.proxyBody}>
+                                                {item.children.length > 0 ? item.children.map(childTx => (
+                                                    renderTransactionItem({ item: childTx })
+                                                )) : (
+                                                    <Text style={styles.noTransactionsSubtext}>No transactions have occurred yet for this day.</Text>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            }
                             if (item.type === 'proxyGroup') {
                                 const groupKey = item.main.id;
                                 const expanded = !!expandedProxyGroups[groupKey];
@@ -714,80 +1005,59 @@ const CalendarScreen = ({ navigation, route }) => {
                                                     {['cash_in', 'receive', 'borrow', 'credit'].includes(item.main.type) ? '+' : '-'}
                                                     {currency} {Number(item.main.amount).toFixed(2)}
                                                 </Text>
-                                                <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(20)} color={colors.primary} />
+                                                <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(24)} color={colors.primary} />
                                             </View>
                                         </TouchableOpacity>
                                         
                                         {expanded && (
-                                            <View style={styles.proxyExpandedContainer}>
+                                            <View style={styles.proxyBody}>
                                                 <View style={styles.transactionRow}>
-                                                    <TouchableOpacity style={[styles.transactionItem, {flex: 1}]}>
-                                                        <View style={[styles.transactionIcon, { backgroundColor: item.main.color + '20' }]}>
-                                                            <Icon name={['cash_in', 'receive', 'borrow', 'credit'].includes(item.main.type) ? "arrow-upward" : "arrow-downward"} size={RFValue(16)} color={item.main.color} />
+                                                    <TouchableOpacity
+                                                        style={{ flexDirection: 'row', alignItems: 'center', flex: 1, padding: 12 }}
+                                                    >
+                                                        <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(item.main.type) + '20' }]}>
+                                                            <Icon name={getTransactionIcon(item.main.type)} size={RFValue(20)} color={getTransactionColor(item.main.type)} />
                                                         </View>
                                                         <View style={styles.transactionDetails}>
-                                                            <Text style={styles.transactionName}>{safeGet(item.main, 'name', 'Original Payment')}</Text>
-                                                            <Text style={styles.transactionType}>{t(`terms.${item.main.type}`)} • {safeGet(item.main, 'contactName', 'N/A')}</Text>
+                                                            <Text style={styles.transactionName}>{item.main.name || 'Original Payment'}</Text>
+                                                            <Text style={styles.transactionDateStyle}>{item.main.contactName || 'N/A'}</Text>
                                                         </View>
-                                                        <Text style={[styles.transactionAmount, { color: item.main.color }]}>
-                                                            {['cash_in', 'receive', 'borrow', 'credit'].includes(item.main.type) ? '+' : '-'}
-                                                            {currency} {Number(item.main.amount).toFixed(2)}
-                                                        </Text>
+                                                        <View style={styles.amountContainer}>
+                                                            <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.main.type) }]}>
+                                                                {['cash_in', 'credit', 'receive', 'borrow'].includes(item.main.type) ? '+' : '-'}
+                                                                {currency} {Number(item.main.amount).toFixed(2)}
+                                                            </Text>
+                                                        </View>
                                                     </TouchableOpacity>
                                                     <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item.main, e, true)}>
                                                         <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
                                                     </TouchableOpacity>
                                                 </View>
                                                 
-                                                <View style={[styles.transactionItem, { elevation: 0, shadowOpacity: 0, backgroundColor: '#f9f9f9', padding: wp(3.5) }]}>
-                                                    <View style={[styles.transactionIcon, { backgroundColor: item.adjustment.color + '20' }]}>
-                                                        <Icon name={['cash_in', 'receive', 'borrow', 'credit'].includes(item.adjustment.type) ? "arrow-upward" : "arrow-downward"} size={RFValue(16)} color={item.adjustment.color} />
+                                                <View style={[styles.transactionItem, { elevation: 0, shadowOpacity: 0, backgroundColor: '#f9f9f9', padding: 12 }]}>
+                                                     <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(item.adjustment.type) + '20' }]}>
+                                                        <Icon name={getTransactionIcon(item.adjustment.type)} size={RFValue(20)} color={getTransactionColor(item.adjustment.type)} />
                                                     </View>
                                                     <View style={styles.transactionDetails}>
-                                                        <Text style={styles.transactionName}>{safeGet(item.adjustment, 'name', 'Debt Adjustment')}</Text>
-                                                        <Text style={styles.transactionType}>{t(`terms.${item.adjustment.type}`)} • {safeGet(item.adjustment, 'contactName', 'N/A')}</Text>
+                                                        <Text style={styles.transactionName}>{item.adjustment.name || 'Debt Adjustment'}</Text>
+                                                        <Text style={styles.transactionDateStyle}>{item.adjustment.contactName || 'N/A'}</Text>
                                                     </View>
-                                                    <Text style={[styles.transactionAmount, { color: item.adjustment.color }]}>
-                                                        {['cash_in', 'receive', 'borrow', 'credit'].includes(item.adjustment.type) ? '+' : '-'}
-                                                        {currency} {Number(item.adjustment.amount).toFixed(2)}
-                                                    </Text>
+                                                    <View style={styles.amountContainer}>
+                                                        <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.adjustment.type) }]}>
+                                                            {['cash_in', 'credit', 'receive', 'borrow'].includes(item.adjustment.type) ? '+' : '-'}
+                                                            {currency} {Number(item.adjustment.amount).toFixed(2)}
+                                                        </Text>
+                                                    </View>
                                                 </View>
                                             </View>
                                         )}
                                     </View>
                                 );
-                            } else {
-                                return (
-                                    <View style={styles.transactionRow} key={safeGet(item.tx, 'id', Math.random().toString())}>
-                                        <TouchableOpacity
-                                            style={[styles.transactionItem, {flex: 1}]}
-                                        >
-                                            <View style={[ styles.transactionIcon, { backgroundColor: safeGet(item.tx, 'color', colors.lightGray) + '20' } ]}>
-                                                <Icon
-                                                    name={['cash_in', 'receive', 'borrow', 'credit'].includes(safeGet(item.tx, 'type')) ? "arrow-upward" : "arrow-downward"}
-                                                    size={RFValue(16)}
-                                                    color={safeGet(item.tx, 'color', colors.lightGray)}
-                                                />
-                                            </View>
-                                            <View style={styles.transactionDetails}>
-                                                <Text style={styles.transactionName} numberOfLines={1}>
-                                                    {safeGet(item.tx, 'name', 'No description')}
-                                                </Text>
-                                                <Text style={styles.transactionType}>
-                                                    {t(`terms.${item.tx.type}`)} • {safeGet(item.tx, 'contactName', t('common.noContact'))}
-                                                </Text>
-                                            </View>
-                                            <Text style={[ styles.transactionAmount, { color: safeGet(item.tx, 'color', colors.lightGray) } ]}>
-                                                {['cash_in', 'receive', 'borrow', 'credit'].includes(safeGet(item.tx, 'type')) ? '+' : '-'}
-                                                {currency} {Number(safeGet(item.tx, 'amount', 0)).toFixed(2)}
-                                            </Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item.tx, e, false)}>
-                                            <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
-                                        </TouchableOpacity>
-                                    </View>
-                                );
                             }
+                            if (item.type === 'single') {
+                                return <View key={item.tx.id}>{renderTransactionItem({ item: item.tx })}</View>;
+                            }
+                            return null;
                         })
                     )}
                 </View>
@@ -992,44 +1262,52 @@ const styles = StyleSheet.create({
         fontFamily: 'Sora-Bold',
     },
     transactionItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
         backgroundColor: colors.white,
-        borderRadius: wp(2.5),
-        padding: wp(3.5),
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: wp(2.5),
+        borderRadius: wp(2),
         marginBottom: hp(1),
         elevation: 1,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowOpacity: 0.05,
+        shadowOffset: { width: 0, height: hp(0.125) },
     },
     transactionIcon: {
-        width: wp(10),
-        height: wp(10),
-        borderRadius: wp(5),
-        justifyContent: 'center',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         alignItems: 'center',
-        marginRight: wp(3),
+        justifyContent: 'center',
+        marginRight: 12,
     },
     transactionDetails: {
         flex: 1,
-        marginRight: wp(2),
     },
     transactionName: {
-        fontSize: RFValue(14),
-        fontFamily: 'Sora-SemiBold',
+        fontSize: RFPercentage(1.9),
         color: colors.gray,
-        marginBottom: hp(0.25),
+        fontFamily: 'Sora-Bold',
+    },
+    transactionDateStyle: {
+        fontSize: RFPercentage(1.5),
+        color: colors.lightGray,
+        fontFamily: 'Sora-Regular',
+        marginTop: 2,
     },
     transactionType: {
         fontSize: RFValue(12),
         fontFamily: 'Sora-Regular',
-        color: colors.lightGray,
+        color: colors.gray,
     },
     transactionAmount: {
-        fontSize: RFValue(14),
-        fontFamily: 'Sora-SemiBold',
+        alignItems: 'flex-end',
+    },
+    transactionAmountText: {
+        fontSize: RFPercentage(2),
+        fontFamily: 'Sora-Bold',
+        marginBottom: hp(0.25),
     },
     fab: {
         position: 'absolute',
@@ -1045,6 +1323,7 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOpacity: 0.15,
         shadowOffset: { width: 0, height: hp(0.375) },
+        overflow: 'hidden'
     },
     modalContainer: {
         flex: 1,
@@ -1103,13 +1382,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.white,
-        borderRadius: wp(2.5),
-        padding: wp(3.5),
+        borderRadius: 12,
+        marginBottom: 10,
         elevation: 1,
-        shadowColor: '#000',
+        shadowColor: colors.gray,
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
     },
     menuContainer: {
         position: 'absolute',
@@ -1139,17 +1418,59 @@ const styles = StyleSheet.create({
         padding: wp(2),
         backgroundColor: '#f8f8f8'
     },
+    proxyBody: {
+        backgroundColor: '#f8f8f8',
+        padding: 12,
+    },
     proxyCard: {
         backgroundColor: colors.white,
-        borderRadius: wp(2.5),
+        borderRadius: 12,
         marginBottom: hp(1),
         elevation: 1,
-        shadowColor: '#000',
+        shadowColor: colors.gray,
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
         overflow: 'hidden'
-    }
+    },
+    recurringCard: {
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        marginBottom: 10,
+        elevation: 1,
+        shadowColor: colors.gray,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+        overflow: 'hidden'
+    },
+    recurringHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+    },
+    recurringIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    recurringDetails: {
+        flex: 1,
+    },
+    disabledOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        zIndex: 1,
+    },
+    noTransactionsSubtext: {
+        fontSize: RFValue(14),
+        fontFamily: 'Sora-Regular',
+        color: colors.gray,
+        textAlign: 'center',
+    },
 });
 
 export default CalendarScreen;

@@ -26,6 +26,7 @@ import { screens } from '../constant/screens';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { realm } from '../realm';
+import Realm from 'realm';
 import * as ImagePicker from 'expo-image-picker';
 import moment from 'moment';
 import { useFocusEffect } from '@react-navigation/native';
@@ -35,6 +36,13 @@ import NetInfo from '@react-native-community/netinfo';
 import styles from '../css/newRecordCss';
 import StyledPicker from '../components/shared/StyledPicker';
 import StyledTextInput from '../components/shared/StyledTextInput';
+import RecurringForm from '../components/recurring/RecurringForm';
+import {
+    createRecurringTransactionInSupabase,
+    deleteRecurringTransactionInSupabase,
+    getRecurringTransactionByTransactionId,
+    updateRecurringTransactionInSupabase
+} from '../supabase';
 
 const colors = {
     primary: '#667eea',
@@ -157,6 +165,12 @@ const NewRecordScreen = ({ navigation, route }) => {
     const [onBehalfOfContactId, setOnBehalfOfContactId] = useState('');
     const [onBehalfOfContactName, setOnBehalfOfContactName] = useState('');
     const [showOnBehalfDropdown, setShowOnBehalfDropdown] = useState(false);
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurringPattern, setRecurringPattern] = useState(null);
+    const [recurringTransaction, setRecurringTransaction] = useState(null);
+    const [showRecurringModal, setShowRecurringModal] = useState(false);
+    const [isOnline, setIsOnline] = useState(true);
+    const [parentTransactionId, setParentTransactionId] = useState(null);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(hp(50))).current;
@@ -164,6 +178,17 @@ const NewRecordScreen = ({ navigation, route }) => {
 
     // Keep track of accountType for useEffect dependencies
     const [accountType, setAccountType] = useState('');
+
+    useEffect(() => {
+        const unsubscribe = NetInfo.addEventListener(state => {
+            const online = state.isConnected && state.isInternetReachable;
+            setIsOnline(online);
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, []);
 
     // Handle initial mount and transaction edit mode
     useEffect(() => {
@@ -277,36 +302,65 @@ const NewRecordScreen = ({ navigation, route }) => {
         if (!transactionId) return;
         try {
             const transaction = realm.objectForPrimaryKey('Transaction', transactionId);
-            console.log('transaction', transaction)
-            if (transaction) {
-                setOriginalTransaction(transaction);
+            if (!transaction) return;
 
-                // No need for getUiTypeFromStorageType as types are now direct
+            // Store original for potential revert on balance update
+            setOriginalTransaction(transaction.toJSON());
+
+            if (isDuplicating) {
+                // If duplicating, load data but don't set isEditing to true.
+                // Reset date to current and clear ID-specific fields.
                 setType(transaction.type);
-                
-                setAmount(transaction.amount?.toString() || '');
-                setRemarks(transaction.remarks || '');
-                setPurpose(transaction.purpose || '');
-                setImageUri(transaction.photoUrl || null);
-                setContactPerson(transaction.contactId || '');
+                setTransactionDate(new Date());
+                setPurpose(transaction.purpose);
+                setAmount(String(transaction.amount));
+                setCurrency(transaction.currency);
+                setRemarks(transaction.remarks);
+                setImageUri(transaction.photoUrl);
+                setContactPerson(transaction.contactId);
+                setIsProxyPayment(transaction.is_proxy_payment);
+                setOnBehalfOfContactId(transaction.on_behalf_of_contact_id);
+                setParentTransactionId(transaction.parentTransactionId);
 
+                // Fetch contact names if IDs exist
                 if (transaction.contactId) {
                     const contact = realm.objectForPrimaryKey('Contact', transaction.contactId);
-                    setContactName(contact?.name || '');
+                    if (contact) setContactName(contact.name);
                 }
-
-                setIsProxyPayment(transaction.is_proxy_payment || false);
-                setOnBehalfOfContactId(transaction.on_behalf_of_contact_id || '');
                 if (transaction.on_behalf_of_contact_id) {
                     const onBehalfContact = realm.objectForPrimaryKey('Contact', transaction.on_behalf_of_contact_id);
-                    setOnBehalfOfContactName(onBehalfContact?.name || '');
+                    if (onBehalfContact) setOnBehalfOfContactName(onBehalfContact.name);
                 }
+            } else {
+                // If editing, load all data as is.
+                setType(transaction.type);
+                setTransactionDate(new Date(transaction.transactionDate));
+                setPurpose(transaction.purpose);
+                setAmount(String(transaction.amount));
+                setCurrency(transaction.currency);
+                setRemarks(transaction.remarks);
+                setImageUri(transaction.photoUrl);
+                setContactPerson(transaction.contactId);
+                setIsProxyPayment(transaction.is_proxy_payment);
+                setOnBehalfOfContactId(transaction.on_behalf_of_contact_id);
+                setIsRecurring(transaction.isRecurring);
+                setRecurringPattern(transaction.recurringPattern ? JSON.parse(transaction.recurringPattern) : null);
+                setParentTransactionId(transaction.parentTransactionId);
 
-                setTransactionDate(transaction.transactionDate || new Date());
+                // Fetch contact names if IDs exist
+                if (transaction.contactId) {
+                    const contact = realm.objectForPrimaryKey('Contact', transaction.contactId);
+                    if (contact) setContactName(contact.name);
+                }
+                if (transaction.on_behalf_of_contact_id) {
+                    const onBehalfContact = realm.objectForPrimaryKey('Contact', transaction.on_behalf_of_contact_id);
+                    if (onBehalfContact) setOnBehalfOfContactName(onBehalfContact.name);
+                }
             }
+
         } catch (error) {
-            console.error('Error loading transaction:', error);
-            safeAlert('Error', 'Failed to load transaction data');
+            console.error('Failed to load transaction data:', error);
+            safeAlert('Error', 'Failed to load transaction data.');
         }
     }, [transactionId, isDuplicating]);
 
@@ -346,6 +400,7 @@ const NewRecordScreen = ({ navigation, route }) => {
 
     // Helper: update account balance for a transaction (like your SQL trigger)
     function updateAccountBalance(account, tx, isRevert = false) {
+        if (tx.isRecurring) return; // Do not update balance for recurring transactions
         const amount = parseFloat(tx.amount) || 0;
         const type = tx.type;
         let receivingChange = 0;
@@ -504,6 +559,13 @@ const NewRecordScreen = ({ navigation, route }) => {
         return out;
     }
 
+    const handleRecurringSubmit = (data) => {
+        const pattern = JSON.stringify(data);
+        setRecurringPattern(pattern);
+        setShowRecurringModal(false);
+        Alert.alert("Recurring Rule Set", "The recurring transaction rule has been configured.");
+    };
+
     const handleSave = useCallback(async () => {
         if (isLoading) return;
         setIsLoading(true);
@@ -524,13 +586,13 @@ const NewRecordScreen = ({ navigation, route }) => {
             if (!account) {
                 throw new Error('Account not found');
             }
-            // Map the simple UI type (credit/debit) to the specific storage type
-            const storageType = transactionTypeMapping[account.type]?.[type] || type;
+            // Map the UI type to the generic storage type for Realm/Supabase
+            const storageType = mapUiTypeToStorageType(type);
 
             // Prepare transaction data
             const transactionData = {
                 id: isEditing && transactionId ? transactionId : new Date().toISOString(),
-                type: type, // Use the direct type from the UI picker
+                type: storageType, // Use the mapped storage type
                 purpose: purpose || '',
                 amount: parseFloat(amount) || 0,
                 accountId: accountId || '',
@@ -546,11 +608,11 @@ const NewRecordScreen = ({ navigation, route }) => {
                 remindContactAt: null,
                 remindMeAt: null,
                 status: 'completed',
-                isRecurring: false,
+                isRecurring: isRecurring,
                 is_proxy_payment: showProxySwitch ? isProxyPayment : false,
                 on_behalf_of_contact_id: showProxySwitch && isProxyPayment && onBehalfOfContactId ? onBehalfOfContactId : '',
-                recurringPattern: '',
-                parentTransactionId: '',
+                recurringPattern: isRecurring ? recurringPattern : '',
+                parentTransactionId: parentTransactionId || null,
                 isSettled: false,
                 settledAt: null,
                 settlementNote: '',
@@ -688,123 +750,76 @@ const NewRecordScreen = ({ navigation, route }) => {
             // STEP 2: Handle Supabase sync operations (asynchronously, outside of realm.write)
             if (paid && netOn) {
                 try {
-                    // List all fields that must be null if empty (UUIDs and enums)
-                    const nullFields = [
-                        'contactId',
-                        'on_behalf_of_contact_id',
-                        'parentTransactionId',
-                        'recurringPattern',
-                        'accountId',
-                        'userId',
-                        'remindToContactType',
-                        'remindMeType'
-                    ];
-                    // Prepare payload for Supabase
                     const supabaseTxData = supabaseSafe(
-                        { ...transactionData }, // type is already mapped
-                        nullFields
+                        { ...transactionData },
+                        ['contactId', 'on_behalf_of_contact_id', 'parentTransactionId', 'recurringPattern', 'accountId', 'userId', 'remindToContactType', 'remindMeType']
                     );
 
-                    let supaTx;
                     if (isEditing) {
-                        supaTx = await updateTransactionInSupabase(transactionData.id, supabaseTxData);
-                    } else {
-                        supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
-                        finalTransactionId = supaTx.id; // Get the new ID from Supabase
+                        const supaTx = await updateTransactionInSupabase(transactionData.id, supabaseTxData);
+                        
+                        // Handle recurring logic on update
+                        if (isRecurring && recurringPattern) {
+                            const recurringData = JSON.parse(recurringPattern);
+                            if (recurringTransaction) { // Rule exists, so update it
+                                await updateRecurringTransactionInSupabase(recurringTransaction.id, recurringData);
+                            } else { // No rule existed, create a new one for this transaction
+                                await createRecurringTransactionInSupabase(recurringData, supaTx.id, supabaseUserId);
+                            }
+                        } else if (recurringTransaction) { // isRecurring is false, so delete existing rule
+                            await deleteRecurringTransactionInSupabase(recurringTransaction.id);
+                        }
+                        
+                        finalTransactionId = supaTx.id;
+
+                    } else { // Creating new transaction
+                        const supaTx = await createTransactionInSupabase(supabaseTxData, supabaseUserId, {});
+                        finalTransactionId = supaTx.id;
+
+                        // Handle recurring logic on create
+                        if (isRecurring && recurringPattern) {
+                            const recurringData = JSON.parse(recurringPattern);
+                            await createRecurringTransactionInSupabase(recurringData, supaTx.id, supabaseUserId);
+                        }
                     }
 
-                    // Update sync status in a separate write transaction
+                    // Update local sync status in a separate write transaction
                     realm.write(() => {
                         const currentTxId = isEditing ? transactionId : transactionData.id;
                         const txToUpdate = realm.objectForPrimaryKey('Transaction', currentTxId);
 
                         if (txToUpdate) {
-                            // If this is a new transaction and we got a new ID from Supabase, we need to handle the ID change
                             if (!isEditing && finalTransactionId !== transactionData.id) {
-                                // Delete the old transaction with temporary ID
                                 realm.delete(txToUpdate);
-
-                                // Create new transaction with Supabase ID
                                 realm.create('Transaction', {
-                                    ...transactionData,
-                                    id: finalTransactionId,
-                                    syncStatus: 'synced',
-                                    needsUpload: false,
-                                    lastSyncAt: new Date(),
-                                    createdOn: supaTx.created_on ? new Date(supaTx.created_on) : transactionData.createdOn,
-                                    updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
-                                });
-
-                                // --- Update ProxyPayment originalTransactionId if exists ---
-                                if (transactionData.is_proxy_payment && transactionData.on_behalf_of_contact_id) {
-                                    // Find ProxyPayment by old temp transaction ID
-                                    const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', transactionData.id)[0];
-                                    if (proxyPayment) {
-                                        realm.create('ProxyPayment', {
-                                            ...proxyPayment.toJSON(),
-                                            originalTransactionId: finalTransactionId,
-                                            updatedOn: new Date()
-                                        }, 'modified');
-                                    }
-                                }
+                                    ...transactionData, id: finalTransactionId, syncStatus: 'synced', needsUpload: false, lastSyncAt: new Date(),
+                                }, Realm.UpdateMode.Modified);
                             } else {
-                                // Just update the existing transaction
-                                realm.create('Transaction', {
-                                    ...txToUpdate,
-                                    syncStatus: 'synced',
-                                    needsUpload: false,
-                                    lastSyncAt: new Date(),
-                                    createdOn: supaTx.created_on ? new Date(supaTx.created_on) : txToUpdate.createdOn,
-                                    updatedOn: supaTx.updated_on ? new Date(supaTx.updated_on) : new Date(),
-                                }, 'modified');
+                                txToUpdate.syncStatus = 'synced';
+                                txToUpdate.needsUpload = false;
+                                txToUpdate.lastSyncAt = new Date();
                             }
-
-                            // Update sync log status
+                            
                             const syncLog = realm.objects('SyncLog').filtered('recordId == $0 AND status == "pending"', currentTxId).sorted('createdOn', true)[0];
                             if (syncLog) {
-                                realm.create('SyncLog', {
-                                    ...syncLog,
-                                    recordId: finalTransactionId, // Update to final ID
-                                    status: 'completed',
-                                    processedAt: new Date()
-                                }, 'modified');
+                                syncLog.recordId = finalTransactionId;
+                                syncLog.status = 'completed';
+                                syncLog.processedAt = new Date();
                             }
                         }
                     });
 
                 } catch (supabaseError) {
                     console.error('Supabase sync error:', supabaseError);
-                    // Sync failed, but local transaction is already saved
-                    // The sync log will remain as 'pending' for later retry
                 }
             }
 
-            // STEP 3: Trigger callback first, then show success alert
-            // Trigger the callback if provided (check both possible parameter names)
-            // const callback = route.params?.onTransactionSaved || route.params?.onSave;
-            // if (callback && typeof callback === 'function') {
-            //     try {
-            //         callback();
-            //     } catch (callbackError) {
-            //         console.error('Error in callback:', callbackError);
-            //         // Don't throw here, just log the error
-            //     }
-            // }
-
-            // Show success alert and navigate back only when user clicks OK
+            // STEP 3: Trigger callback and show success alert
             Alert.alert(
                 t('common.success'),
                 t('addNewRecordScreen.alerts.success.save'),
-                [
-                    {
-                        text: t('common.ok'),
-                        onPress: () => {
-                            // Navigate back only when user clicks OK
-                            navigation.goBack();
-                        }
-                    }
-                ],
-                { cancelable: false } // Prevent dismissing by tapping outside
+                [{ text: t('common.ok'), onPress: () => navigation.goBack() }],
+                { cancelable: false }
             );
 
         } catch (error) {
@@ -817,7 +832,8 @@ const NewRecordScreen = ({ navigation, route }) => {
         isLoading, amount, type, accountId, userId, transactionId, originalTransaction, isEditing,
         contactPerson, transactionDate, remarks, purpose, imageUri, navigation,
         isProxyPayment, onBehalfOfContactId, showProxySwitch, userType,
-        route.params?.onTransactionSaved, route.params?.onSave, isDuplicating, originalTransaction
+        route.params?.onTransactionSaved, route.params?.onSave, isDuplicating,
+        isRecurring, recurringPattern, recurringTransaction, parentTransactionId
     ]);
 
     const handleCancel = useCallback(() => {
@@ -1318,6 +1334,44 @@ const NewRecordScreen = ({ navigation, route }) => {
                                 </TouchableOpacity>
                             </View>
                         </View>
+
+                        {/* Recurring Transaction Section */}
+                        <View style={styles.cardContainer}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <View>
+                                    <Text style={styles.sectionTitle}>Recurring Transaction</Text>
+                                    {(userType !== 'paid' || !isOnline) &&
+                                        <Text style={{ color: colors.error }}>{userType !== 'paid' ? "This is a premium feature." : "This feature is not available offline."}</Text>
+                                    }
+                                </View>
+                                <Switch
+                                    value={isRecurring}
+                                    onValueChange={(value) => {
+                                        setIsRecurring(value)
+                                        if (!value) {
+                                            setRecurringPattern(null);
+                                        }
+                                    }}
+                                    disabled={userType !== 'paid' || !isOnline}
+                                />
+                            </View>
+                            {isRecurring && (
+                                <TouchableOpacity
+                                    style={{
+                                        marginTop: 10,
+                                        paddingVertical: 10,
+                                        paddingHorizontal: 15,
+                                        backgroundColor: colors.primary,
+                                        borderRadius: 8,
+                                        alignItems: 'center'
+                                    }}
+                                    onPress={() => setShowRecurringModal(true)}
+                                >
+                                    <Text style={{ color: colors.white, fontWeight: 'bold' }}>{recurringPattern ? "Edit Recurring Rule" : "Configure Recurring Rule"}</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
                     </ScrollView>
 
                     <View style={styles.floatingButtonsContainer}>
@@ -1389,6 +1443,17 @@ const NewRecordScreen = ({ navigation, route }) => {
                         </Animated.View>
                     </Modal>
                     <ContactOptionsModal />
+                    <Modal
+                        visible={showRecurringModal}
+                        animationType="slide"
+                        onRequestClose={() => setShowRecurringModal(false)}
+                    >
+                        <RecurringForm
+                            onSubmit={handleRecurringSubmit}
+                            onCancel={() => setShowRecurringModal(false)}
+                            initialData={recurringPattern ? JSON.parse(recurringPattern) : {}}
+                        />
+                    </Modal>
                     <Modal
                         visible={showPurposeModal}
                         animationType="slide"

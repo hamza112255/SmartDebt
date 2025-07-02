@@ -52,7 +52,7 @@ const mapSpecificToGenericType = (specificType) => {
   return specificType; // Fallback
 };
 
-const getSpecificTransactionType = (genericType, accountType) => {
+export const getSpecificTransactionType = (genericType, accountType) => {
   const mapping = {
     'cash_in_out': { 'credit': 'cash_in', 'debit': 'cash_out' },
     'receive_send': { 'credit': 'receive', 'debit': 'send_out' },
@@ -88,7 +88,7 @@ const transformKeysToSnakeCase = (obj) => {
   return obj;
 };
 
-const transformKeysToCamelCase = (obj) => {
+export const transformKeysToCamelCase = (obj) => {
   if (Array.isArray(obj)) {
     return obj.map(v => transformKeysToCamelCase(v));
   } else if (obj !== null && obj.constructor === Object) {
@@ -495,20 +495,21 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
         return true;
 
       case 'delete':
-        console.log('[SYNC-PROCESS] Deleting record from Supabase with ID:', recordId);
+        const idToDelete = idMapping[tableName]?.[recordId] || recordId;
+        console.log(`[SYNC-PROCESS] Deleting record from Supabase with ID: ${idToDelete} (local ID was: ${recordId})`);
+        
         await delay(500); // 500ms delay
-        result = await supabase.from(tableName).delete().eq('id', recordId);
+        result = await supabase.from(tableName).delete().eq('id', idToDelete);
 
         if (result.error) {
-          console.error('[SYNC-PROCESS] Supabase DELETE failed:', result.error.message);
+          console.error(`[SYNC-PROCESS] Supabase DELETE failed for ID ${idToDelete}:`, result.error.message);
           throw result.error;
         }
 
-        realm.write(() => {
-          const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
-          if (oldRecord) realm.delete(oldRecord);
-          console.log(`[SYNC-PROCESS] Deleted local record ${recordId}`);
-        });
+        console.log(`[SYNC-PROCESS] Supabase delete successful for ID ${idToDelete}.`);
+        
+        // The record is already deleted from Realm when the user performs the action.
+        // We just need to make sure the log is cleared.
         return true;
 
       default:
@@ -581,20 +582,14 @@ export const syncPendingChanges = async (realmUserId, onProgress = () => { }) =>
       const result = await processSyncLog(log, realmUser.supabaseId, schemaName, idMapping);
 
       if (result === true) {
-        const logToUpdate = realm.objectForPrimaryKey('SyncLog', log.id);
-        if (logToUpdate) {
-          realm.write(() => {
-            logToUpdate.status = 'completed';
-            logToUpdate.lastSyncAt = new Date();
-          });
-          // Remove the SyncLog after marking as completed
-          realm.write(() => {
-            const logToDelete = realm.objectForPrimaryKey('SyncLog', log.id);
-            if (logToDelete) realm.delete(logToDelete);
-          });
-        }
+        realm.write(() => {
+          const logToDelete = realm.objectForPrimaryKey('SyncLog', log.id);
+          if (logToDelete) {
+            realm.delete(logToDelete);
+          }
+        });
         successCount++;
-        console.log(`[SYNC] ✅ Successfully processed ${log.tableName}/${log.recordId}`);
+        console.log(`[SYNC] ✅ Successfully processed and deleted SyncLog for ${log.tableName}/${log.recordId}`);
         console.log(`[SYNC] Updated ID mappings after processing ${log.tableName}:`, JSON.stringify(idMapping, null, 2));
       } else {
         console.warn(`[SYNC] ❌ Failed to process Log ID: ${log.id}, marking as failed`);
@@ -856,3 +851,277 @@ export async function createContactInSupabase(contactData) {
   if (error) throw error;
   return data;
 }
+
+/**
+ * Create a recurring transaction rule in Supabase.
+ * @param {object} recurringData - The recurring rule data from the form.
+ * @param {string} transactionId - The ID of the parent/template transaction.
+ * @param {string} userId - The Supabase user ID.
+ * @returns {Promise<object>} - The created recurring transaction rule.
+ */
+export async function createRecurringTransactionInSupabase(recurringData, transactionId, userId) {
+  const payload = {
+    transaction_id: transactionId,
+    user_id: userId,
+    frequency_type: recurringData.frequency_type,
+    interval_value: recurringData.interval_value,
+    start_date: new Date(recurringData.start_date).toISOString(),
+    end_date: recurringData.end_date ? new Date(recurringData.end_date).toISOString() : null,
+    max_occurrences: recurringData.max_occurrences || null,
+    current_occurrences: 0,
+    is_active: true,
+    next_execution_date: new Date(recurringData.start_date).toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('recurring_transactions')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating recurring transaction in Supabase:', error);
+    throw error;
+  }
+  return data;
+}
+
+/**
+ * Fetches a recurring transaction rule by its parent transaction ID.
+ * @param {string} transactionId - The parent transaction ID.
+ * @returns {Promise<object|null>} - The recurring transaction rule or null.
+ */
+export async function getRecurringTransactionByTransactionId(transactionId) {
+    const { data, error } = await supabase
+        .from('recurring_transactions')
+        .select('*')
+        .eq('transaction_id', transactionId)
+        .single();
+    
+    // PGRST116 means no rows were found, which is not an error in this case.
+    if (error && error.code !== 'PGRST116') { 
+        console.error('Error fetching recurring transaction:', error);
+        throw error;
+    }
+    return data;
+}
+
+/**
+ * Updates an existing recurring transaction rule in Supabase.
+ * @param {string} recurringTransactionId - The ID of the recurring_transactions record.
+ * @param {object} recurringData - The updated recurring rule data from the form.
+ * @returns {Promise<object>} - The updated recurring transaction rule.
+ */
+export async function updateRecurringTransactionInSupabase(recurringTransactionId, recurringData) {
+    const payload = {
+        frequency_type: recurringData.frequency_type,
+        interval_value: recurringData.interval_value,
+        start_date: new Date(recurringData.start_date).toISOString(),
+        end_date: recurringData.end_date ? new Date(recurringData.end_date).toISOString() : null,
+        max_occurrences: recurringData.max_occurrences || null,
+        // When the rule is updated, the next execution should reset to the new start date.
+        next_execution_date: new Date(recurringData.start_date).toISOString(),
+        updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+        .from('recurring_transactions')
+        .update(payload)
+        .eq('id', recurringTransactionId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating recurring transaction in Supabase:', error);
+        throw error;
+    }
+    return data;
+}
+
+/**
+ * Deletes a recurring transaction rule from Supabase.
+ * @param {string} recurringTransactionId - The ID of the recurring_transactions record.
+ * @returns {Promise<boolean>} - True if successful.
+ */
+export async function deleteRecurringTransactionInSupabase(recurringTransactionId) {
+    const { error } = await supabase
+        .from('recurring_transactions')
+        .delete()
+        .eq('id', recurringTransactionId);
+
+    if (error) {
+        console.error('Error deleting recurring transaction in Supabase:', error);
+        throw error;
+    }
+    return true;
+}
+
+/**
+ * Cancels a recurring transaction rule in Supabase.
+ * @param {string} transactionId - The ID of the parent/template transaction.
+ * @returns {Promise<boolean>} - True if successful.
+ */
+export async function cancelRecurringTransactionInSupabase(transactionId) {
+  // 1. Update the recurring_transactions table to deactivate the rule
+  const { data: recurringRule, error: fetchError } = await supabase
+    .from('recurring_transactions')
+    .select('id')
+    .eq('transaction_id', transactionId)
+    .single();
+
+  if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching recurring transaction to cancel:', fetchError);
+      throw fetchError;
+  }
+
+  if (recurringRule) {
+    const { error: recurringError } = await supabase
+      .from('recurring_transactions')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', recurringRule.id);
+
+    if (recurringError) {
+      console.error('Error deactivating recurring transaction rule:', recurringError);
+      throw recurringError;
+    }
+  }
+
+  // 2. Update the parent transaction status to 'cancelled'
+  const { error: transactionError } = await supabase
+    .from('transactions')
+    .update({ status: 'cancelled' })
+    .eq('id', transactionId);
+
+  if (transactionError) {
+    console.error('Error cancelling parent transaction:', transactionError);
+    // Potentially roll back the first update? For now, just throw.
+    throw transactionError;
+  }
+
+  return true;
+}
+
+export const syncDownstreamChanges = async (supabaseUserId) => {
+  if (!supabaseUserId) {
+    console.log('No user to sync for.');
+    return;
+  }
+  // 1. Fetch pending sync_logs from Supabase
+  const { data: logs, error: logsError } = await supabase
+    .from('sync_logs')
+    .select('*')
+    .eq('user_id', supabaseUserId)
+    .eq('status', 'pending')
+    .order('created_on', { ascending: true });
+
+  if (logsError) {
+    console.error('Error fetching sync logs:', logsError);
+    return;
+  }
+
+  if (!logs || logs.length === 0) {
+    return;
+  }
+
+  for (const log of logs) {
+    try {
+      if (log.table_name === 'transactions') {
+        const { record_id: transactionId, operation } = log;
+
+        if (operation === 'create' || operation === 'update') {
+          // 2. Fetch the transaction data from Supabase
+          const { data: transactionData, error: transactionError } = await supabase
+            .from('transactions')
+            .select('*, account:accounts(id, current_balance, updated_on)') // Also fetch related account data
+            .eq('id', transactionId)
+            .single();
+          
+          if (transactionError) throw new Error(`Error fetching transaction ${transactionId}: ${transactionError.message}`);
+          if (!transactionData) throw new Error(`Transaction ${transactionId} not found in Supabase.`);
+
+          const accountData = transactionData.account;
+          if (!accountData) throw new Error(`Account for transaction ${transactionId} not found.`);
+
+          // Remove the nested accounts object before transforming keys
+          delete transactionData.account;
+
+          const realmTransaction = transformKeysToCamelCase(transactionData);
+          realmTransaction.needsUpload = false;
+          realmTransaction.syncStatus = 'synced';
+          realmTransaction.lastSyncAt = new Date();
+
+          realm.write(() => {
+            const localAccount = realm.objectForPrimaryKey('Account', realmTransaction.accountId);
+            if (!localAccount) {
+              throw new Error(`Account ${realmTransaction.accountId} not found locally for transaction.`);
+            }
+            
+            realmTransaction.type = getSpecificTransactionType(realmTransaction.type, localAccount.type);
+
+            // 3. Create or update transaction in Realm
+            realm.create('Transaction', realmTransaction, Realm.UpdateMode.Modified);
+
+            // 4. Update account balance in Realm
+            if (operation === 'create') {
+              const amount = realmTransaction.amount || 0;
+              if (transactionData.type === 'credit' || transactionData.type === 'borrow') {
+                localAccount.currentBalance += amount;
+              } else if (transactionData.type === 'debit' || transactionData.type === 'lend') {
+                localAccount.currentBalance -= amount;
+              }
+            } else { // For 'update', it's safer to trust the server's calculation
+              localAccount.currentBalance = accountData.current_balance;
+            }
+            localAccount.updatedOn = new Date(accountData.updated_on);
+          });
+
+        } else if (operation === 'delete') {
+          const transactionToDelete = realm.objectForPrimaryKey('Transaction', transactionId);
+          if (transactionToDelete) {
+            const accountId = transactionToDelete.accountId;
+            
+            realm.write(() => {
+              realm.delete(transactionToDelete);
+            });
+
+            // Now fetch the updated account balance from Supabase
+            const { data: accountData, error: accountError } = await supabase
+              .from('accounts')
+              .select('current_balance, updated_on')
+              .eq('id', accountId)
+              .single();
+
+            if (accountError) throw new Error(`Error fetching account ${accountId} after transaction delete: ${accountError.message}`);
+
+            const localAccount = realm.objectForPrimaryKey('Account', accountId);
+            if (localAccount && accountData) {
+              realm.write(() => {
+                localAccount.currentBalance = accountData.current_balance;
+                localAccount.updatedOn = new Date(accountData.updated_on);
+              });
+            }
+          }
+        }
+      }
+      // Can add else if for other tables here...
+
+      // 5. Update sync_log status to 'completed'
+      const { error: updateLogError } = await supabase
+        .from('sync_logs')
+        .update({ status: 'synced', processed_at: new Date().toISOString() })
+        .eq('id', log.id)
+        .eq('user_id', supabaseUserId);
+
+      if (updateLogError) throw new Error(`Failed to update sync_log ${log.id}: ${updateLogError.message}`);
+
+    } catch (error) {
+      console.error(`Failed to process sync log ${log.id}:`, error);
+      // Update sync_log status to 'failed'
+      await supabase
+        .from('sync_logs')
+        .update({ status: 'failed', error: error.message, processed_at: new Date().toISOString() })
+        .eq('id', log.id)
+        .eq('user_id', supabaseUserId);
+    }
+  }
+};

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SmartDebt",
-    "slug": "SmartDebt",
+    "name": "Settly",
+    "slug": "settly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,10 +20,12 @@
       "permissions": [
         "READ_CONTACTS",
         "WRITE_CONTACTS",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
       ],
       "edgeToEdgeEnabled": true,
-      "package": "com.hamza125.SmartDebt"
+      "package": "com.settly.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,6 +39,12 @@
           "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c3519dd2-6e13-482e-81e9-425a3468e47d"
+      }
+    },
+    "owner": "numanfareed"
   }
 }

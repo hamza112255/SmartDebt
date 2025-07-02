@@ -9,6 +9,7 @@ import {
     Modal,
     Alert,
     TouchableWithoutFeedback,
+    Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { screens } from '../constant/screens';
@@ -18,6 +19,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getAllObjects, realm } from '../realm';
 import { useTranslation } from 'react-i18next';
 import moment from 'moment';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { deleteTransactionInSupabase, cancelRecurringTransactionInSupabase } from '../supabase';
 
 const colors = {
     primary: '#2563eb',
@@ -175,7 +178,7 @@ const makeStyles = (accountColor) => StyleSheet.create({
     noTransactionsSubtext: {
         fontSize: RFValue(12),
         fontFamily: 'Sora-Regular',
-        color: colors.lightGray,
+        color: colors.balance,
         textAlign: 'center',
     },
     transactionContact: {
@@ -384,7 +387,57 @@ const makeStyles = (accountColor) => StyleSheet.create({
     moneyFlowValue: {
         fontFamily: 'Sora-Bold',
         fontSize: RFValue(16),
-    }
+    },
+    recurringCard: {
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        marginBottom: 10,
+        elevation: 1,
+        shadowColor: colors.gray,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+        overflow: 'hidden'
+    },
+    recurringHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+    },
+    recurringIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    recurringDetails: {
+        flex: 1,
+    },
+    recurringName: {
+        fontSize: RFPercentage(1.9),
+        color: colors.gray,
+        fontFamily: 'Sora-Bold',
+    },
+    recurringStatus: {
+        fontSize: RFPercentage(1.5),
+        color: colors.balance,
+        fontFamily: 'Sora-Regular',
+        marginTop: 2,
+    },
+    recurringAmount: {
+        alignItems: 'flex-end',
+    },
+    recurringBody: {
+        backgroundColor: '#f8f8f8',
+        padding: 12,
+    },
+    disabledOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        zIndex: 1,
+    },
 });
 
 const AccountDetailScreen = ({ navigation, route }) => {
@@ -401,8 +454,28 @@ const AccountDetailScreen = ({ navigation, route }) => {
     const [selectedTx, setSelectedTx] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const [expandedProxyGroups, setExpandedProxyGroups] = useState({});
+    const [expandedRecurringGroups, setExpandedRecurringGroups] = useState({});
+    const netInfo = useNetInfo();
 
     const styles = makeStyles(color || colors.primary);
+
+    const getStatValue = (side, account, stats) => {
+        if (!account || !stats) return 0;
+        const type = account.type;
+        if (side === 'left') { // Corresponds to Credit/Receiving Money
+            if (type === 'cash_in_out') return stats.cash_in;
+            if (type === 'receive_send') return stats.receive;
+            if (type === 'borrow_lend') return stats.borrow;
+            if (type === 'debit_credit') return stats.creditType;
+            return stats.credit;
+        } else { // Corresponds to Debit/Sending Money
+            if (type === 'cash_in_out') return stats.cash_out;
+            if (type === 'receive_send') return stats.send_out;
+            if (type === 'borrow_lend') return stats.lend;
+            if (type === 'debit_credit') return stats.debitType;
+            return stats.debit;
+        }
+    };
 
     const getStatLabels = () => {
         if (!accountData?.type) {
@@ -422,8 +495,17 @@ const AccountDetailScreen = ({ navigation, route }) => {
 
     const openMenu = (transaction, event, isProxy = false) => {
         const { pageX, pageY } = event.nativeEvent;
+        const screenWidth = Dimensions.get('window').width;
+        const menuWidth = 150;
+        
+        let x = pageX;
+        // If the menu would overflow the right edge of the screen
+        if (pageX + menuWidth > screenWidth) {
+            x = screenWidth - menuWidth - 16; // Position it from the right edge with padding
+        }
+
         setSelectedTx({ ...transaction, isProxy });
-        setMenuPosition({ x: pageX - 120, y: pageY });
+        setMenuPosition({ x, y: pageY });
         setMenuVisible(true);
     };
 
@@ -566,87 +648,183 @@ const AccountDetailScreen = ({ navigation, route }) => {
             {
                 text: "Delete",
                 style: "destructive",
-                onPress: () => {
-                    realm.write(() => {
-                        const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
-                        if (!txToDelete) return;
+                onPress: async () => {
+                    const user = realm.objectForPrimaryKey('User', accountData.userId);
+                    const isPaidUser = user?.userType === 'paid';
 
-                        const pendingLogs = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', txToDeleteId);
-                        const isNewAndUnsynced = pendingLogs.some(log => log.operation === 'create');
+                    const performLocalDeletion = (txId) => {
+                        realm.write(() => {
+                            const txToDelete = realm.objectForPrimaryKey('Transaction', txId);
+                            if (!txToDelete) return;
 
-                        if (isNewAndUnsynced) {
-                            // Item was created offline and never synced. Delete record and all its logs.
-                            if (pendingLogs.length > 0) realm.delete(pendingLogs);
-                        } else {
-                            // Item was synced or is being synced. Add a delete log.
-                            // First, remove any pending 'update' logs for this record.
-                            const updateLogs = pendingLogs.filtered('operation == "update"');
-                            if (updateLogs.length > 0) realm.delete(updateLogs);
-                            
-                            realm.create('SyncLog', {
-                                id: new Date().toISOString() + '_log',
-                                userId: txToDelete.userId,
-                                tableName: 'transactions',
-                                recordId: txToDeleteId,
-                                operation: 'delete',
-                                status: 'pending',
-                                createdOn: new Date(),
-                            });
-                        }
-
-                        // Now, handle local data updates and deletion
-                        if (txToDelete.is_proxy_payment) {
-                            const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', txToDelete.id)[0];
-                            if (proxyPayment) {
-                                if (proxyPayment.debtAdjustmentTransactionId) {
-                                const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
-                                if (debtTx) {
-                                    const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
-                                    if (adjAccount) {
-                                        updateAccountBalanceForDelete(adjAccount, debtTx, true);
+                            if (txToDelete.is_proxy_payment) {
+                                const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', txToDelete.id)[0];
+                                if (proxyPayment) {
+                                    if (proxyPayment.debtAdjustmentTransactionId) {
+                                        const debtTx = realm.objectForPrimaryKey('Transaction', proxyPayment.debtAdjustmentTransactionId);
+                                        if (debtTx) {
+                                            const adjAccount = realm.objectForPrimaryKey('Account', debtTx.accountId);
+                                            if (adjAccount) {
+                                                updateAccountBalanceForDelete(adjAccount, debtTx, true);
+                                            }
+                                            realm.delete(debtTx);
+                                        }
                                     }
-                                    realm.delete(debtTx);
-                                    }
+                                    realm.delete(proxyPayment);
                                 }
-                                realm.delete(proxyPayment);
+                            }
+
+                            const account = realm.objectForPrimaryKey('Account', txToDelete.accountId);
+                            if (account) {
+                                updateAccountBalanceForDelete(account, txToDelete, true);
+                            }
+                            realm.delete(txToDelete);
+                        });
+                        loadTransactions();
+                    };
+
+                    const createSyncLog = (tx) => {
+                        realm.write(() => {
+                            const pendingLogs = realm.objects('SyncLog').filtered('recordId == $0 AND (status == "pending" OR status == "failed")', tx.id);
+                            const isNewAndUnsynced = pendingLogs.some(log => log.operation === 'create');
+
+                            if (isNewAndUnsynced) {
+                                if (pendingLogs.length > 0) realm.delete(pendingLogs);
+                            } else {
+                                const updateLogs = pendingLogs.filtered('operation == "update"');
+                                if (updateLogs.length > 0) realm.delete(updateLogs);
+                                
+                                realm.create('SyncLog', {
+                                    id: new Date().toISOString() + '_log',
+                                    userId: tx.userId,
+                                    tableName: 'transactions',
+                                    recordId: tx.id,
+                                    operation: 'delete',
+                                    status: 'pending',
+                                    createdOn: new Date(),
+                                });
+                            }
+                        });
+                    };
+
+                    if (isPaidUser && netInfo.isConnected) {
+                        try {
+                            const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
+                            if (txToDelete.id.startsWith('temp_')) { 
+                                // This is a new transaction not yet synced, so no need to call supabase
+                                // but we also don't need a sync log for deletion.
+                            } else {
+                                await deleteTransactionInSupabase(txToDeleteId);
+                            }
+                            performLocalDeletion(txToDeleteId);
+                        } catch (error) {
+                            console.error("Supabase delete failed, falling back to SyncLog", error);
+                            const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
+                            if (txToDelete) {
+                                createSyncLog(txToDelete);
+                                performLocalDeletion(txToDeleteId);
                             }
                         }
-
-                        const account = realm.objectForPrimaryKey('Account', txToDelete.accountId);
-                        if (account) {
-                            updateAccountBalanceForDelete(account, txToDelete, true);
+                    } else {
+                        const txToDelete = realm.objectForPrimaryKey('Transaction', txToDeleteId);
+                        if (txToDelete) {
+                            createSyncLog(txToDelete);
+                            performLocalDeletion(txToDeleteId);
                         }
-                        realm.delete(txToDelete);
-                    });
-                    loadTransactions();
+                    }
                 },
             },
         ]);
+    };
+
+    const handleCancel = async () => {
+        if (!selectedTx || !selectedTx.isRecurring) return;
+        const txToCancelId = selectedTx.id;
+        closeMenu();
+
+        Alert.alert(
+            "Cancel Recurring Transaction",
+            "Are you sure you want to cancel this recurring transaction? This will stop future transactions from being generated.",
+            [
+                { text: "No", style: "cancel" },
+                {
+                    text: "Yes, Cancel",
+                    style: "destructive",
+                    onPress: async () => {
+                        const user = realm.objectForPrimaryKey('User', accountData.userId);
+                        const isPaidUser = user?.userType === 'paid';
+
+                        const performLocalUpdate = () => {
+                            realm.write(() => {
+                                const tx = realm.objectForPrimaryKey('Transaction', txToCancelId);
+                                if (tx) {
+                                    tx.status = 'cancelled';
+                                    tx.updatedOn = new Date();
+                                }
+                            });
+                            loadTransactions();
+                        };
+
+                        if (isPaidUser && netInfo.isConnected) {
+                            try {
+                                await cancelRecurringTransactionInSupabase(txToCancelId);
+                                performLocalUpdate();
+                            } catch (error) {
+                                console.error("Supabase cancel failed, creating SyncLog", error);
+                                realm.write(() => {
+                                    const tx = realm.objectForPrimaryKey('Transaction', txToCancelId);
+                                    if(tx) {
+                                        tx.status = 'cancelled';
+                                        tx.needsUpload = true;
+                                    }
+                                });
+                                performLocalUpdate();
+                            }
+                        } else {
+                            realm.write(() => {
+                                const tx = realm.objectForPrimaryKey('Transaction', txToCancelId);
+                                if (tx) {
+                                    tx.status = 'cancelled';
+                                    tx.needsUpload = true;
+                                }
+                            });
+                            performLocalUpdate();
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const loadAccountData = useCallback(() => {
         if (!accountId) return;
         const account = realm.objectForPrimaryKey('Account', accountId);
         if (account) {
-            const allTransactions = realm.objects('Transaction').filtered('accountId == $0', accountId);
+            const allTransactions = realm.objects('Transaction').filtered('accountId == $0 AND isRecurring != true', accountId);
             const debtAdjustmentTxIds = getDebtAdjustmentTxIds();
 
             const stats = allTransactions
                 .filter(t => !debtAdjustmentTxIds.has(t.id))
                 .reduce((acc, tx) => {
                     const amount = tx.amount || 0;
+                    if (['cash_in', 'receive', 'borrow', 'credit'].includes(tx.type)) {
+                        acc.credit += amount;
+                    } else if (['cash_out', 'send_out', 'lend', 'debit'].includes(tx.type)) {
+                        acc.debit += amount;
+                    }
+
                     if (tx.type === 'cash_in') acc.cash_in += amount;
                     else if (tx.type === 'cash_out') acc.cash_out += amount;
                     else if (tx.type === 'receive') acc.receive += amount;
                     else if (tx.type === 'send_out') acc.send_out += amount;
                     else if (tx.type === 'borrow') acc.borrow += amount;
                     else if (tx.type === 'lend') acc.lend += amount;
-                    else if (tx.type === 'credit') acc.credit += amount;
-                    else if (tx.type === 'debit') acc.debit += amount;
+                    else if (tx.type === 'credit') acc.creditType += amount;
+                    else if (tx.type === 'debit') acc.debitType += amount;
                     return acc;
                 }, {
-                    cash_in: 0, cash_out: 0, receive: 0, send_out: 0,
-                    borrow: 0, lend: 0, credit: 0, debit: 0,
+                    credit: 0, debit: 0, cash_in: 0, cash_out: 0, receive: 0,
+                    send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
                 });
 
             setAccountData({
@@ -657,8 +835,6 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 currentBalance: account.currentBalance,
                 currency: account.currency,
                 userId: account.userId,
-                receiving_money: account.receiving_money,
-                sending_money: account.sending_money,
                 ...stats,
             });
         }
@@ -828,8 +1004,33 @@ const AccountDetailScreen = ({ navigation, route }) => {
         const usedIds = new Set();
         const localTransactions = [...transactionsArr];
 
+        // Group recurring transactions first
+        const parents = localTransactions.filter(t => t.isRecurring === true);
+        const childrenByParentId = {};
+
+        localTransactions.forEach(tx => {
+            if (tx.parentTransactionId) {
+                if (!childrenByParentId[tx.parentTransactionId]) {
+                    childrenByParentId[tx.parentTransactionId] = [];
+                }
+                childrenByParentId[tx.parentTransactionId].push(tx);
+                usedIds.add(tx.id);
+            }
+        });
+
+        parents.forEach(parent => {
+            if (usedIds.has(parent.id)) return;
+            grouped.push({
+                type: 'recurringGroup',
+                parent: parent,
+                children: (childrenByParentId[parent.id] || []).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate)),
+            });
+            usedIds.add(parent.id);
+        });
+
         localTransactions.forEach(tx => {
             if (usedIds.has(tx.id)) return;
+
             const proxy = proxyMap[tx.id];
             if (proxy) {
                 const mainTxId = proxy.originalTransactionId;
@@ -861,7 +1062,12 @@ const AccountDetailScreen = ({ navigation, route }) => {
                 usedIds.add(tx.id);
             }
         });
-        return grouped;
+
+        return grouped.sort((a, b) => {
+            const dateA = a.tx?.transactionDate || a.main?.transactionDate || a.parent?.transactionDate;
+            const dateB = b.tx?.transactionDate || b.main?.transactionDate || b.parent?.transactionDate;
+            return new Date(dateB) - new Date(dateA);
+        });
     };
 
     const renderTransactionItem = useCallback(({ item }) => {
@@ -913,17 +1119,44 @@ const AccountDetailScreen = ({ navigation, route }) => {
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <View style={StyleSheet.absoluteFill}>
                     <View style={[styles.menuContainer, { top: menuPosition.y, left: menuPosition.x }]}>
-                        {selectedTx && !selectedTx.isProxy &&
-                            <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
-                                <Text style={styles.menuText}>{t('common.edit')}</Text>
-                            </TouchableOpacity>
-                        }
-                        <TouchableOpacity style={styles.menuOption} onPress={handleDuplicate}>
-                            <Text style={styles.menuText}>{t('common.duplicate')}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
-                            <Text style={[styles.menuText, { color: colors.error }]}>{t('common.delete')}</Text>
-                        </TouchableOpacity>
+                        {/* Case 1: Parent Recurring Transaction */}
+                        {selectedTx?.isRecurring ? (
+                            <>
+                                {selectedTx.status !== 'cancelled' && (
+                                    <>
+                                        <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                                            <Text style={styles.menuText}>{t('common.edit')}</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.menuOption} onPress={handleCancel}>
+                                            <Text style={[styles.menuText, { color: colors.error }]}>{t('common.cancel')}</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </>
+                        ) : selectedTx?.parentTransactionId ? ( /* Case 2: Child Recurring Transaction */
+                            <>
+                                <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                                    <Text style={styles.menuText}>{t('common.edit')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
+                                    <Text style={[styles.menuText, { color: colors.error }]}>{t('common.delete')}</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : ( /* Case 3: Simple or Proxy Transaction */
+                            <>
+                                {selectedTx && !selectedTx.isProxy &&
+                                    <TouchableOpacity style={styles.menuOption} onPress={handleEdit}>
+                                        <Text style={styles.menuText}>{t('common.edit')}</Text>
+                                    </TouchableOpacity>
+                                }
+                                <TouchableOpacity style={styles.menuOption} onPress={handleDuplicate}>
+                                    <Text style={styles.menuText}>{t('common.duplicate')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.menuOption} onPress={handleDelete}>
+                                    <Text style={[styles.menuText, { color: colors.error }]}>{t('common.delete')}</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
                     </View>
                 </View>
             </TouchableWithoutFeedback>
@@ -956,11 +1189,11 @@ const AccountDetailScreen = ({ navigation, route }) => {
                     <View style={styles.typeSplitContainer}>
                         <View style={styles.typeSplitItem}>
                             <Text style={styles.typeSplitLabel}>{leftLabel}</Text>
-                            <Text style={styles.typeSplitValue}>{formatAmount(accountData?.receiving_money || 0)}</Text>
+                            <Text style={styles.typeSplitValue}>{formatAmount(getStatValue('left', accountData, accountData))}</Text>
                         </View>
                         <View style={styles.typeSplitItem}>
                             <Text style={styles.typeSplitLabel}>{rightLabel}</Text>
-                            <Text style={styles.typeSplitValue}>{formatAmount(accountData?.sending_money || 0)}</Text>
+                            <Text style={styles.typeSplitValue}>{formatAmount(getStatValue('right', accountData, accountData))}</Text>
                         </View>
                     </View>
                 </View>
@@ -972,6 +1205,47 @@ const AccountDetailScreen = ({ navigation, route }) => {
 
                     {groupedTransactions?.length > 0 ? (
                         groupedTransactions.map((item, index) => {
+                             if (item.type === 'recurringGroup') {
+                                const groupKey = item.parent.id;
+                                const expanded = !!expandedRecurringGroups[groupKey];
+                                const isCancelled = item.parent.status === 'cancelled';
+                                return (
+                                    <View key={groupKey} style={styles.recurringCard}>
+                                        {isCancelled && <View style={styles.disabledOverlay} />}
+                                        <TouchableOpacity
+                                            style={styles.recurringHeader}
+                                            onPress={() => !isCancelled && setExpandedRecurringGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                                            activeOpacity={isCancelled ? 1 : 0.8}
+                                        >
+                                            <View style={[styles.recurringIcon, { backgroundColor: colors.primary + '20' }]}>
+                                                <Icon name="autorenew" size={RFValue(20)} color={colors.primary} />
+                                            </View>
+                                            <View style={styles.recurringDetails}>
+                                                <Text style={styles.recurringName}>{item.parent.purpose || 'Recurring Transaction'}</Text>
+                                                <Text style={styles.recurringStatus}>
+                                                    {isCancelled ? 'Cancelled' : (expanded ? 'Tap to collapse' : 'Tap to expand')}
+                                                </Text>
+                                            </View>
+                                            <View style={{ alignItems: 'center' }}>
+                                                 {!isCancelled && <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(24)} color={colors.primary} />}
+                                            </View>
+                                            <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item.parent, e)}>
+                                                <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
+                                            </TouchableOpacity>
+                                        </TouchableOpacity>
+
+                                        {expanded && !isCancelled && (
+                                            <View style={styles.recurringBody}>
+                                                {item.children.length > 0 ? item.children.map(childTx => (
+                                                    renderTransactionItem({ item: childTx })
+                                                )) : (
+                                                    <Text style={styles.noTransactionsSubtext}>No transactions have occurred yet.</Text>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            }
                             if (item.type === 'proxyGroup') {
                                 const groupKey = item.main.id;
                                 const expanded = !!expandedProxyGroups[groupKey];

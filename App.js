@@ -92,10 +92,10 @@ function MainTabs() {
           } else if (route.name === 'Dashboard') {
             iconName = 'home';
             iconSize = 28;
-          } else if (route.name === 'Notifications') {
-            iconName = 'notifications';
-          } else if (route.name === 'Settings') {
-            iconName = 'settings';
+          } else if (route.name === 'Budget') {
+            iconName = 'credit-card';
+          } else if (route.name === 'Accounts') {
+            iconName = 'person';
           }
 
           if (route.name === 'Dashboard') {
@@ -155,10 +155,10 @@ function MainTabs() {
       })}
     >
       <Tab.Screen
-        name="Settings"
+        name="Accounts"
         component={SettingsScreen}
         options={{
-          tabBarLabel: t('navigation.tabs.settings'),
+          tabBarLabel: t('navigation.tabs.accounts'),
           tabBarLabelStyle: { fontFamily: 'Sora-Regular' },
         }}
       />
@@ -192,20 +192,10 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Notifications"
+        name="Budget"
         component={CalendarScreen}
         options={{
           tabBarLabel: t('navigation.tabs.budget'),
-          tabBarBadge: 3,
-          tabBarBadgeStyle: {
-            backgroundColor: '#ef4444',
-            color: '#ffffff',
-            fontSize: 10,
-            fontFamily: 'Sora-Bold',
-            minWidth: 18,
-            height: 18,
-            borderRadius: 9,
-          },
           tabBarLabelStyle: { fontFamily: 'Sora-Regular' },
         }}
       />

@@ -381,7 +381,7 @@ const CalendarScreen = ({ navigation, route }) => {
 
         try {
             const realmTransactions = getAllObjects('Transaction')
-                ?.filtered('accountId == $0', accountId)
+                ?.filtered('accountId == $0 AND isRecurring != true', accountId)
                 ?.sorted('transactionDate', true) || [];
 
             const transactionsByDate = {};
@@ -646,25 +646,8 @@ const CalendarScreen = ({ navigation, route }) => {
         const localTransactions = [...transactionsArr]; // Transactions on selected day
 
         const allAccountTransactions = realm.objects('Transaction').filtered('accountId == $0', selectedAccount.id);
-        const allParentTxs = allAccountTransactions.filtered('isRecurring == true');
 
-        // 1. Group Recurring Transactions relevant to the day
-        allParentTxs.forEach(parentTx => {
-            const childrenInDay = localTransactions.filter(t => t.parentTransactionId === parentTx.id);
-            const parentStartsToday = moment(parentTx.transactionDate).isSame(selectedDate, 'day');
-
-            if (parentStartsToday || childrenInDay.length > 0) {
-                grouped.push({
-                    type: 'recurringGroup',
-                    parent: JSON.parse(JSON.stringify(parentTx)),
-                    children: childrenInDay
-                });
-                if (parentStartsToday) usedIds.add(parentTx.id);
-                childrenInDay.forEach(c => usedIds.add(c.id));
-            }
-        });
-
-        // 2. Process all other transactions for the day
+        // Process all other transactions for the day
         localTransactions.forEach(tx => {
             if (usedIds.has(tx.id)) return;
 
@@ -680,10 +663,6 @@ const CalendarScreen = ({ navigation, route }) => {
                     proxy,
                 });
                 usedIds.add(tx.id);
-                // Also mark the adjustment if it happens to be on the same day
-                if (adjTx && localTransactions.some(t => t.id === adjTx.id)) {
-                    usedIds.add(adjTx.id);
-                }
             } 
             // Check if it's an adjustment whose main proxy isn't today
             else if (proxy && tx.id === proxy.debtAdjustmentTransactionId) {
@@ -699,8 +678,8 @@ const CalendarScreen = ({ navigation, route }) => {
         });
 
         return grouped.sort((a, b) => {
-            const dateA = a.tx?.date || a.main?.date || a.parent?.transactionDate;
-            const dateB = b.tx?.date || b.main?.date || b.parent?.transactionDate;
+            const dateA = a.tx?.date || a.main?.date;
+            const dateB = b.tx?.date || b.main?.date;
             return new Date(dateB) - new Date(dateA);
         });
     };
@@ -712,6 +691,7 @@ const CalendarScreen = ({ navigation, route }) => {
         const transactionColor = getTransactionColor(type);
         const amount = parseFloat(item?.amount) || 0;
         const iconName = getTransactionIcon(type);
+        const isRecurringOrChild = item.isRecurring || !!item.parentTransactionId;
 
         const typeTextMap = { cash_in: t('terms.cash_in'), cash_out: t('terms.cash_out'), debit: t('terms.debit'), credit: t('terms.credit'), receive: t('terms.receive'), send_out: t('terms.send_out'), borrow: t('terms.borrow'), lend: t('terms.lend') };
         const typeText = typeTextMap[type] || type;
@@ -725,7 +705,10 @@ const CalendarScreen = ({ navigation, route }) => {
                         <Icon name={iconName} size={RFValue(20)} color={transactionColor} />
                     </View>
                     <View style={styles.transactionDetails}>
-                        <Text style={styles.transactionName} numberOfLines={1}>{item?.name || t('accountDetailsScreen.noDescription')}</Text>
+                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={styles.transactionName} numberOfLines={1}>{item?.name || t('accountDetailsScreen.noDescription')}</Text>
+                            {isRecurringOrChild && <Icon name="autorenew" size={RFValue(16)} color={colors.primary} style={{ marginLeft: 8 }} />}
+                        </View>
                         <Text style={styles.transactionDateStyle}>{item?.contactName || t('common.noContact')}</Text>
                     </View>
                     <View style={styles.amountContainer}>
@@ -942,47 +925,6 @@ const CalendarScreen = ({ navigation, route }) => {
                         </View>
                     ) : (
                         groupTransactions(safeGetTransactions(selectedDate)).map((item, idx) => {
-                             if (item.type === 'recurringGroup') {
-                                const groupKey = item.parent.id;
-                                const expanded = !!expandedRecurringGroups[groupKey];
-                                const isCancelled = item.parent.status === 'cancelled';
-                                return (
-                                    <View key={groupKey} style={styles.recurringCard}>
-                                        {isCancelled && <View style={styles.disabledOverlay} />}
-                                        <TouchableOpacity
-                                            style={styles.recurringHeader}
-                                            onPress={() => !isCancelled && setExpandedRecurringGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
-                                            activeOpacity={isCancelled ? 1 : 0.8}
-                                        >
-                                            <View style={[styles.recurringIcon, { backgroundColor: colors.primary + '20' }]}>
-                                                <Icon name="autorenew" size={RFValue(16)} color={colors.primary} />
-                                            </View>
-                                            <View style={styles.recurringDetails}>
-                                                <Text style={styles.transactionName}>{item.parent.name || 'Recurring Transaction'}</Text>
-                                                <Text style={styles.transactionType}>
-                                                     {isCancelled ? 'Cancelled' : (expanded ? 'Tap to collapse' : 'Tap to expand')}
-                                                </Text>
-                                            </View>
-                                            <View style={{alignItems: 'center'}}>
-                                                 {!isCancelled && <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(24)} color={colors.primary} />}
-                                            </View>
-                                             <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item.parent, e)}>
-                                                <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
-                                            </TouchableOpacity>
-                                        </TouchableOpacity>
-                                        
-                                        {expanded && !isCancelled && (
-                                            <View style={styles.proxyBody}>
-                                                {item.children.length > 0 ? item.children.map(childTx => (
-                                                    renderTransactionItem({ item: childTx })
-                                                )) : (
-                                                    <Text style={styles.noTransactionsSubtext}>No transactions have occurred yet for this day.</Text>
-                                                )}
-                                            </View>
-                                        )}
-                                    </View>
-                                );
-                            }
                             if (item.type === 'proxyGroup') {
                                 const groupKey = item.main.id;
                                 const expanded = !!expandedProxyGroups[groupKey];

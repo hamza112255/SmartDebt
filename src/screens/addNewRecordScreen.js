@@ -344,7 +344,18 @@ const NewRecordScreen = ({ navigation, route }) => {
                 setIsProxyPayment(transaction.is_proxy_payment);
                 setOnBehalfOfContactId(transaction.on_behalf_of_contact_id);
                 setIsRecurring(transaction.isRecurring);
-                setRecurringPattern(transaction.recurringPattern ? JSON.parse(transaction.recurringPattern) : null);
+
+                let parsedPattern = null;
+                if (transaction.recurringPattern && typeof transaction.recurringPattern === 'string') {
+                    try {
+                        parsedPattern = JSON.parse(transaction.recurringPattern);
+                    } catch (e) {
+                        console.error("Failed to parse recurringPattern JSON:", e);
+                        parsedPattern = null; 
+                    }
+                }
+                setRecurringPattern(parsedPattern);
+                
                 setParentTransactionId(transaction.parentTransactionId);
 
                 // Fetch contact names if IDs exist
@@ -550,6 +561,16 @@ const NewRecordScreen = ({ navigation, route }) => {
         realm.create('ProxyPayment', proxyPayment);
     }
 
+    const navigateToParent = () => {
+        if (!parentTransactionId) return;
+        navigation.push(screens.NewRecord, {
+            transactionId: parentTransactionId,
+            accountId: accountId,
+            userId: userId,
+            sourceScreen: sourceScreen,
+        });
+    };
+
     // Helper: convert empty string to null for UUID and enum fields before sending to Supabase
     function supabaseSafe(obj, nullFields = []) {
         const out = { ...obj };
@@ -560,10 +581,66 @@ const NewRecordScreen = ({ navigation, route }) => {
     }
 
     const handleRecurringSubmit = (data) => {
-        const pattern = JSON.stringify(data);
-        setRecurringPattern(pattern);
+        setRecurringPattern(data);
         setShowRecurringModal(false);
         Alert.alert("Recurring Rule Set", "The recurring transaction rule has been configured.");
+    };
+
+    const handleCancelRecurring = () => {
+        if (!isEditing || !isRecurring || !transactionId) return;
+    
+        Alert.alert(
+            "Cancel Recurring Transaction",
+            "Are you sure you want to cancel this recurring transaction? This will stop future transactions from being generated.",
+            [
+                { text: "No", style: "cancel" },
+                {
+                    text: "Yes, Cancel",
+                    style: "destructive",
+                    onPress: async () => {
+                        const user = realm.objectForPrimaryKey('User', userId);
+                        const isPaidUser = user?.userType === 'paid';
+    
+                        const performLocalUpdate = () => {
+                            realm.write(() => {
+                                const tx = realm.objectForPrimaryKey('Transaction', transactionId);
+                                if (tx) {
+                                    tx.status = 'cancelled';
+                                    tx.updatedOn = new Date();
+                                }
+                            });
+                            Alert.alert("Success", "Recurring transaction has been cancelled.", [{ text: "OK", onPress: () => navigation.goBack() }]);
+                        };
+    
+                        if (isPaidUser && isOnline) {
+                            try {
+                                await cancelRecurringTransactionInSupabase(transactionId);
+                                performLocalUpdate();
+                            } catch (error) {
+                                console.error("Supabase cancel failed, creating SyncLog", error);
+                                realm.write(() => {
+                                    const tx = realm.objectForPrimaryKey('Transaction', transactionId);
+                                    if (tx) {
+                                        tx.status = 'cancelled';
+                                        tx.needsUpload = true;
+                                    }
+                                });
+                                performLocalUpdate();
+                            }
+                        } else {
+                            realm.write(() => {
+                                const tx = realm.objectForPrimaryKey('Transaction', transactionId);
+                                if (tx) {
+                                    tx.status = 'cancelled';
+                                    tx.needsUpload = true;
+                                }
+                            });
+                            performLocalUpdate();
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const handleSave = useCallback(async () => {
@@ -611,7 +688,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 isRecurring: isRecurring,
                 is_proxy_payment: showProxySwitch ? isProxyPayment : false,
                 on_behalf_of_contact_id: showProxySwitch && isProxyPayment && onBehalfOfContactId ? onBehalfOfContactId : '',
-                recurringPattern: isRecurring ? recurringPattern : '',
+                recurringPattern: isRecurring && recurringPattern ? JSON.stringify(recurringPattern) : '',
                 parentTransactionId: parentTransactionId || null,
                 isSettled: false,
                 settledAt: null,
@@ -1121,6 +1198,16 @@ const NewRecordScreen = ({ navigation, route }) => {
                         contentContainerStyle={styles.scrollContent}
                         keyboardShouldPersistTaps="handled"
                     >
+                        {isEditing && parentTransactionId && (
+                            <View style={styles.cardContainer}>
+                                <Text style={styles.sectionTitle}>Recurring Info</Text>
+                                <TouchableOpacity onPress={navigateToParent} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                    <Icon name="info-outline" size={20} color={colors.primary} style={{ marginRight: 8 }}/>
+                                    <Text style={styles.linkText}>This is a child transaction. Tap to edit the series.</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
                         {/* On behalf of switch and contact field */}
                         {showProxySwitch && (
                             <View style={styles.cardContainer}>
@@ -1352,7 +1439,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                                             setRecurringPattern(null);
                                         }
                                     }}
-                                    disabled={userType !== 'paid' || !isOnline}
+                                    disabled={userType !== 'paid' || !isOnline || isEditing}
                                 />
                             </View>
                             {isRecurring && (
@@ -1368,6 +1455,21 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     onPress={() => setShowRecurringModal(true)}
                                 >
                                     <Text style={{ color: colors.white, fontWeight: 'bold' }}>{recurringPattern ? "Edit Recurring Rule" : "Configure Recurring Rule"}</Text>
+                                </TouchableOpacity>
+                            )}
+                            {isEditing && isRecurring && !parentTransactionId && (
+                                <TouchableOpacity
+                                    style={{
+                                        marginTop: 10,
+                                        paddingVertical: 10,
+                                        paddingHorizontal: 15,
+                                        backgroundColor: colors.error,
+                                        borderRadius: 8,
+                                        alignItems: 'center'
+                                    }}
+                                    onPress={handleCancelRecurring}
+                                >
+                                    <Text style={{ color: colors.white, fontWeight: 'bold' }}>Cancel Recurring Series</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -1451,7 +1553,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                         <RecurringForm
                             onSubmit={handleRecurringSubmit}
                             onCancel={() => setShowRecurringModal(false)}
-                            initialData={recurringPattern ? JSON.parse(recurringPattern) : {}}
+                            initialData={recurringPattern || {}}
                         />
                     </Modal>
                     <Modal

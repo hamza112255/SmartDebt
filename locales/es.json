@@ -315,7 +315,9 @@
       "reports": "Informes",
       "home": "Inicio",
       "calendar": "Calendario",
-      "alerts": "Alertas"
+      "alerts": "Alertas",
+      "budget": "Presupuesto",
+      "accounts": "Cuentas"
     }
   },
   "pin": {

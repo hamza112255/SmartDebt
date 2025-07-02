@@ -895,7 +895,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
         if (!accountData?.id) return;
         try {
             const realmTransactions = getAllObjects('Transaction')
-                ?.filtered('accountId == $0', accountData.id)
+                ?.filtered('accountId == $0 AND isRecurring != true', accountData.id)
                 ?.sorted('transactionDate', true) || [];
 
             const plainTransactions = realmTransactions.map(tx => {
@@ -1004,30 +1004,6 @@ const AccountDetailScreen = ({ navigation, route }) => {
         const usedIds = new Set();
         const localTransactions = [...transactionsArr];
 
-        // Group recurring transactions first
-        const parents = localTransactions.filter(t => t.isRecurring === true);
-        const childrenByParentId = {};
-
-        localTransactions.forEach(tx => {
-            if (tx.parentTransactionId) {
-                if (!childrenByParentId[tx.parentTransactionId]) {
-                    childrenByParentId[tx.parentTransactionId] = [];
-                }
-                childrenByParentId[tx.parentTransactionId].push(tx);
-                usedIds.add(tx.id);
-            }
-        });
-
-        parents.forEach(parent => {
-            if (usedIds.has(parent.id)) return;
-            grouped.push({
-                type: 'recurringGroup',
-                parent: parent,
-                children: (childrenByParentId[parent.id] || []).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate)),
-            });
-            usedIds.add(parent.id);
-        });
-
         localTransactions.forEach(tx => {
             if (usedIds.has(tx.id)) return;
 
@@ -1064,8 +1040,8 @@ const AccountDetailScreen = ({ navigation, route }) => {
         });
 
         return grouped.sort((a, b) => {
-            const dateA = a.tx?.transactionDate || a.main?.transactionDate || a.parent?.transactionDate;
-            const dateB = b.tx?.transactionDate || b.main?.transactionDate || b.parent?.transactionDate;
+            const dateA = a.tx?.transactionDate || a.main?.transactionDate;
+            const dateB = b.tx?.transactionDate || b.main?.transactionDate;
             return new Date(dateB) - new Date(dateA);
         });
     };
@@ -1076,6 +1052,7 @@ const AccountDetailScreen = ({ navigation, route }) => {
         const transactionColor = getTransactionColor(type);
         const amount = parseFloat(item?.amount) || 0;
         const iconName = getTransactionIcon(type);
+        const isRecurringOrChild = item.isRecurring || !!item.parentTransactionId;
 
         const typeTextMap = { cash_in: t('terms.cash_in'), cash_out: t('terms.cash_out'), debit: t('terms.debit'), credit: t('terms.credit'), receive: t('terms.receive'), send_out: t('terms.send_out'), borrow: t('terms.borrow'), lend: t('terms.lend') };
         const typeText = typeTextMap[type] || type;
@@ -1089,7 +1066,10 @@ const AccountDetailScreen = ({ navigation, route }) => {
                         <Icon name={iconName} size={RFValue(20)} color={transactionColor} />
                     </View>
                     <View style={styles.transactionDetails}>
-                        <Text style={styles.transactionName} numberOfLines={1}>{item?.purpose || t('accountDetailsScreen.noDescription')}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={styles.transactionName} numberOfLines={1}>{item?.purpose || t('accountDetailsScreen.noDescription')}</Text>
+                            {isRecurringOrChild && <Icon name="autorenew" size={RFValue(16)} color={colors.primary} style={{ marginLeft: 8 }} />}
+                        </View>
                         <Text style={styles.transactionDate}>{item?.transactionDate ? formatDate(item.transactionDate) : t('accountDetailsScreen.noDate')}</Text>
                     </View>
                     <View style={styles.amountContainer}>
@@ -1205,47 +1185,6 @@ const AccountDetailScreen = ({ navigation, route }) => {
 
                     {groupedTransactions?.length > 0 ? (
                         groupedTransactions.map((item, index) => {
-                             if (item.type === 'recurringGroup') {
-                                const groupKey = item.parent.id;
-                                const expanded = !!expandedRecurringGroups[groupKey];
-                                const isCancelled = item.parent.status === 'cancelled';
-                                return (
-                                    <View key={groupKey} style={styles.recurringCard}>
-                                        {isCancelled && <View style={styles.disabledOverlay} />}
-                                        <TouchableOpacity
-                                            style={styles.recurringHeader}
-                                            onPress={() => !isCancelled && setExpandedRecurringGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
-                                            activeOpacity={isCancelled ? 1 : 0.8}
-                                        >
-                                            <View style={[styles.recurringIcon, { backgroundColor: colors.primary + '20' }]}>
-                                                <Icon name="autorenew" size={RFValue(20)} color={colors.primary} />
-                                            </View>
-                                            <View style={styles.recurringDetails}>
-                                                <Text style={styles.recurringName}>{item.parent.purpose || 'Recurring Transaction'}</Text>
-                                                <Text style={styles.recurringStatus}>
-                                                    {isCancelled ? 'Cancelled' : (expanded ? 'Tap to collapse' : 'Tap to expand')}
-                                                </Text>
-                                            </View>
-                                            <View style={{ alignItems: 'center' }}>
-                                                 {!isCancelled && <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(24)} color={colors.primary} />}
-                                            </View>
-                                            <TouchableOpacity style={styles.menuTrigger} onPress={(e) => openMenu(item.parent, e)}>
-                                                <Icon name="more-vert" size={RFValue(20)} color={colors.gray} />
-                                            </TouchableOpacity>
-                                        </TouchableOpacity>
-
-                                        {expanded && !isCancelled && (
-                                            <View style={styles.recurringBody}>
-                                                {item.children.length > 0 ? item.children.map(childTx => (
-                                                    renderTransactionItem({ item: childTx })
-                                                )) : (
-                                                    <Text style={styles.noTransactionsSubtext}>No transactions have occurred yet.</Text>
-                                                )}
-                                            </View>
-                                        )}
-                                    </View>
-                                );
-                            }
                             if (item.type === 'proxyGroup') {
                                 const groupKey = item.main.id;
                                 const expanded = !!expandedProxyGroups[groupKey];

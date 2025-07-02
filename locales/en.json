@@ -371,7 +371,9 @@
       "reports": "Reports",
       "home": "Home",
       "calendar": "Calendar",
-      "alerts": "Alerts"
+      "alerts": "Alerts",
+      "budget": "Budget",
+      "accounts": "Accounts"
     }
   },
   "pin": {

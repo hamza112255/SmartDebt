@@ -1,5 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
-import { RFPercentage } from 'react-native-responsive-fontsize';
+import { RFPercentage, RFValue } from 'react-native-responsive-fontsize';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 
 
@@ -66,9 +66,9 @@ const styles = StyleSheet.create({
     },
     cardContainer: {
         backgroundColor: colors.white,
-        borderRadius: wp(4),
-        padding: wp(4),
-        marginBottom: hp(2),
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
         elevation: 4,
         shadowColor: colors.cardShadow,
         shadowOffset: { width: 0, height: 2 },
@@ -76,8 +76,8 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
     },
     sectionTitle: {
-        fontSize: RFPercentage(2.2),
-        fontFamily: 'Sora-SemiBold',
+        fontSize: RFValue(16),
+        fontFamily: 'Sora-Bold',
         color: colors.textPrimary,
         marginBottom: hp(1.5),
     },
@@ -619,6 +619,11 @@ const styles = StyleSheet.create({
         color: colors.white,
         fontSize: RFPercentage(2),
         fontFamily: 'Sora-SemiBold',
+    },
+    linkText: {
+        color: colors.primary,
+        fontFamily: 'Sora-SemiBold',
+        fontSize: RFValue(14),
     },
 });
 export default styles;

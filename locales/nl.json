@@ -258,7 +258,9 @@
       "reports": "Rapporten",
       "home": "Home",
       "calendar": "Kalender",
-      "alerts": "Meldingen"
+      "alerts": "Meldingen",
+      "budget": "Budget",
+      "accounts": "Rekeningen"
     }
   },
   "pin": {

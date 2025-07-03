@@ -234,44 +234,85 @@ export const ProxyPaymentSchema = {
   },
 };
 
-// ---------------- Realm Instance ---------------- //
-let realm = new Realm({
-  schema: [
-    UserSchema,
-    AccountSchema,
-    ContactSchema,
-    TransactionSchema,
-    CategorySchema,
-    CodeListSchema,
-    CodeListElementSchema,
-    UserCodeListElementSchema,
-    ReportSchema,
-    SyncLogSchema,
-    ProxyPaymentSchema,
-  ],
-  schemaVersion: 2,
-});
+export const BudgetSchema = {
+  name: 'Budget',
+  primaryKey: 'id',
+  properties: {
+    id: 'string',
+    name: 'string',
+    amount: 'double',
+    period: 'string', // 'daily', 'weekly', 'monthly', 'yearly'
+    startDate: 'date',
+    endDate: 'date',
+    categoryId: 'string?',
+    userId: 'string',
+    isActive: { type: 'bool', default: true },
+    createdOn: 'date',
+    updatedOn: 'date',
+    syncStatus: 'string', // 'synced', 'pending', 'failed'
+    lastSyncAt: 'date?',
+    needsUpload: 'bool',
+  },
+};
+
+let realm;
+
+// All schemas
+const schemas = [
+  UserSchema,
+  AccountSchema,
+  ContactSchema,
+  TransactionSchema,
+  CategorySchema,
+  CodeListSchema,
+  CodeListElementSchema,
+  UserCodeListElementSchema,
+  SyncLogSchema,
+  ReportSchema,
+  ProxyPaymentSchema,
+  BudgetSchema,
+];
+
+try {
+  realm = new Realm({
+    path: 'Settly.realm',
+    schema: schemas,
+    schemaVersion: 2, // Increment schema version
+    migration: (oldRealm, newRealm) => {
+      // Automatically apply migrations for new optional properties
+      if (oldRealm.schemaVersion < 2) {
+        // Migration logic for future schema changes can be added here
+      }
+    },
+  });
+} catch (e) {
+  console.error('Failed to open Realm:', e);
+  // Fallback or recovery mechanism
+  try {
+    console.log('Attempting to open Realm with destructive migration...');
+    Realm.deleteFile({ schema: schemas }); // Deletes the realm file
+    realm = new Realm({
+      path: 'Settly.realm',
+      schema: schemas,
+      schemaVersion: 2,
+    });
+    console.log('Realm opened successfully after destructive migration.');
+  } catch (err) {
+    console.error('Failed to open Realm even after destructive migration:', err);
+  }
+}
+
 export { realm };
 
-// ---------------- Generic CRUD Helpers ---------------- //
 export const initializeRealm = async () => {
   try {
     if (!realm || realm.isClosed) {
       realm = await Realm.open({
-        schema: [
-          UserSchema,
-          AccountSchema,
-          ContactSchema,
-          TransactionSchema,
-          CategorySchema,
-          CodeListSchema,
-          CodeListElementSchema,
-          UserCodeListElementSchema,
-          ReportSchema,
-          SyncLogSchema,
-          ProxyPaymentSchema,
-        ],
+        schema: schemas,
         schemaVersion: 2,
+        migration: (oldRealm, newRealm) => {
+          // ... existing code ...
+        },
       });
       console.log('Realm initialized successfully');
     }
@@ -281,6 +322,7 @@ export const initializeRealm = async () => {
     throw error;
   }
 };
+
 export const createObject = (modelName, data) => {
   realm.write(() => {
     realm.create(modelName, data, Realm.UpdateMode.Modified);

@@ -551,5 +551,60 @@
     "complete": "اكتملت المزامنة!",
     "nothingToSync": "كل شيء محدث.",
     "error": "فشلت المزامنة. يرجى المحاولة مرة أخرى."
+  },
+  "recurring": {
+    "title": "المعاملات المتكررة",
+    "startsOn": "يبدأ في",
+    "every": "كل",
+    "daily": "يوم",
+    "weekly": "أسبوع",
+    "monthly": "شهر",
+    "yearly": "سنة",
+    "invalidPattern": "نمط غير صالح",
+    "empty": {
+      "title": "لا توجد معاملات متكررة",
+      "message": "لم تقم بإعداد أي معاملات متكررة بعد."
+    }
+  },
+  "budgets": {
+    "title": "الميزانيات",
+    "deleteTitle": "حذف الميزانية",
+    "deleteMessage": "هل أنت متأكد من رغبتك في حذف هذه الميزانية؟",
+    "noCategory": "بدون فئة",
+    "daysLeft": "{{count}} يوم متبقي",
+    "empty": {
+      "title": "لا توجد ميزانيات",
+      "message": "لم تقم بإنشاء أي ميزانيات بعد."
+    },
+    "errors": {
+      "deleteFailed": "فشل حذف الميزانية"
+    }
+  },
+  "addBudgetScreen": {
+    "addTitle": "إضافة ميزانية",
+    "editTitle": "تعديل الميزانية",
+    "labels": {
+      "budgetName": "اسم الميزانية",
+      "amount": "المبلغ",
+      "period": "الفترة",
+      "category": "الفئة",
+      "startDate": "تاريخ البدء",
+      "endDate": "تاريخ الانتهاء"
+    },
+    "placeholders": {
+      "budgetName": "أدخل اسم الميزانية",
+      "selectCategory": "اختر فئة"
+    },
+    "errors": {
+      "requiredFields": "يرجى ملء جميع الحقول المطلوبة",
+      "noUser": "لم يتم العثور على المستخدم",
+      "saveFailed": "فشل حفظ الميزانية"
+    }
+  },
+  "periods": {
+    "daily": "يومي",
+    "weekly": "أسبوعي",
+    "monthly": "شهري",
+    "yearly": "سنوي"
   }
 }

@@ -587,5 +587,60 @@
     "complete": "Sync complete!",
     "nothingToSync": "Everything is up to date.",
     "error": "Sync failed. Please try again."
+  },
+  "recurring": {
+    "title": "Recurring Transactions",
+    "startsOn": "Starts on",
+    "every": "Every",
+    "daily": "Day",
+    "weekly": "Week",
+    "monthly": "Month",
+    "yearly": "Year",
+    "invalidPattern": "Invalid Pattern",
+    "empty": {
+      "title": "No Recurring Transactions",
+      "message": "You haven't set up any recurring transactions yet."
+    }
+  },
+  "budgets": {
+    "title": "Budgets",
+    "deleteTitle": "Delete Budget",
+    "deleteMessage": "Are you sure you want to delete this budget?",
+    "noCategory": "No Category",
+    "daysLeft": "{{count}} days left",
+    "empty": {
+      "title": "No Budgets",
+      "message": "You haven't created any budgets yet."
+    },
+    "errors": {
+      "deleteFailed": "Failed to delete budget"
+    }
+  },
+  "addBudgetScreen": {
+    "addTitle": "Add Budget",
+    "editTitle": "Edit Budget",
+    "labels": {
+      "budgetName": "Budget Name",
+      "amount": "Amount",
+      "period": "Period",
+      "category": "Category",
+      "startDate": "Start Date",
+      "endDate": "End Date"
+    },
+    "placeholders": {
+      "budgetName": "Enter budget name",
+      "selectCategory": "Select a category"
+    },
+    "errors": {
+      "requiredFields": "Please fill in all required fields",
+      "noUser": "No user found",
+      "saveFailed": "Failed to save budget"
+    }
+  },
+  "periods": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "yearly": "Yearly"
   }
 }

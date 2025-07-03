@@ -1305,7 +1305,6 @@ const AccountDetailScreen = ({ navigation, route }) => {
                         <View style={styles.noTransactions}>
                             <Icon name="receipt" size={RFValue(40)} color={colors.lightGray} />
                             <Text style={styles.noTransactionsText}>{t('accountDetailsScreen.noTransactions')}</Text>
-                            <Text style={styles.noTransactionsSubtext}>{t('accountDetailsScreen.addFirstTransaction')}</Text>
                         </View>
                     )}
                 </View>

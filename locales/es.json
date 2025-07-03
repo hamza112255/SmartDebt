@@ -566,5 +566,60 @@
     "complete": "¡Sincronización completa!",
     "nothingToSync": "Todo está actualizado.",
     "error": "La sincronización falló. Por favor, inténtalo de nuevo."
+  },
+  "recurring": {
+    "title": "Transacciones Recurrentes",
+    "startsOn": "Comienza el",
+    "every": "Cada",
+    "daily": "Día",
+    "weekly": "Semana",
+    "monthly": "Mes",
+    "yearly": "Año",
+    "invalidPattern": "Patrón Inválido",
+    "empty": {
+      "title": "Sin Transacciones Recurrentes",
+      "message": "Aún no has configurado ninguna transacción recurrente."
+    }
+  },
+  "budgets": {
+    "title": "Presupuestos",
+    "deleteTitle": "Eliminar Presupuesto",
+    "deleteMessage": "¿Estás seguro de que deseas eliminar este presupuesto?",
+    "noCategory": "Sin Categoría",
+    "daysLeft": "{{count}} días restantes",
+    "empty": {
+      "title": "Sin Presupuestos",
+      "message": "Aún no has creado ningún presupuesto."
+    },
+    "errors": {
+      "deleteFailed": "Error al eliminar el presupuesto"
+    }
+  },
+  "addBudgetScreen": {
+    "addTitle": "Agregar Presupuesto",
+    "editTitle": "Editar Presupuesto",
+    "labels": {
+      "budgetName": "Nombre del Presupuesto",
+      "amount": "Monto",
+      "period": "Período",
+      "category": "Categoría",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Fin"
+    },
+    "placeholders": {
+      "budgetName": "Ingresa el nombre del presupuesto",
+      "selectCategory": "Selecciona una categoría"
+    },
+    "errors": {
+      "requiredFields": "Por favor completa todos los campos requeridos",
+      "noUser": "Usuario no encontrado",
+      "saveFailed": "Error al guardar el presupuesto"
+    }
+  },
+  "periods": {
+    "daily": "Diario",
+    "weekly": "Semanal",
+    "monthly": "Mensual",
+    "yearly": "Anual"
   }
 }

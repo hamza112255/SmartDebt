@@ -26,6 +26,7 @@ const getModelNameForTableName = (tableName) => {
     accounts: 'Account',
     contacts: 'Contact',
     transactions: 'Transaction',
+    budgets: 'Budget',
   };
   return map[tableName.toLowerCase()] || tableName;
 };
@@ -175,6 +176,7 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
   idMapping.accounts = idMapping.accounts || {};
   idMapping.contacts = idMapping.contacts || {};
   idMapping.transactions = idMapping.transactions || {};
+  idMapping.budgets = idMapping.budgets || {};
 
   console.log(`[SYNC-PROCESS] Current ID mappings state:`, JSON.stringify(idMapping, null, 2));
 
@@ -1070,6 +1072,89 @@ export async function cancelRecurringTransactionInSupabase(transactionId) {
   }
 
   return true;
+}
+
+/**
+ * Create a budget in Supabase.
+ * @param {object} budgetData - Budget data in camelCase.
+ * @returns {Promise<object>} - The created budget from Supabase.
+ */
+export async function createBudgetInSupabase(budgetData) {
+  let snakeCaseData = transformKeysToSnakeCase({ ...budgetData });
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on;
+  delete snakeCaseData.updated_on;
+  delete snakeCaseData.id;
+
+  const { data, error } = await supabase
+    .from('budgets')
+    .insert(snakeCaseData)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Update a budget in Supabase by its ID.
+ * @param {string} budgetId - The Supabase budget UUID.
+ * @param {object} budgetData - Budget data in camelCase.
+ * @returns {Promise<object>} - The updated budget from Supabase.
+ */
+export async function updateBudgetInSupabase(budgetId, budgetData) {
+  let snakeCaseData = transformKeysToSnakeCase({ ...budgetData });
+  delete snakeCaseData.needs_upload;
+  delete snakeCaseData.sync_status;
+  delete snakeCaseData.last_sync_at;
+  delete snakeCaseData.created_on;
+  delete snakeCaseData.updated_on;
+  delete snakeCaseData.id;
+
+  const { data, error } = await supabase
+    .from('budgets')
+    .update(snakeCaseData)
+    .eq('id', budgetId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Delete a budget in Supabase by its ID.
+ * @param {string} budgetId - The Supabase budget UUID.
+ * @returns {Promise<boolean>} - True if deleted, throws error otherwise.
+ */
+export async function deleteBudgetInSupabase(budgetId) {
+  const { error } = await supabase
+    .from('budgets')
+    .delete()
+    .eq('id', budgetId);
+
+  if (error) throw error;
+  return true;
+}
+
+/**
+ * Fetches all budgets for the current user from Supabase.
+ * @returns {Promise<Array<object>>}
+ */
+export async function getBudgetsFromSupabase() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not found");
+
+    const { data, error } = await supabase
+        .from('budgets')
+        .select('*, category:categories(name, icon, color)')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+    if (error) throw error;
+    return data;
 }
 
 export const syncDownstreamChanges = async (supabaseUserId) => {

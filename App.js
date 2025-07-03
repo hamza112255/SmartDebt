@@ -46,8 +46,9 @@ import { I18nextProvider, useTranslation } from 'react-i18next'; // Import I18ne
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import CategoriesScreen from './src/screens/categoriesScreen';
 import RecurringTransactionsScreen from './src/screens/recurringTransactionsScreen';
-
+import BudgetScreen from './src/screens/budgetScreen';
 import { DefaultTheme as PaperDefaultTheme } from 'react-native-paper';
+import AddBudgetScreen from './src/screens/addBudgetScreen';
 
 const MyTheme = {
   ...PaperDefaultTheme,
@@ -195,7 +196,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Budget"
-        component={CalendarScreen}
+        component={BudgetScreen}
         options={{
           tabBarLabel: t('navigation.tabs.budget'),
           tabBarLabelStyle: { fontFamily: 'Sora-Regular' },
@@ -578,7 +579,15 @@ function App({ currentLanguage }) {
                     name="RecurringTransactions"
                     component={RecurringTransactionsScreen}
                   />
-                </Stack.Navigator>
+                  <Stack.Screen
+                    name="Budget"
+                    component={BudgetScreen}
+                  />
+                  <Stack.Screen
+                    name="AddBudget"
+                    component={AddBudgetScreen}
+                  />
+                  </Stack.Navigator>
               </NavigationContainer>
               <BiometricModal visible={needsAuth} onAuthenticated={handleAuthenticated} />
               <PinModal

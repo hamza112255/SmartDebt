@@ -508,5 +508,60 @@
     "complete": "Synchronisatie voltooid!",
     "nothingToSync": "Alles is up-to-date.",
     "error": "Synchronisatie mislukt. Probeer het opnieuw."
+  },
+  "recurring": {
+    "title": "Terugkerende Transacties",
+    "startsOn": "Begint op",
+    "every": "Elke",
+    "daily": "Dag",
+    "weekly": "Week",
+    "monthly": "Maand",
+    "yearly": "Jaar",
+    "invalidPattern": "Ongeldig Patroon",
+    "empty": {
+      "title": "Geen Terugkerende Transacties",
+      "message": "Je hebt nog geen terugkerende transacties ingesteld."
+    }
+  },
+  "budgets": {
+    "title": "Budgetten",
+    "deleteTitle": "Budget Verwijderen",
+    "deleteMessage": "Weet je zeker dat je dit budget wilt verwijderen?",
+    "noCategory": "Geen Categorie",
+    "daysLeft": "{{count}} dagen resterend",
+    "empty": {
+      "title": "Geen Budgetten",
+      "message": "Je hebt nog geen budgetten aangemaakt."
+    },
+    "errors": {
+      "deleteFailed": "Budget verwijderen mislukt"
+    }
+  },
+  "addBudgetScreen": {
+    "addTitle": "Budget Toevoegen",
+    "editTitle": "Budget Bewerken",
+    "labels": {
+      "budgetName": "Budget Naam",
+      "amount": "Bedrag",
+      "period": "Periode",
+      "category": "Categorie",
+      "startDate": "Startdatum",
+      "endDate": "Einddatum"
+    },
+    "placeholders": {
+      "budgetName": "Voer budget naam in",
+      "selectCategory": "Selecteer een categorie"
+    },
+    "errors": {
+      "requiredFields": "Vul alle verplichte velden in",
+      "noUser": "Geen gebruiker gevonden",
+      "saveFailed": "Budget opslaan mislukt"
+    }
+  },
+  "periods": {
+    "daily": "Dagelijks",
+    "weekly": "Wekelijks",
+    "monthly": "Maandelijks",
+    "yearly": "Jaarlijks"
   }
 }

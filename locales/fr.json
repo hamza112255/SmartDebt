@@ -563,5 +563,60 @@
       "accountName": "Entrez le nom du compte",
       "initialAmount": "Entrez le montant initial"
     }
+  },
+  "recurring": {
+    "title": "Transactions Récurrentes",
+    "startsOn": "Commence le",
+    "every": "Chaque",
+    "daily": "Jour",
+    "weekly": "Semaine",
+    "monthly": "Mois",
+    "yearly": "Année",
+    "invalidPattern": "Modèle Invalide",
+    "empty": {
+      "title": "Aucune Transaction Récurrente",
+      "message": "Vous n'avez pas encore configuré de transactions récurrentes."
+    }
+  },
+  "budgets": {
+    "title": "Budgets",
+    "deleteTitle": "Supprimer le Budget",
+    "deleteMessage": "Êtes-vous sûr de vouloir supprimer ce budget ?",
+    "noCategory": "Sans Catégorie",
+    "daysLeft": "{{count}} jours restants",
+    "empty": {
+      "title": "Aucun Budget",
+      "message": "Vous n'avez pas encore créé de budget."
+    },
+    "errors": {
+      "deleteFailed": "Échec de la suppression du budget"
+    }
+  },
+  "addBudgetScreen": {
+    "addTitle": "Ajouter un Budget",
+    "editTitle": "Modifier le Budget",
+    "labels": {
+      "budgetName": "Nom du Budget",
+      "amount": "Montant",
+      "period": "Période",
+      "category": "Catégorie",
+      "startDate": "Date de Début",
+      "endDate": "Date de Fin"
+    },
+    "placeholders": {
+      "budgetName": "Entrez le nom du budget",
+      "selectCategory": "Sélectionnez une catégorie"
+    },
+    "errors": {
+      "requiredFields": "Veuillez remplir tous les champs requis",
+      "noUser": "Aucun utilisateur trouvé",
+      "saveFailed": "Échec de l'enregistrement du budget"
+    }
+  },
+  "periods": {
+    "daily": "Quotidien",
+    "weekly": "Hebdomadaire",
+    "monthly": "Mensuel",
+    "yearly": "Annuel"
   }
 }

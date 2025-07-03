@@ -11,12 +11,12 @@ import {
     TouchableWithoutFeedback,
 } from 'react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { RFValue } from 'react-native-responsive-fontsize';
+import { RFValue, RFPercentage } from 'react-native-responsive-fontsize';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const colors = {
     primary: '#667eea',
-    border: '#e2e8f0',
+    border: '#E5E5E5',
     activeBorder: '#667eea',
     textPrimary: '#2d3748',
     textSecondary: '#718096',
@@ -24,6 +24,7 @@ const colors = {
     lightGray: '#f7fafc',
     overlay: 'rgba(0, 0, 0, 0.4)',
     error: '#f56565',
+    lightBackground: '#FAFAFA',
 };
 
 const StyledPicker = ({ label, items, selectedValue, onValueChange, placeholder, error, icon, renderFooter, showSearch = true, iconName }) => {
@@ -105,31 +106,32 @@ const StyledPicker = ({ label, items, selectedValue, onValueChange, placeholder,
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: hp('2%'),
+        marginBottom: 20,
     },
     label: {
-        fontSize: RFValue(14),
-        fontFamily: 'Sora-Medium',
-        color: '#1e293b',
-        marginBottom: 4,
+        fontSize: RFPercentage(1.8),
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 8,
     },
     pickerButton: {
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
         borderRadius: 8,
-        paddingHorizontal: wp('3%'),
-        height: hp('6.5%'),
-        backgroundColor: colors.white,
-        borderColor: colors.border
+        padding: 12,
+        backgroundColor: colors.lightBackground,
+        borderColor: colors.border,
+        minHeight: 50,
     },
     icon: {
         marginRight: wp('2%'),
     },
     pickerButtonText: {
         flex: 1,
-        fontSize: RFValue(16),
+        fontSize: RFPercentage(1.8),
         fontFamily: 'Sora-Regular',
+        color: '#333',
     },
     errorText: {
         color: colors.error,

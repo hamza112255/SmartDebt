@@ -12,9 +12,11 @@ import {
   ScrollView,
   ActivityIndicator,
   StatusBar,
+  Dimensions,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Tag, Plus, Edit, Trash2, ChevronRight, ArrowLeft, Save, X } from 'lucide-react-native';
+import { Tag, Plus, Edit, Trash2, ChevronRight, ArrowLeft, Save, X, MoreVertical } from 'lucide-react-native';
 import { heightPercentageToDP as hp, widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { RFPercentage } from 'react-native-responsive-fontsize';
 import { getAllObjects, realm } from '../realm';
@@ -41,6 +43,9 @@ const CategoriesScreen = ({ navigation }) => {
   const [showParentPicker, setShowParentPicker] = useState(false);
   const { t } = useTranslation();
   const netInfo = useNetInfo();
+  const [isMenuVisible, setMenuVisible] = useState(false);
+  const [selectedCategoryForMenu, setSelectedCategoryForMenu] = useState(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   
   const [formData, setFormData] = useState({
     name: '',
@@ -265,6 +270,26 @@ const CategoriesScreen = ({ navigation }) => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchCategories();
+  };
+
+  const openMenu = (category, event) => {
+    const { pageX, pageY } = event.nativeEvent;
+    const screenWidth = Dimensions.get('window').width;
+    const menuWidth = 150;
+    
+    let x = pageX;
+    if (pageX + menuWidth > screenWidth) {
+        x = screenWidth - menuWidth - 16;
+    }
+
+    setSelectedCategoryForMenu(category);
+    setMenuPosition({ x, y: pageY });
+    setMenuVisible(true);
+  };
+
+  const closeMenu = () => {
+    setMenuVisible(false);
+    setSelectedCategoryForMenu(null);
   };
 
   const handleAddCategory = () => {
@@ -562,15 +587,9 @@ const CategoriesScreen = ({ navigation }) => {
         <View style={styles.categoryActions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleEditCategory(item)}
+            onPress={(e) => openMenu(item, e)}
           >
-            <Edit size={16} color="#007AFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleDeleteCategory(item)}
-          >
-            <Trash2 size={16} color="#FF3B30" />
+            <MoreVertical size={20} color="#666" />
           </TouchableOpacity>
         </View>
       </View>
@@ -594,15 +613,9 @@ const CategoriesScreen = ({ navigation }) => {
               <View style={styles.categoryActions}>
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => handleEditCategory(subcat)}
+                  onPress={(e) => openMenu(subcat, e)}
                 >
-                  <Edit size={16} color="#007AFF" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleDeleteCategory(subcat)}
-                >
-                  <Trash2 size={16} color="#FF3B30" />
+                  <MoreVertical size={20} color="#666" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -626,6 +639,36 @@ const CategoriesScreen = ({ navigation }) => {
     return parent ? parent.name : '';
   };
 
+  const renderMenu = () => (
+    <Modal
+        visible={isMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMenu}
+    >
+        <TouchableWithoutFeedback onPress={closeMenu}>
+            <View style={StyleSheet.absoluteFill}>
+                <View style={[styles.menuContainer, { top: menuPosition.y, left: menuPosition.x }]}>
+                    <TouchableOpacity style={styles.menuOption} onPress={() => {
+                        closeMenu();
+                        handleEditCategory(selectedCategoryForMenu);
+                    }}>
+                        <Edit size={16} color="#333" style={styles.menuIcon} />
+                        <Text style={styles.menuText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuOption} onPress={() => {
+                        closeMenu();
+                        handleDeleteCategory(selectedCategoryForMenu);
+                    }}>
+                        <Trash2 size={16} color="#FF3B30" style={styles.menuIcon} />
+                        <Text style={[styles.menuText, { color: '#FF3B30' }]}>Delete</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </TouchableWithoutFeedback>
+    </Modal>
+  );
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -642,7 +685,7 @@ const CategoriesScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+      {renderMenu()}
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1107,6 +1150,31 @@ const styles = StyleSheet.create({
   pickerOptionText: {
     fontSize: RFPercentage(1.8),
     color: '#333',
+  },
+  menuContainer: {
+    position: 'absolute',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    paddingVertical: 8,
+    width: 150,
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuIcon: {
+    marginRight: 12,
+  },
+  menuText: {
+      fontSize: RFPercentage(1.8),
+      color: '#333',
   },
 });
 

@@ -285,11 +285,11 @@ const makeStyles = (accountColor) => StyleSheet.create({
         backgroundColor: colors.white,
         borderRadius: 12,
         marginBottom: 10,
-        elevation: 1,
-        shadowColor: colors.gray,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     proxyHeader: {
         backgroundColor: '#f1f5ff',
@@ -437,6 +437,49 @@ const makeStyles = (accountColor) => StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(255, 255, 255, 0.6)',
         zIndex: 1,
+    },
+    colorIndicator: {
+        width: 4,
+        height: 40,
+        borderRadius: 2,
+        marginRight: 12,
+    },
+    transactionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        marginBottom: 10,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    transactionDetails: {
+        flex: 1,
+    },
+    transactionName: {
+        fontSize: RFPercentage(2),
+        fontWeight: '600',
+        color: '#333',
+    },
+    transactionDate: {
+        fontSize: RFPercentage(1.6),
+        color: '#666',
+        marginTop: 2,
+    },
+    amountContainer: {
+        alignItems: 'flex-end',
+    },
+    transactionAmountText: {
+        fontSize: RFPercentage(2.0),
+        fontFamily: 'Sora-Bold',
+    },
+    transactionType: {
+        fontSize: RFValue(12),
+        fontFamily: 'Sora-Regular',
+        color: colors.gray,
     },
 });
 
@@ -1060,13 +1103,12 @@ const AccountDetailScreen = ({ navigation, route }) => {
         return (
             <View style={styles.transactionRow} key={item.id}>
                 <TouchableOpacity 
-                    style={{flexDirection: 'row', alignItems: 'center', flex: 1, padding: 12}} 
+                    style={{flexDirection: 'row', alignItems: 'center', flex: 1, padding: 16}} 
                     >
-                    <View style={[styles.transactionIcon, { backgroundColor: transactionColor + '20' }]}>
-                        <Icon name={iconName} size={RFValue(20)} color={transactionColor} />
-                    </View>
+                    <View style={[styles.colorIndicator, { backgroundColor: transactionColor }]} />
                     <View style={styles.transactionDetails}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                            <Icon name={iconName} size={RFValue(18)} color={transactionColor} style={{ marginRight: 8 }} />
                             <Text style={styles.transactionName} numberOfLines={1}>{item?.purpose || t('accountDetailsScreen.noDescription')}</Text>
                             {isRecurringOrChild && <Icon name="autorenew" size={RFValue(16)} color={colors.primary} style={{ marginLeft: 8 }} />}
                         </View>

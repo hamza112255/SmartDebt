@@ -242,20 +242,31 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
 
           if (result.error) throw result.error;
 
+          // FIXED: Properly handle the user record replacement
           realm.write(() => {
             const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
-            if (oldRecord) realm.delete(oldRecord);
-
-            const freshData = {
-              ...transformKeysToCamelCase(result.data),
-              id: supabaseUserId,
-              supabaseId: supabaseUserId,
-              syncStatus: 'synced',
-              lastSyncAt: new Date(),
-              needsUpload: false
-            };
-            realm.create(schemaName, freshData, Realm.UpdateMode.Modified);
-            console.log(`[SYNC-PROCESS] Replaced local User ${recordId} with Supabase ID ${supabaseUserId}`);
+            if (oldRecord) {
+              // Store original values before deletion
+              const originalData = oldRecord.toJSON();
+              realm.delete(oldRecord);
+              
+              // Create new record with proper supabaseId
+              const freshData = {
+                ...transformKeysToCamelCase(result.data),
+                id: supabaseUserId,
+                supabaseId: supabaseUserId,
+                syncStatus: 'synced',
+                lastSyncAt: new Date(),
+                needsUpload: false,
+                // Preserve any local-only fields if they exist
+                ...originalData.localOnlyFields && { localOnlyFields: originalData.localOnlyFields }
+              };
+              
+              realm.create(schemaName, freshData, Realm.UpdateMode.Modified);
+              console.log(`[SYNC-PROCESS] Successfully replaced local User ${recordId} with Supabase ID ${supabaseUserId}`);
+            } else {
+              console.warn(`[SYNC-PROCESS] Old user record ${recordId} not found in Realm`);
+            }
           });
 
           // Store the user ID mapping
@@ -424,6 +435,66 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
         }
 
       case 'update':
+        // FIXED: Enhanced user update handling
+        if (tableName === 'users') {
+          console.log(`[SYNC-PROCESS] Handling user UPDATE for ID: ${supabaseUserId}`);
+          
+          // For user updates, we need to use the supabaseId from the record or idMapping
+          let userIdToUpdate = supabaseUserId;
+          
+          // Check if we have a mapped ID
+          if (idMapping.users[recordId]) {
+            userIdToUpdate = idMapping.users[recordId];
+            console.log(`[SYNC-PROCESS] Using mapped user ID: ${recordId} -> ${userIdToUpdate}`);
+          } else {
+            // Check if the record has a supabaseId
+            const userRecord = realm.objectForPrimaryKey('User', recordId);
+            if (userRecord && userRecord.supabaseId) {
+              userIdToUpdate = userRecord.supabaseId;
+              console.log(`[SYNC-PROCESS] Using supabaseId from record: ${userIdToUpdate}`);
+            } else {
+              console.log(`[SYNC-PROCESS] Using default supabaseUserId: ${userIdToUpdate}`);
+            }
+          }
+          
+          delete snakeCaseData.id;
+          
+          const updateData = {
+            ...snakeCaseData,
+            user_type: 'paid',
+            email_confirmed: true
+          };
+
+          await delay(500);
+          result = await supabase.from(tableName)
+            .update(updateData)
+            .eq('id', userIdToUpdate)
+            .select()
+            .single();
+
+          if (result.error) throw result.error;
+
+          realm.write(() => {
+            const userRecord = realm.objectForPrimaryKey(schemaName, recordId);
+            if (userRecord) {
+              // Just update the sync status - don't replace the entire record
+              userRecord.syncStatus = 'synced';
+              userRecord.lastSyncAt = new Date();
+              userRecord.needsUpload = false;
+              // Ensure supabaseId is set
+              if (!userRecord.supabaseId) {
+                userRecord.supabaseId = userIdToUpdate;
+              }
+              console.log(`[SYNC-PROCESS] Successfully updated user sync status for ${recordId} with Supabase ID ${userIdToUpdate}`);
+            }
+          });
+
+          // Update the mapping
+          idMapping.users[recordId] = userIdToUpdate;
+          return true;
+        }
+
+        // For non-user updates
         const idToUpdate = idMapping[tableName]?.[recordId] || recordId;
         console.log(`[SYNC-PROCESS] Sending UPDATE request to Supabase table: ${tableName} for ID: ${idToUpdate} (local ID was: ${recordId})`);
 

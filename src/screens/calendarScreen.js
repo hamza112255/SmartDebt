@@ -73,8 +73,7 @@ const CalendarScreen = ({ navigation, route }) => {
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
-        const date = moment(dateStr).toDate();
-        return date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' });
+        return moment(dateStr).format('hh:mm A');
     };
 
     const openMenu = (transaction, event, isProxy = false) => {
@@ -699,17 +698,16 @@ const CalendarScreen = ({ navigation, route }) => {
         return (
             <View style={styles.transactionRow} key={item.id}>
                 <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1, padding: 12 }}
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1, padding: 16 }}
                 >
-                    <View style={[styles.transactionIcon, { backgroundColor: transactionColor + '20' }]}>
-                        <Icon name={iconName} size={RFValue(20)} color={transactionColor} />
-                    </View>
+                    <View style={[styles.colorIndicator, { backgroundColor: transactionColor }]} />
                     <View style={styles.transactionDetails}>
-                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                            <Icon name={iconName} size={RFValue(18)} color={transactionColor} style={{ marginRight: 8 }}/>
                             <Text style={styles.transactionName} numberOfLines={1}>{item?.name || t('accountDetailsScreen.noDescription')}</Text>
                             {isRecurringOrChild && <Icon name="autorenew" size={RFValue(16)} color={colors.primary} style={{ marginLeft: 8 }} />}
                         </View>
-                        <Text style={styles.transactionDateStyle}>{item?.contactName || t('common.noContact')}</Text>
+                        <Text style={styles.transactionDate}>{item?.date ? formatDate(item.date) : ''}</Text>
                     </View>
                     <View style={styles.amountContainer}>
                         <Text style={[styles.transactionAmountText, { color: transactionColor }]}>
@@ -962,7 +960,7 @@ const CalendarScreen = ({ navigation, route }) => {
                                                         </View>
                                                         <View style={styles.transactionDetails}>
                                                             <Text style={styles.transactionName}>{item.main.name || 'Original Payment'}</Text>
-                                                            <Text style={styles.transactionDateStyle}>{item.main.contactName || 'N/A'}</Text>
+                                                            <Text style={styles.transactionDate}>{item.main.contactName || 'N/A'}</Text>
                                                         </View>
                                                         <View style={styles.amountContainer}>
                                                             <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.main.type) }]}>
@@ -982,7 +980,7 @@ const CalendarScreen = ({ navigation, route }) => {
                                                     </View>
                                                     <View style={styles.transactionDetails}>
                                                         <Text style={styles.transactionName}>{item.adjustment.name || 'Debt Adjustment'}</Text>
-                                                        <Text style={styles.transactionDateStyle}>{item.adjustment.contactName || 'N/A'}</Text>
+                                                        <Text style={styles.transactionDate}>{item.adjustment.contactName || 'N/A'}</Text>
                                                     </View>
                                                     <View style={styles.amountContainer}>
                                                         <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.adjustment.type) }]}>
@@ -1228,14 +1226,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     transactionName: {
-        fontSize: RFPercentage(1.9),
-        color: colors.gray,
-        fontFamily: 'Sora-Bold',
+        fontSize: RFPercentage(2),
+        fontWeight: '600',
+        color: '#333',
     },
-    transactionDateStyle: {
-        fontSize: RFPercentage(1.5),
-        color: colors.lightGray,
-        fontFamily: 'Sora-Regular',
+    transactionDate: {
+        fontSize: RFPercentage(1.6),
+        color: '#666',
         marginTop: 2,
     },
     transactionType: {
@@ -1247,9 +1244,8 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
     },
     transactionAmountText: {
-        fontSize: RFPercentage(2),
+        fontSize: RFPercentage(2.0),
         fontFamily: 'Sora-Bold',
-        marginBottom: hp(0.25),
     },
     fab: {
         position: 'absolute',
@@ -1326,11 +1322,11 @@ const styles = StyleSheet.create({
         backgroundColor: colors.white,
         borderRadius: 12,
         marginBottom: 10,
-        elevation: 1,
-        shadowColor: colors.gray,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     menuContainer: {
         position: 'absolute',
@@ -1343,6 +1339,12 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         paddingVertical: 8,
         width: 150,
+    },
+    colorIndicator: {
+        width: 4,
+        height: 40,
+        borderRadius: 2,
+        marginRight: 12,
     },
     menuOption: {
         paddingHorizontal: 16,

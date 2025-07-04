@@ -31,6 +31,27 @@
   "loginScreen.signInButton": "Sign In",
   "loginScreen.noAccountText": "Don't have an account? ",
   "loginScreen.signUpLink": "Sign Up",
+  "loginScreen.googleSignInButton": "Sign In with Google",
+  "loginScreen.sync": {
+    "starting": "Preparing to sync...",
+    "progress": "Syncing {{current}} of {{total}} {{table}}...",
+    "complete": "Sync complete in {{duration}} seconds!",
+    "nothingToSync": "Everything is up to date.",
+    "error": "Sync failed. Please try again.",
+    "estimatedTime": "Estimated time remaining: {{time}} seconds",
+    "warning": "Please do not close the app during sync"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "Email and password are required"
+  },
+  "loginScreen.errors": {
+    "invalidCredentials": "Invalid email or password",
+    "signInFailed": "Failed to sign in. Please try again."
+  },
+  "loginScreen.placeholders": {
+    "email": "Enter your email",
+    "password": "Enter your password"
+  },
   "signupScreen.createAccount": "Create Account",
   "signupScreen.joinSmartDebt": "Join SmartDebt and take control of your finances",
   "signupScreen.fullNameLabel": "Full Name",
@@ -569,25 +590,6 @@
   "createNewContact":"Create New Contact",
   "importFromContact":"Import From Contact",
   "cancelContact":"Cancel",
-  "loginScreen.placeholders": {
-    "email": "Enter your email",
-    "password": "Enter your password"
-  },
-  "loginScreen.validation": {
-    "emailPasswordRequired": "Email and password are required."
-  },
-  "loginScreen.errors": {
-    "signInFailed": "Sign in failed. Please try again.",
-    "invalidCredentials": "Invalid email or password."
-  },
-  "loginScreen.googleSignInButton": "Sign In with Google",
-  "loginScreen.sync": {
-    "starting": "Preparing to sync...",
-    "progress": "Syncing {{current}}/{{total}} {{table}}...",
-    "complete": "Sync complete!",
-    "nothingToSync": "Everything is up to date.",
-    "error": "Sync failed. Please try again."
-  },
   "recurring": {
     "title": "Recurring Transactions",
     "startsOn": "Starts on",
@@ -625,7 +627,8 @@
       "period": "Period",
       "category": "Category",
       "startDate": "Start Date",
-      "endDate": "End Date"
+      "endDate": "End Date",
+      "dateRange": "Date Range"
     },
     "placeholders": {
       "budgetName": "Enter budget name",
@@ -642,5 +645,53 @@
     "weekly": "Weekly",
     "monthly": "Monthly",
     "yearly": "Yearly"
+  },
+  "categoriesScreen": {
+    "title": "Categories",
+    "loading": "Loading categories...",
+    "empty": {
+      "title": "No Categories",
+      "message": "Add your first category to get started"
+    },
+    "types": {
+      "income": "Income",
+      "expense": "Expense",
+      "debt": "Debt"
+    },
+    "modals": {
+      "addTitle": "Add Category",
+      "editTitle": "Edit Category",
+      "selectParent": "Select Parent Category"
+    },
+    "labels": {
+      "type": "Type",
+      "name": "Name",
+      "description": "Description",
+      "icon": "Icon",
+      "color": "Color",
+      "parentCategory": "Parent Category"
+    },
+    "placeholders": {
+      "name": "Category name",
+      "description": "Category description",
+      "icon": "Emoji icon (e.g., 🍽️)",
+      "noParent": "No parent category"
+    },
+    "confirm": {
+      "deleteTitle": "Delete Category",
+      "deleteMessage": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+    },
+    "errors": {
+      "loadCategories": "Failed to load categories",
+      "saveCategory": "Failed to save category",
+      "deleteCategory": "Failed to delete category",
+      "nameRequired": "Category name is required",
+      "noUserFound": "No user found"
+    },
+    "success": {
+      "categoryCreated": "Category created successfully",
+      "categoryUpdated": "Category updated successfully",
+      "categoryDeleted": "Category deleted successfully"
+    }
   }
 }

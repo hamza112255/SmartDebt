@@ -31,6 +31,27 @@
   "loginScreen.signInButton": "Inloggen",
   "loginScreen.noAccountText": "Heeft u geen account? ",
   "loginScreen.signUpLink": "Aanmelden",
+  "loginScreen.googleSignInButton": "Inloggen met Google",
+  "loginScreen.sync": {
+    "starting": "Synchronisatie voorbereiden...",
+    "progress": "Synchroniseren van {{current}} van {{total}} {{table}}...",
+    "complete": "Synchronisatie voltooid in {{duration}} seconden!",
+    "nothingToSync": "Alles is up-to-date.",
+    "error": "Synchronisatie mislukt. Probeer het opnieuw.",
+    "estimatedTime": "Geschatte resterende tijd: {{time}} seconden",
+    "warning": "Sluit de app niet af tijdens het synchroniseren"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "E-mail en wachtwoord zijn verplicht"
+  },
+  "loginScreen.errors": {
+    "invalidCredentials": "Ongeldige e-mail of wachtwoord",
+    "signInFailed": "Inloggen mislukt. Probeer het opnieuw."
+  },
+  "loginScreen.placeholders": {
+    "email": "Vul je e-mailadres in",
+    "password": "Vul je wachtwoord in"
+  },
   "signupScreen.createAccount": "Account aanmaken",
   "signupScreen.joinSmartDebt": "Word lid van SmartDebt en neem de controle over uw financiën",
   "signupScreen.fullNameLabel": "Volledige naam",
@@ -490,25 +511,6 @@
     },
     "upgradeButton": "Nu upgraden"
   },
-  "loginScreen.placeholders": {
-    "email": "Vul je e-mailadres in",
-    "password": "Vul je wachtwoord in"
-  },
-  "loginScreen.validation": {
-    "emailPasswordRequired": "E-mailadres en wachtwoord zijn verplicht."
-  },
-  "loginScreen.errors": {
-    "signInFailed": "Inloggen mislukt. Probeer het opnieuw.",
-    "invalidCredentials": "Ongeldig e-mailadres of wachtwoord."
-  },
-  "loginScreen.googleSignInButton": "Inloggen met Google",
-  "loginScreen.sync": {
-    "starting": "Voorbereiden op synchronisatie...",
-    "progress": "Synchroniseren {{current}}/{{total}} {{table}}...",
-    "complete": "Synchronisatie voltooid!",
-    "nothingToSync": "Alles is up-to-date.",
-    "error": "Synchronisatie mislukt. Probeer het opnieuw."
-  },
   "recurring": {
     "title": "Terugkerende Transacties",
     "startsOn": "Begint op",
@@ -525,37 +527,38 @@
   },
   "budgets": {
     "title": "Budgetten",
-    "deleteTitle": "Budget Verwijderen",
-    "deleteMessage": "Weet je zeker dat je dit budget wilt verwijderen?",
-    "noCategory": "Geen Categorie",
-    "daysLeft": "{{count}} dagen resterend",
+    "deleteTitle": "Budget verwijderen",
+    "deleteMessage": "Weet u zeker dat u dit budget wilt verwijderen?",
+    "noCategory": "Geen categorie",
+    "daysLeft": "{{count}} dagen over",
     "empty": {
-      "title": "Geen Budgetten",
-      "message": "Je hebt nog geen budgetten aangemaakt."
+      "title": "Geen budgetten",
+      "message": "U heeft nog geen budgetten aangemaakt."
     },
     "errors": {
-      "deleteFailed": "Budget verwijderen mislukt"
+      "deleteFailed": "Verwijderen van budget mislukt"
     }
   },
   "addBudgetScreen": {
-    "addTitle": "Budget Toevoegen",
-    "editTitle": "Budget Bewerken",
+    "addTitle": "Budget toevoegen",
+    "editTitle": "Budget bewerken",
     "labels": {
-      "budgetName": "Budget Naam",
+      "budgetName": "Budgetnaam",
       "amount": "Bedrag",
       "period": "Periode",
       "category": "Categorie",
       "startDate": "Startdatum",
-      "endDate": "Einddatum"
+      "endDate": "Einddatum",
+      "dateRange": "Datumbereik"
     },
     "placeholders": {
-      "budgetName": "Voer budget naam in",
+      "budgetName": "Voer budgetnaam in",
       "selectCategory": "Selecteer een categorie"
     },
     "errors": {
       "requiredFields": "Vul alle verplichte velden in",
       "noUser": "Geen gebruiker gevonden",
-      "saveFailed": "Budget opslaan mislukt"
+      "saveFailed": "Opslaan van budget mislukt"
     }
   },
   "periods": {
@@ -563,5 +566,53 @@
     "weekly": "Wekelijks",
     "monthly": "Maandelijks",
     "yearly": "Jaarlijks"
+  },
+  "categoriesScreen": {
+    "title": "Categorieën",
+    "loading": "Categorieën laden...",
+    "empty": {
+      "title": "Geen categorieën",
+      "message": "Voeg uw eerste categorie toe om te beginnen"
+    },
+    "types": {
+      "income": "Inkomsten",
+      "expense": "Uitgaven",
+      "debt": "Schulden"
+    },
+    "modals": {
+      "addTitle": "Categorie toevoegen",
+      "editTitle": "Categorie bewerken",
+      "selectParent": "Selecteer hoofdcategorie"
+    },
+    "labels": {
+      "type": "Type",
+      "name": "Naam",
+      "description": "Beschrijving",
+      "icon": "Pictogram",
+      "color": "Kleur",
+      "parentCategory": "Hoofdcategorie"
+    },
+    "placeholders": {
+      "name": "Categorienaam",
+      "description": "Categoriebeschrijving",
+      "icon": "Emoji (bijv.: 🍽️)",
+      "noParent": "Geen hoofdcategorie"
+    },
+    "confirm": {
+      "deleteTitle": "Categorie verwijderen",
+      "deleteMessage": "Weet u zeker dat u \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt."
+    },
+    "errors": {
+      "loadCategories": "Laden van categorieën mislukt",
+      "saveCategory": "Opslaan van categorie mislukt",
+      "deleteCategory": "Verwijderen van categorie mislukt",
+      "nameRequired": "Categorienaam is verplicht",
+      "noUserFound": "Geen gebruiker gevonden"
+    },
+    "success": {
+      "categoryCreated": "Categorie succesvol aangemaakt",
+      "categoryUpdated": "Categorie succesvol bijgewerkt",
+      "categoryDeleted": "Categorie succesvol verwijderd"
+    }
   }
 }

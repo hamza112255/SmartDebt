@@ -31,6 +31,27 @@
   "loginScreen.signInButton": "Se connecter",
   "loginScreen.noAccountText": "Vous n'avez pas de compte? ",
   "loginScreen.signUpLink": "S'inscrire",
+  "loginScreen.googleSignInButton": "Se connecter avec Google",
+  "loginScreen.sync": {
+    "starting": "Préparation de la synchronisation...",
+    "progress": "Synchronisation de {{current}} sur {{total}} {{table}}...",
+    "complete": "Synchronisation terminée en {{duration}} secondes !",
+    "nothingToSync": "Tout est à jour.",
+    "error": "Échec de la synchronisation. Veuillez réessayer.",
+    "estimatedTime": "Temps restant estimé: {{time}} secondes",
+    "warning": "Veuillez ne pas fermer l'application pendant la synchronisation"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "L'e-mail et le mot de passe sont requis"
+  },
+  "loginScreen.errors": {
+    "invalidCredentials": "E-mail ou mot de passe invalide",
+    "signInFailed": "Échec de la connexion. Veuillez réessayer."
+  },
+  "loginScreen.placeholders": {
+    "email": "Entrez votre e-mail",
+    "password": "Entrez votre mot de passe"
+  },
   "signupScreen.createAccount": "Créer un compte",
   "signupScreen.joinSmartDebt": "Rejoignez SmartDebt et prenez le contrôle de vos finances",
   "signupScreen.fullNameLabel": "Nom complet",
@@ -525,32 +546,13 @@
     "title": "Passer à Premium",
     "subtitle": "Débloquez toutes les fonctionnalités premium",
     "features": {
-      "advancedReports": "Rapports et analyses avancés",
+      "advancedReports": "Rapport et analyses avancés",
       "unlimitedAccounts": "Comptes et contacts illimités",
       "cloudSync": "Synchronisation cloud entre appareils",
       "prioritySupport": "Support client prioritaire",
-      "createBudget": "Créer des budgets et suivre les dépenses"
+      "createBudget": "Créer et gérer des budgets"
     },
     "upgradeButton": "Mettre à niveau maintenant"
-  },
-  "loginScreen.placeholders": {
-    "email": "Entrez votre e-mail",
-    "password": "Entrez votre mot de passe"
-  },
-  "loginScreen.validation": {
-    "emailPasswordRequired": "L'e-mail et le mot de passe sont obligatoires."
-  },
-  "loginScreen.errors": {
-    "signInFailed": "Échec de la connexion. Veuillez réessayer.",
-    "invalidCredentials": "E-mail ou mot de passe incorrect."
-  },
-  "loginScreen.googleSignInButton": "Se connecter avec Google",
-  "loginScreen.sync": {
-    "starting": "Préparation à la synchronisation...",
-    "progress": "Synchronisation {{current}}/{{total}} {{table}}...",
-    "complete": "Synchronisation terminée !",
-    "nothingToSync": "Tout est à jour.",
-    "error": "La synchronisation a échoué. Veuillez réessayer."
   },
   "addNewAccountScreen": {
     "accountName": "Nom du compte",
@@ -580,35 +582,36 @@
   },
   "budgets": {
     "title": "Budgets",
-    "deleteTitle": "Supprimer le Budget",
+    "deleteTitle": "Supprimer le budget",
     "deleteMessage": "Êtes-vous sûr de vouloir supprimer ce budget ?",
-    "noCategory": "Sans Catégorie",
+    "noCategory": "Aucune catégorie",
     "daysLeft": "{{count}} jours restants",
     "empty": {
-      "title": "Aucun Budget",
-      "message": "Vous n'avez pas encore créé de budget."
+      "title": "Aucun budget",
+      "message": "Vous n'avez pas encore créé de budgets."
     },
     "errors": {
       "deleteFailed": "Échec de la suppression du budget"
     }
   },
   "addBudgetScreen": {
-    "addTitle": "Ajouter un Budget",
-    "editTitle": "Modifier le Budget",
+    "addTitle": "Ajouter un budget",
+    "editTitle": "Modifier le budget",
     "labels": {
-      "budgetName": "Nom du Budget",
+      "budgetName": "Nom du budget",
       "amount": "Montant",
       "period": "Période",
       "category": "Catégorie",
-      "startDate": "Date de Début",
-      "endDate": "Date de Fin"
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "dateRange": "Plage de dates"
     },
     "placeholders": {
       "budgetName": "Entrez le nom du budget",
       "selectCategory": "Sélectionnez une catégorie"
     },
     "errors": {
-      "requiredFields": "Veuillez remplir tous les champs requis",
+      "requiredFields": "Veuillez remplir tous les champs obligatoires",
       "noUser": "Aucun utilisateur trouvé",
       "saveFailed": "Échec de l'enregistrement du budget"
     }
@@ -618,5 +621,53 @@
     "weekly": "Hebdomadaire",
     "monthly": "Mensuel",
     "yearly": "Annuel"
+  },
+  "categoriesScreen": {
+    "title": "Catégories",
+    "loading": "Chargement des catégories...",
+    "empty": {
+      "title": "Aucune catégorie",
+      "message": "Ajoutez votre première catégorie pour commencer"
+    },
+    "types": {
+      "income": "Revenus",
+      "expense": "Dépenses",
+      "debt": "Dettes"
+    },
+    "modals": {
+      "addTitle": "Ajouter une catégorie",
+      "editTitle": "Modifier la catégorie",
+      "selectParent": "Sélectionner une catégorie parente"
+    },
+    "labels": {
+      "type": "Type",
+      "name": "Nom",
+      "description": "Description",
+      "icon": "Icône",
+      "color": "Couleur",
+      "parentCategory": "Catégorie parente"
+    },
+    "placeholders": {
+      "name": "Nom de la catégorie",
+      "description": "Description de la catégorie",
+      "icon": "Emoji (ex: 🍽️)",
+      "noParent": "Aucune catégorie parente"
+    },
+    "confirm": {
+      "deleteTitle": "Supprimer la catégorie",
+      "deleteMessage": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ? Cette action ne peut pas être annulée."
+    },
+    "errors": {
+      "loadCategories": "Échec du chargement des catégories",
+      "saveCategory": "Échec de l'enregistrement de la catégorie",
+      "deleteCategory": "Échec de la suppression de la catégorie",
+      "nameRequired": "Le nom de la catégorie est obligatoire",
+      "noUserFound": "Aucun utilisateur trouvé"
+    },
+    "success": {
+      "categoryCreated": "Catégorie créée avec succès",
+      "categoryUpdated": "Catégorie mise à jour avec succès",
+      "categoryDeleted": "Catégorie supprimée avec succès"
+    }
   }
 }

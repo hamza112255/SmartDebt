@@ -31,6 +31,27 @@
   "loginScreen.signInButton": "Iniciar sesión",
   "loginScreen.noAccountText": "¿No tienes una cuenta? ",
   "loginScreen.signUpLink": "Regístrate",
+  "loginScreen.googleSignInButton": "Iniciar sesión con Google",
+  "loginScreen.sync": {
+    "starting": "Preparando la sincronización...",
+    "progress": "Sincronizando {{current}} de {{total}} {{table}}...",
+    "complete": "¡Sincronización completada en {{duration}} segundos!",
+    "nothingToSync": "Todo está actualizado.",
+    "error": "Error en la sincronización. Por favor, inténtelo de nuevo.",
+    "estimatedTime": "Tiempo restante estimado: {{time}} segundos",
+    "warning": "Por favor, no cierre la aplicación durante la sincronización"
+  },
+  "loginScreen.validation": {
+    "emailPasswordRequired": "El correo y la contraseña son obligatorios"
+  },
+  "loginScreen.errors": {
+    "invalidCredentials": "Correo o contraseña inválidos",
+    "signInFailed": "Error al iniciar sesión. Por favor, inténtelo de nuevo."
+  },
+  "loginScreen.placeholders": {
+    "email": "Introduce tu correo",
+    "password": "Introduce tu contraseña"
+  },
   "signupScreen.createAccount": "Crear cuenta",
   "signupScreen.joinSmartDebt": "Únete a SmartDebt y toma el control de tus finanzas",
   "signupScreen.fullNameLabel": "Nombre completo",
@@ -548,25 +569,6 @@
     },
     "upgradeButton": "Actualizar ahora"
   },
-  "loginScreen.placeholders": {
-    "email": "Introduce tu correo electrónico",
-    "password": "Introduce tu contraseña"
-  },
-  "loginScreen.validation": {
-    "emailPasswordRequired": "Correo electrónico y contraseña son obligatorios."
-  },
-  "loginScreen.errors": {
-    "signInFailed": "Error al iniciar sesión. Por favor, inténtalo de nuevo.",
-    "invalidCredentials": "Correo electrónico o contraseña incorrectos."
-  },
-  "loginScreen.googleSignInButton": "Iniciar sesión con Google",
-  "loginScreen.sync": {
-    "starting": "Preparando para sincronizar...",
-    "progress": "Sincronizando {{current}}/{{total}} {{table}}...",
-    "complete": "¡Sincronización completa!",
-    "nothingToSync": "Todo está actualizado.",
-    "error": "La sincronización falló. Por favor, inténtalo de nuevo."
-  },
   "recurring": {
     "title": "Transacciones Recurrentes",
     "startsOn": "Comienza el",
@@ -592,11 +594,11 @@
       "message": "Aún no has creado ningún presupuesto."
     },
     "errors": {
-      "deleteFailed": "Error al eliminar el presupuesto"
+      "deleteFailed": "No se pudo eliminar el presupuesto"
     }
   },
   "addBudgetScreen": {
-    "addTitle": "Agregar Presupuesto",
+    "addTitle": "Añadir Presupuesto",
     "editTitle": "Editar Presupuesto",
     "labels": {
       "budgetName": "Nombre del Presupuesto",
@@ -604,16 +606,17 @@
       "period": "Período",
       "category": "Categoría",
       "startDate": "Fecha de Inicio",
-      "endDate": "Fecha de Fin"
+      "endDate": "Fecha de Fin",
+      "dateRange": "Rango de Fechas"
     },
     "placeholders": {
-      "budgetName": "Ingresa el nombre del presupuesto",
+      "budgetName": "Introduce nombre del presupuesto",
       "selectCategory": "Selecciona una categoría"
     },
     "errors": {
-      "requiredFields": "Por favor completa todos los campos requeridos",
-      "noUser": "Usuario no encontrado",
-      "saveFailed": "Error al guardar el presupuesto"
+      "requiredFields": "Por favor completa todos los campos obligatorios",
+      "noUser": "No se encontró ningún usuario",
+      "saveFailed": "No se pudo guardar el presupuesto"
     }
   },
   "periods": {
@@ -621,5 +624,53 @@
     "weekly": "Semanal",
     "monthly": "Mensual",
     "yearly": "Anual"
+  },
+  "categoriesScreen": {
+    "title": "Categorías",
+    "loading": "Cargando categorías...",
+    "empty": {
+      "title": "Sin Categorías",
+      "message": "Añade tu primera categoría para comenzar"
+    },
+    "types": {
+      "income": "Ingresos",
+      "expense": "Gastos",
+      "debt": "Deudas"
+    },
+    "modals": {
+      "addTitle": "Añadir Categoría",
+      "editTitle": "Editar Categoría",
+      "selectParent": "Seleccionar Categoría Principal"
+    },
+    "labels": {
+      "type": "Tipo",
+      "name": "Nombre",
+      "description": "Descripción",
+      "icon": "Icono",
+      "color": "Color",
+      "parentCategory": "Categoría Principal"
+    },
+    "placeholders": {
+      "name": "Nombre de la categoría",
+      "description": "Descripción de la categoría",
+      "icon": "Emoji (ej: 🍽️)",
+      "noParent": "Sin categoría principal"
+    },
+    "confirm": {
+      "deleteTitle": "Eliminar Categoría",
+      "deleteMessage": "¿Estás seguro de que deseas eliminar \"{{name}}\"? Esta acción no se puede deshacer."
+    },
+    "errors": {
+      "loadCategories": "No se pudieron cargar las categorías",
+      "saveCategory": "No se pudo guardar la categoría",
+      "deleteCategory": "No se pudo eliminar la categoría",
+      "nameRequired": "El nombre de la categoría es obligatorio",
+      "noUserFound": "No se encontró ningún usuario"
+    },
+    "success": {
+      "categoryCreated": "Categoría creada con éxito",
+      "categoryUpdated": "Categoría actualizada con éxito",
+      "categoryDeleted": "Categoría eliminada con éxito"
+    }
   }
 }

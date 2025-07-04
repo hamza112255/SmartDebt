@@ -44,6 +44,7 @@ const LoginScreen = ({ navigation }) => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncProgress, setSyncProgress] = useState(0);
     const [syncMessage, setSyncMessage] = useState('');
+    const [estimatedTime, setEstimatedTime] = useState(0);
     const { t } = useTranslation();
 
     useEffect(() => {
@@ -169,15 +170,34 @@ const LoginScreen = ({ navigation }) => {
     const handleSync = async (userId) => {
         console.log('[SYNC] Starting sync process for user:', userId);
         setIsSyncing(true);
-        setSyncMessage(t('loginScreen.sync.starting', 'Preparing to sync... Please do not close the app.'));
+        setSyncMessage(t('loginScreen.sync.starting', 'Preparing to sync...'));
         setSyncProgress(0);
+        setEstimatedTime(0);
         const startTime = Date.now();
 
         try {
             const onProgress = ({ current, total, tableName }) => {
                 const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
                 setSyncProgress(percentage);
-                setSyncMessage(t('loginScreen.sync.progress', { current, total, table: tableName || 'records' }));
+                
+                // Calculate estimated time remaining (in seconds)
+                if (current > 0 && total > 0) {
+                    const elapsedTime = (Date.now() - startTime) / 1000;
+                    const estimatedTotalTime = (elapsedTime / current) * total;
+                    const remainingTime = Math.round(estimatedTotalTime - elapsedTime);
+                    setEstimatedTime(remainingTime > 0 ? remainingTime : 0);
+                }
+                
+                // Explicitly set the progress message and keep the original record count display
+                const progressMsg = t('loginScreen.sync.progress', { 
+                    current, 
+                    total, 
+                    table: tableName || 'records' 
+                });
+                // Replace template placeholders manually
+                setSyncMessage(progressMsg.replace('{{current}}', current)
+                                         .replace('{{total}}', total)
+                                         .replace('{{table}}', tableName || 'records'));
             };
 
             const result = await syncPendingChanges(userId, onProgress);
@@ -185,11 +205,13 @@ const LoginScreen = ({ navigation }) => {
             const duration = ((endTime - startTime) / 1000).toFixed(2);
 
             if (result.total > 0) {
-                setSyncMessage(t('loginScreen.sync.complete', `Sync complete in ${duration} seconds!`));
+                const completeMsg = t('loginScreen.sync.complete', { duration });
+                setSyncMessage(completeMsg.replace('{{duration}}', duration));
                 setSyncProgress(100);
             } else {
-                setSyncMessage(t('loginScreen.sync.nothingToSync', 'Everything is up to date.'));
+                setSyncMessage(t('loginScreen.sync.nothingToSync'));
             }
+            setEstimatedTime(0);
             
             await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -212,13 +234,24 @@ const LoginScreen = ({ navigation }) => {
                 onRequestClose={() => {}}
             >
                 <View style={styles.modalBackdrop}>
-                    <View style={styles.modalContainer}>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                        <Text style={styles.modalText}>{syncMessage}</Text>
-                        <View style={styles.syncProgressContainer}>
-                            <View style={[styles.syncProgress, { width: `${syncProgress}%` }]} />
-                        </View>
+                                    <View style={styles.modalContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.modalText}>{syncMessage}</Text>
+                    
+                    {estimatedTime > 0 && (
+                        <Text style={styles.estimatedTimeText}>
+                            {t('loginScreen.sync.estimatedTime', { time: estimatedTime }).replace('{{time}}', estimatedTime)}
+                        </Text>
+                    )}
+                    
+                    <View style={styles.syncProgressContainer}>
+                        <View style={[styles.syncProgress, { width: `${syncProgress}%` }]} />
                     </View>
+                    
+                    <Text style={styles.warningText}>
+                        {t('loginScreen.sync.warning')}
+                    </Text>
+                </View>
                 </View>
             </Modal>
 
@@ -417,7 +450,7 @@ const styles = StyleSheet.create({
     },
     modalText: {
         marginTop: hp(2),
-        marginBottom: hp(2),
+        marginBottom: hp(0.5),
         fontSize: RFPercentage(2.2),
         color: colors.text,
         textAlign: 'center',
@@ -428,12 +461,27 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         backgroundColor: colors.lightGray,
         overflow: 'hidden',
-        marginTop: hp(1),
+        marginTop: hp(1.5),
     },
     syncProgress: {
         height: '100%',
         backgroundColor: colors.primary,
         borderRadius: 4,
+    },
+    estimatedTimeText: {
+        fontSize: RFPercentage(1.8),
+        color: colors.secondary,
+        textAlign: 'center',
+        marginBottom: hp(1.5),
+        fontStyle: 'italic',
+    },
+    warningText: {
+        fontSize: RFPercentage(1.8),
+        color: colors.error,
+        textAlign: 'center',
+        fontWeight: '600',
+        marginTop: hp(2),
+        letterSpacing: 0.2,
     },
 });
 

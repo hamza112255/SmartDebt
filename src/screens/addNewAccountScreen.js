@@ -188,6 +188,12 @@ const AddAccountScreen = ({ navigation, route }) => {
             } else if (existingAccount) {
                 isPrimaryValue = existingAccount.isPrimary;
             }
+            
+            // Calculate the initial balance or use existing balance
+            let initialBalanceValue = parsedInitialAmount;
+            if (existingAccount) {
+                initialBalanceValue = existingAccount.currentBalance || 0;
+            }
 
             let data = {
                 name: accountName.trim(),
@@ -195,7 +201,7 @@ const AddAccountScreen = ({ navigation, route }) => {
                 type: terms,
                 userId: currentUserId,
                 isPrimary: isPrimaryValue,
-                currentBalance: existingAccount ? existingAccount.currentBalance : 0,
+                currentBalance: existingAccount ? existingAccount.currentBalance : parsedInitialAmount,
                 language: i18n.language,
                 isActive: true,
                 createdOn: existingAccount ? existingAccount.createdOn : now,

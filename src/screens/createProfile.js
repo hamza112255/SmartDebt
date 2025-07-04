@@ -19,6 +19,7 @@ import { realm } from '../realm';
 import { updateUserInSupabase } from '../supabase';
 import StyledTextInput from '../components/shared/StyledTextInput';
 import StyledPicker from '../components/shared/StyledPicker';
+import { initializeDefaultCategories } from './categoriesScreen';
 
 const colors = {
     primary: '#2563eb',
@@ -133,6 +134,7 @@ export default function CreateProfileScreen({ navigation, route }) {
                     existingUser.lastSyncAt = new Date();
                 });
             } else {
+                let newUserId = null;
                 // Free user, or Paid user is offline: Save to Realm and create SyncLog
                 await realm.write(() => {
                     if (existingUser && mode === 'edit') {
@@ -174,6 +176,7 @@ export default function CreateProfileScreen({ navigation, route }) {
                             lastSyncAt: null,
                             needsUpload: true,
                         });
+                        newUserId = newUser.id;
 
                         realm.create('SyncLog', {
                             id: uuid.v4() + '_log',
@@ -187,6 +190,10 @@ export default function CreateProfileScreen({ navigation, route }) {
                         });
                     }
                 });
+
+                if (newUserId) {
+                    initializeDefaultCategories(newUserId);
+                }
             }
 
             // Only change language after successful save

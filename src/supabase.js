@@ -27,6 +27,8 @@ const getModelNameForTableName = (tableName) => {
     contacts: 'Contact',
     transactions: 'Transaction',
     budgets: 'Budget',
+    categories: 'Category',
+    user_code_list_elements: 'UserCodeListElement',
   };
   return map[tableName.toLowerCase()] || tableName;
 };
@@ -43,6 +45,16 @@ const toSnake = (str) => {
     return index === 0 ? letter.toLowerCase() : `_${letter.toLowerCase()}`;
   });
 };
+
+const SYNC_ORDER = [
+  'users',
+  'categories',
+  'accounts',
+  'contacts',
+  'budgets',
+  'transactions',
+  'user_code_list_elements'
+];
 
 const mapSpecificToGenericType = (specificType) => {
   const creditTypes = ['cash_in', 'receive', 'borrow', 'credit'];
@@ -177,6 +189,7 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
   idMapping.contacts = idMapping.contacts || {};
   idMapping.transactions = idMapping.transactions || {};
   idMapping.budgets = idMapping.budgets || {};
+  idMapping.categories = idMapping.categories || {};
 
   console.log(`[SYNC-PROCESS] Current ID mappings state:`, JSON.stringify(idMapping, null, 2));
 
@@ -200,8 +213,30 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
     if (schemaName === 'Account') {
       delete data.showBalance;
     }
+    if (schemaName === 'Category') {
+      delete data.lastSyncAt;
+    }
 
     const snakeCaseData = transformKeysToSnakeCase(data);
+
+    // This block is now deprecated by the new logic but kept for safety.
+    // The new logic resolves dependencies directly from Realm's `supabaseId`.
+    if (snakeCaseData.category_id && idMapping.categories[snakeCaseData.category_id]) {
+      snakeCaseData.category_id = idMapping.categories[snakeCaseData.category_id];
+    }
+    if (snakeCaseData.account_id && idMapping.accounts[snakeCaseData.account_id]) {
+      snakeCaseData.account_id = idMapping.accounts[snakeCaseData.account_id];
+    }
+    if (snakeCaseData.contact_id && idMapping.contacts[snakeCaseData.contact_id]) {
+      snakeCaseData.contact_id = idMapping.contacts[snakeCaseData.contact_id];
+    }
+    if (snakeCaseData.on_behalf_of_contact_id && idMapping.contacts[snakeCaseData.on_behalf_of_contact_id]) {
+      snakeCaseData.on_behalf_of_contact_id = idMapping.contacts[snakeCaseData.on_behalf_of_contact_id];
+    }
+    if (snakeCaseData.parent_transaction_id && idMapping.transactions[snakeCaseData.parent_transaction_id]) {
+      snakeCaseData.parent_transaction_id = idMapping.transactions[snakeCaseData.parent_transaction_id];
+    }
+
     // Ensure parent_transaction_id is null if empty string
     if (snakeCaseData.parent_transaction_id === '') {
       snakeCaseData.parent_transaction_id = null;
@@ -244,41 +279,51 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
 
           if (result.error) throw result.error;
 
-          // FIXED: Properly handle the user record replacement
+          // **REFACTOR START: Replace-in-place logic for User**
           realm.write(() => {
-            const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
-            if (oldRecord) {
-              // Store original values before deletion
-              const originalData = oldRecord.toJSON();
-              realm.delete(oldRecord);
-              
-              // Create new record with proper supabaseId
-              const freshData = {
-                ...transformKeysToCamelCase(result.data),
-                id: supabaseUserId,
-                supabaseId: supabaseUserId,
-                syncStatus: 'synced',
-                lastSyncAt: new Date(),
-                needsUpload: false,
-                // Preserve any local-only fields if they exist
-                ...originalData.localOnlyFields && { localOnlyFields: originalData.localOnlyFields }
-              };
-              
-              realm.create(schemaName, freshData, Realm.UpdateMode.Modified);
-              console.log(`[SYNC-PROCESS] Successfully replaced local User ${recordId} with Supabase ID ${supabaseUserId}`);
+            const oldUser = realm.objectForPrimaryKey(schemaName, recordId);
+            if (oldUser) {
+                const serverData = transformKeysToCamelCase(result.data);
+
+                // Create a new user object with the correct Supabase ID as the primary key
+                const newUser = {
+                    ...oldUser.toJSON(), // Preserve existing local data
+                    ...serverData,       // Overwrite with server data
+                    id: supabaseUserId,  // Set the correct primary key
+                    supabaseId: supabaseUserId,
+                    syncStatus: 'synced',
+                    lastSyncAt: new Date(),
+                    needsUpload: false,
+                };
+
+                // Create the new user record
+                realm.create(schemaName, newUser, Realm.UpdateMode.Modified);
+                console.log(`[SYNC-PROCESS] Successfully created new local User with Supabase ID ${supabaseUserId}`);
+
+                // Delete the old user record with the temporary ID
+                realm.delete(oldUser);
+                console.log(`[SYNC-PROCESS] Deleted old temporary user record ${recordId}`);
             } else {
-              console.warn(`[SYNC-PROCESS] Old user record ${recordId} not found in Realm`);
+                console.warn(`[SYNC-PROCESS] User record ${recordId} not found in Realm to replace.`);
             }
           });
+          // **REFACTOR END**
 
           // Store the user ID mapping
           idMapping.users[recordId] = supabaseUserId;
           console.log(`[SYNC-PROCESS] User ID mapping: ${recordId} -> ${supabaseUserId}`);
 
+          realm.write(() => {
+            const otherLogs = realm.objects('SyncLog').filtered('userId == $0 AND (status == "pending" OR status == "failed")', recordId);
+            console.log(`[SYNC-PROCESS] Found ${otherLogs.length} other pending logs for old user ID ${recordId}. Updating them to new user ID ${supabaseUserId}.`);
+            otherLogs.forEach(log => {
+              log.userId = supabaseUserId;
+            });
+          });
+
           return true;
         } else {
           console.log(`[SYNC-PROCESS] Sending CREATE request to Supabase table: ${tableName}`);
-          const oldId = snakeCaseData.id;
 
           // For transactions, generate a proper UUID instead of timestamp ID
           if (tableName === 'transactions') {
@@ -295,8 +340,6 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
             if (!snakeCaseData.amount) {
               throw new Error('Transaction sync failed: Missing amount');
             }
-            // Transform transaction type to match Supabase enum
-            snakeCaseData.type = snakeCaseData.type
 
             // Map account_id using idMapping
             if (snakeCaseData.account_id) {
@@ -348,90 +391,117 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
               }
             }
 
-            // Set the new ID
+            // Set the new ID and user_id for transactions
             snakeCaseData.id = newTransactionId;
+            snakeCaseData.user_id = supabaseUserId;
           } else {
-            delete snakeCaseData.id; // Let Supabase generate the new ID
-          }
-
-          // Update foreign keys using ID mapping
-          if (tableName === 'accounts' || tableName === 'contacts' || tableName === 'transactions') {
+            // Let Supabase generate the new ID, but ensure user_id is set for RLS
+            delete snakeCaseData.id;
             snakeCaseData.user_id = supabaseUserId;
           }
 
-          // For non-transaction tables, handle ID mapping here
-          if (tableName === 'accounts' || tableName === 'contacts') {
-            // No additional ID mapping needed for accounts/contacts during creation
-            console.log(`[SYNC-PROCESS] Creating ${tableName} with user_id: ${supabaseUserId}`);
+          // **REFACTOR START: Robust Foreign Key Mapping**
+          const resolveForeignKey = (localId, modelName, mapping) => {
+            if (!localId) return null;
+            // 1. Check in-memory map first (for items created in the same sync batch)
+            if (mapping[localId]) return mapping[localId];
+            // 2. Check the local Realm record for a supabaseId
+            const relatedRecord = realm.objectForPrimaryKey(modelName, localId);
+            if (relatedRecord && relatedRecord.supabaseId) return relatedRecord.supabaseId;
+            // 3. If it's a valid UUID, assume it's already a remote ID (e.g., from a previous sync)
+            if (isUUID(localId)) return localId;
+            // 4. If all else fails, we cannot resolve the dependency
+            throw new Error(`Could not resolve foreign key for ${modelName} with local ID ${localId}`);
+          };
+
+          if (tableName === 'budgets') {
+            snakeCaseData.category_id = resolveForeignKey(data.categoryId, 'Category', idMapping.categories);
           }
+          if (tableName === 'transactions') {
+            snakeCaseData.account_id = resolveForeignKey(data.accountId, 'Account', idMapping.accounts);
+            snakeCaseData.contact_id = resolveForeignKey(data.contactId, 'Contact', idMapping.contacts);
+            snakeCaseData.category_id = resolveForeignKey(data.categoryId, 'Category', idMapping.categories);
+            snakeCaseData.parent_transaction_id = resolveForeignKey(data.parentTransactionId, 'Transaction', idMapping.transactions);
+          }
+          if (tableName === 'categories') {
+              snakeCaseData.parent_category_id = resolveForeignKey(data.parentCategoryId, 'Category', idMapping.categories);
+          }
+          // **REFACTOR END**
 
           if (tableName === 'accounts') {
             snakeCaseData.current_balance = 0;
           }
 
           await delay(500); // 500ms delay
+
+          // FIXED: Use authenticated Supabase client for RLS compliance
+          console.log(`[SYNC-PROCESS] Creating ${tableName} with authenticated user context`);
           result = await supabase.from(tableName).insert(snakeCaseData).select().single();
 
           if (result.error) {
             console.error('[SYNC-PROCESS] Supabase CREATE failed:', result.error.message);
             console.error('Request Body was:', JSON.stringify(snakeCaseData, null, 2));
+            console.error('Error details:', result.error);
             throw result.error;
           }
+
           if (!result.data) throw new Error('Create operation did not return data from Supabase.');
 
           console.log('[SYNC-PROCESS] Supabase create result:', result.data);
-          const newRealmData = transformKeysToCamelCase(result.data);
+          const newSupabaseId = result.data.id;
 
+          // **REFACTOR START: Replace-in-place logic for all models**
           realm.write(() => {
             const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
-            if (oldRecord) realm.delete(oldRecord);
+            if (oldRecord) {
+              const newRecordData = {
+                ...oldRecord.toJSON(),
+                ...transformKeysToCamelCase(result.data),
+                id: newSupabaseId, // Set the primary key to the Supabase ID
+                supabaseId: newSupabaseId,
+                syncStatus: 'synced',
+                lastSyncAt: new Date(),
+                needsUpload: false,
+              };
 
-            const finalData = {
-              ...newRealmData,
-              syncStatus: 'synced',
-              lastSyncAt: new Date(),
-              needsUpload: false,
-            };
-
-            if (tableName === 'accounts' && operation === 'create') {
-              finalData.currentBalance = data.currentBalance;
-              finalData.receiving_money = data.receiving_money;
-              finalData.sending_money = data.sending_money;
-              console.log(`[SYNC-PROCESS] Restored original balances for account ${finalData.id}:`, {
-                currentBalance: data.currentBalance,
-                receiving_money: data.receiving_money,
-                sending_money: data.sending_money
-              });
-            }
-            
-            realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
-            // --- Update ProxyPayment originalTransactionId if exists ---
-            if (tableName === 'transactions') {
-              // Find ProxyPayment by old temp transaction ID
-              const proxyPayment = realm.objects('ProxyPayment').filtered('originalTransactionId == $0', recordId)[0];
-              if (proxyPayment) {
-                realm.create('ProxyPayment', {
-                  ...proxyPayment.toJSON(),
-                  originalTransactionId: finalData.id,
-                  updatedOn: new Date()
-                }, Realm.UpdateMode.Modified);
+              // For accounts, preserve the locally calculated balance if it exists
+              if (tableName === 'accounts' && operation === 'create') {
+                newRecordData.currentBalance = oldRecord.currentBalance;
+                newRecordData.receiving_money = oldRecord.receiving_money;
+                newRecordData.sending_money = oldRecord.sending_money;
               }
-            }
-            console.log(`[SYNC-PROCESS] Successfully replaced local record ${recordId} with new Supabase record ${finalData.id}`);
-          });
 
-          // Store the ID mapping for future reference
-          const newSupabaseId = result.data.id;
-          if (tableName === 'accounts') {
-            idMapping.accounts[oldId] = newSupabaseId;
-            console.log(`[SYNC-PROCESS] Account ID mapping: ${oldId} -> ${newSupabaseId}`);
-          } else if (tableName === 'contacts') {
-            idMapping.contacts[oldId] = newSupabaseId;
-            console.log(`[SYNC-PROCESS] Contact ID mapping: ${oldId} -> ${newSupabaseId}`);
-          } else if (tableName === 'transactions') {
-            idMapping.transactions[oldId] = newSupabaseId;
-            console.log(`[SYNC-PROCESS] Transaction ID mapping: ${oldId} -> ${newSupabaseId}`);
+              // Create the new record with the Supabase ID
+              realm.create(schemaName, newRecordData, Realm.UpdateMode.Modified);
+              console.log(`[SYNC-PROCESS] Successfully created new local record with Supabase ID ${newSupabaseId}`);
+
+              // Now, safely delete the old record with the temporary ID
+              realm.delete(oldRecord);
+              console.log(`[SYNC-PROCESS] Deleted old temporary record ${recordId}`);
+            } else {
+              // This case should ideally not happen if the logic is correct.
+              // It means the record was deleted between being read and now.
+              // We'll create it fresh from the server data.
+              console.warn(`[SYNC-PROCESS] Record ${recordId} not found to replace, creating new.`);
+              const newRealmData = transformKeysToCamelCase(result.data);
+              realm.create(schemaName, {
+                ...newRealmData,
+                id: newSupabaseId, // Use the Supabase ID as the primary key
+                supabaseId: newSupabaseId,
+                syncStatus: 'synced',
+                lastSyncAt: new Date(),
+                needsUpload: false,
+              }, Realm.UpdateMode.Modified);
+            }
+          });
+          // **REFACTOR END**
+
+          // Store the mapping from the old local ID to the new Supabase ID
+          if (!idMapping[tableName]) {
+            idMapping[tableName] = {};
           }
+          idMapping[tableName][recordId] = newSupabaseId;
+          console.log(`[SYNC-PROCESS] ${tableName} ID mapping: ${recordId} -> ${newSupabaseId}`);
 
           return true;
         }
@@ -440,10 +510,10 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
         // FIXED: Enhanced user update handling
         if (tableName === 'users') {
           console.log(`[SYNC-PROCESS] Handling user UPDATE for ID: ${supabaseUserId}`);
-          
+
           // For user updates, we need to use the supabaseId from the record or idMapping
           let userIdToUpdate = supabaseUserId;
-          
+
           // Check if we have a mapped ID
           if (idMapping.users[recordId]) {
             userIdToUpdate = idMapping.users[recordId];
@@ -458,9 +528,9 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
               console.log(`[SYNC-PROCESS] Using default supabaseUserId: ${userIdToUpdate}`);
             }
           }
-          
+
           delete snakeCaseData.id;
-          
+
           const updateData = {
             ...snakeCaseData,
             user_type: 'paid',
@@ -497,12 +567,34 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
         }
 
         // For non-user updates
-        const idToUpdate = idMapping[tableName]?.[recordId] || recordId;
+        const idToUpdate = idMapping[tableName]?.[recordId] || record.supabaseId || recordId;
         console.log(`[SYNC-PROCESS] Sending UPDATE request to Supabase table: ${tableName} for ID: ${idToUpdate} (local ID was: ${recordId})`);
 
         // Update foreign keys using ID mapping
-        if (tableName === 'accounts' || tableName === 'contacts' || tableName === 'transactions') {
+        if (tableName === 'accounts' || tableName === 'contacts' || tableName === 'transactions' || tableName === 'budgets' || tableName === 'categories') {
           snakeCaseData.user_id = supabaseUserId;
+        }
+
+        if (tableName === 'budgets') {
+          if (snakeCaseData.category_id) {
+            const mappedCategoryId = idMapping.categories[snakeCaseData.category_id];
+            if (mappedCategoryId) {
+              snakeCaseData.category_id = mappedCategoryId;
+            } else if (!isUUID(snakeCaseData.category_id)) {
+              throw new Error(`Category ID ${snakeCaseData.category_id} not found in ID mapping for update`);
+            }
+          }
+        }
+
+        if (tableName === 'categories') {
+          if (snakeCaseData.parent_category_id) {
+            const mappedParentId = idMapping.categories[snakeCaseData.parent_category_id];
+            if (mappedParentId) {
+              snakeCaseData.parent_category_id = mappedParentId;
+            } else if (!isUUID(snakeCaseData.parent_category_id)) {
+              throw new Error(`Parent Category ID ${snakeCaseData.parent_category_id} not found in ID mapping for update`);
+            }
+          }
         }
 
         if (tableName === 'transactions') {
@@ -551,26 +643,24 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
           console.error('Request Body was:', JSON.stringify(snakeCaseData, null, 2));
           throw result.error;
         }
-
+        
+        // **REFACTOR START: Simplified update logic**
         realm.write(() => {
-          const oldRecord = realm.objectForPrimaryKey(schemaName, recordId);
-          if (oldRecord) realm.delete(oldRecord);
-
-          const finalData = {
-            ...transformKeysToCamelCase(result.data),
-            syncStatus: 'synced',
-            lastSyncAt: new Date(),
-            needsUpload: false,
-          };
-          realm.create(schemaName, finalData, Realm.UpdateMode.Modified);
-          console.log(`[SYNC-PROCESS] Updated local record ${recordId} with Supabase data`);
+          const recordToUpdate = realm.objectForPrimaryKey(schemaName, recordId);
+          if (recordToUpdate) {
+            recordToUpdate.syncStatus = 'synced';
+            recordToUpdate.lastSyncAt = new Date();
+            recordToUpdate.needsUpload = false;
+            console.log(`[SYNC-PROCESS] Updated local record sync status for ${recordId}`);
+          }
         });
+        // **REFACTOR END**
         return true;
 
       case 'delete':
-        const idToDelete = idMapping[tableName]?.[recordId] || recordId;
+        const idToDelete = idMapping[tableName]?.[recordId] || record.supabaseId || recordId;
         console.log(`[SYNC-PROCESS] Deleting record from Supabase with ID: ${idToDelete} (local ID was: ${recordId})`);
-        
+
         await delay(500); // 500ms delay
         result = await supabase.from(tableName).delete().eq('id', idToDelete);
 
@@ -580,7 +670,7 @@ export const processSyncLog = async (syncLog, supabaseUserId, schemaName, idMapp
         }
 
         console.log(`[SYNC-PROCESS] Supabase delete successful for ID ${idToDelete}.`);
-        
+
         // The record is already deleted from Realm when the user performs the action.
         // We just need to make sure the log is cleared.
         return true;
@@ -615,17 +705,40 @@ export const syncPendingChanges = async (realmUserId, onProgress = () => { }) =>
   if (!realmUser || !realmUser.supabaseId) {
     console.log('[SYNC] No matching Realm user found or user is missing supabaseId.');
     return { total: 0, success: 0, failed: 0 };
+
   }
 
-  // Sort logs by table dependency order: users -> accounts -> contacts -> transactions
+  // Sort logs by table dependency order: users -> categories -> accounts -> contacts -> transactions -> budgets
   const pendingLogs = Array.from(pendingLogsPlain).map(log => log.toJSON());
-  const tablePriority = { users: 0, accounts: 1, contacts: 2, transactions: 3 };
+  const tablePriority = { users: 0, categories: 1, accounts: 2, contacts: 3, transactions: 4, budgets: 5 };
   pendingLogs.sort((a, b) => {
     const priorityA = tablePriority[a.tableName] || 999;
     const priorityB = tablePriority[b.tableName] || 999;
     if (priorityA !== priorityB) {
       return priorityA - priorityB;
     }
+
+    // Special sorting for categories to handle parent-child dependencies
+    if (a.tableName === 'categories' && a.operation === 'create') {
+      const recordA = realm.objectForPrimaryKey('Category', a.recordId);
+      const recordB = realm.objectForPrimaryKey('Category', b.recordId);
+
+      // Handle case where records might have been deleted after log creation
+      if (!recordA || !recordB) {
+        return 0;
+      }
+
+      const isAParent = !recordA.parentCategoryId;
+      const isBParent = !recordB.parentCategoryId;
+
+      if (isAParent && !isBParent) {
+        return -1; // a (parent) comes before b (child)
+      }
+      if (!isAParent && isBParent) {
+        return 1; // b (parent) comes before a (child)
+      }
+    }
+
     // If same table, sort by operation: create -> update -> delete
     const opPriority = { create: 0, update: 1, delete: 2 };
     return (opPriority[a.operation] || 999) - (opPriority[b.operation] || 999);
@@ -640,7 +753,9 @@ export const syncPendingChanges = async (realmUserId, onProgress = () => { }) =>
     users: {},
     accounts: {},
     contacts: {},
-    transactions: {}
+    transactions: {},
+    budgets: {},
+    categories: {},
   };
 
   for (let i = 0; i < total; i++) {
@@ -965,18 +1080,18 @@ export async function createRecurringTransactionInSupabase(recurringData, transa
  * @returns {Promise<object|null>} - The recurring transaction rule or null.
  */
 export async function getRecurringTransactionByTransactionId(transactionId) {
-    const { data, error } = await supabase
-        .from('recurring_transactions')
-        .select('*')
-        .eq('transaction_id', transactionId)
-        .single();
-    
-    // PGRST116 means no rows were found, which is not an error in this case.
-    if (error && error.code !== 'PGRST116') { 
-        console.error('Error fetching recurring transaction:', error);
-        throw error;
-    }
-    return data;
+  const { data, error } = await supabase
+    .from('recurring_transactions')
+    .select('*')
+    .eq('transaction_id', transactionId)
+    .single();
+
+  // PGRST116 means no rows were found, which is not an error in this case.
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching recurring transaction:', error);
+    throw error;
+  }
+  return data;
 }
 
 /**
@@ -986,29 +1101,29 @@ export async function getRecurringTransactionByTransactionId(transactionId) {
  * @returns {Promise<object>} - The updated recurring transaction rule.
  */
 export async function updateRecurringTransactionInSupabase(recurringTransactionId, recurringData) {
-    const payload = {
-        frequency_type: recurringData.frequency_type,
-        interval_value: recurringData.interval_value,
-        start_date: new Date(recurringData.start_date).toISOString(),
-        end_date: recurringData.end_date ? new Date(recurringData.end_date).toISOString() : null,
-        max_occurrences: recurringData.max_occurrences || null,
-        // When the rule is updated, the next execution should reset to the new start date.
-        next_execution_date: new Date(recurringData.start_date).toISOString(),
-        updated_at: new Date().toISOString(),
-    };
+  const payload = {
+    frequency_type: recurringData.frequency_type,
+    interval_value: recurringData.interval_value,
+    start_date: new Date(recurringData.start_date).toISOString(),
+    end_date: recurringData.end_date ? new Date(recurringData.end_date).toISOString() : null,
+    max_occurrences: recurringData.max_occurrences || null,
+    // When the rule is updated, the next execution should reset to the new start date.
+    next_execution_date: new Date(recurringData.start_date).toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 
-    const { data, error } = await supabase
-        .from('recurring_transactions')
-        .update(payload)
-        .eq('id', recurringTransactionId)
-        .select()
-        .single();
+  const { data, error } = await supabase
+    .from('recurring_transactions')
+    .update(payload)
+    .eq('id', recurringTransactionId)
+    .select()
+    .single();
 
-    if (error) {
-        console.error('Error updating recurring transaction in Supabase:', error);
-        throw error;
-    }
-    return data;
+  if (error) {
+    console.error('Error updating recurring transaction in Supabase:', error);
+    throw error;
+  }
+  return data;
 }
 
 /**
@@ -1017,16 +1132,16 @@ export async function updateRecurringTransactionInSupabase(recurringTransactionI
  * @returns {Promise<boolean>} - True if successful.
  */
 export async function deleteRecurringTransactionInSupabase(recurringTransactionId) {
-    const { error } = await supabase
-        .from('recurring_transactions')
-        .delete()
-        .eq('id', recurringTransactionId);
+  const { error } = await supabase
+    .from('recurring_transactions')
+    .delete()
+    .eq('id', recurringTransactionId);
 
-    if (error) {
-        console.error('Error deleting recurring transaction in Supabase:', error);
-        throw error;
-    }
-    return true;
+  if (error) {
+    console.error('Error deleting recurring transaction in Supabase:', error);
+    throw error;
+  }
+  return true;
 }
 
 /**
@@ -1035,43 +1150,28 @@ export async function deleteRecurringTransactionInSupabase(recurringTransactionI
  * @returns {Promise<boolean>} - True if successful.
  */
 export async function cancelRecurringTransactionInSupabase(transactionId) {
-  // 1. Update the recurring_transactions table to deactivate the rule
-  const { data: recurringRule, error: fetchError } = await supabase
-    .from('recurring_transactions')
-    .select('id')
-    .eq('transaction_id', transactionId)
-    .single();
+  try {
+    const recurringTx = await getRecurringTransactionByTransactionId(transactionId);
 
-  if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error fetching recurring transaction to cancel:', fetchError);
-      throw fetchError;
-  }
-
-  if (recurringRule) {
-    const { error: recurringError } = await supabase
-      .from('recurring_transactions')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq('id', recurringRule.id);
-
-    if (recurringError) {
-      console.error('Error deactivating recurring transaction rule:', recurringError);
-      throw recurringError;
+    if (!recurringTx) {
+      throw new Error(`Recurring transaction not found for transaction ID: ${transactionId}`);
     }
+
+    const { error: updateError } = await supabase
+      .from('recurring_transactions')
+      .update({ status: 'cancelled' })
+      .eq('id', recurringTx.id);
+
+    if (updateError) {
+      throw new Error(`Failed to cancel recurring transaction: ${updateError.message}`);
+    }
+
+    console.log(`Recurring transaction ${recurringTx.id} cancelled successfully.`);
+    return true;
+  } catch (error) {
+    console.error('Error in cancelRecurringTransactionInSupabase:', error);
+    throw error;
   }
-
-  // 2. Update the parent transaction status to 'cancelled'
-  const { error: transactionError } = await supabase
-    .from('transactions')
-    .update({ status: 'cancelled' })
-    .eq('id', transactionId);
-
-  if (transactionError) {
-    console.error('Error cancelling parent transaction:', transactionError);
-    // Potentially roll back the first update? For now, just throw.
-    throw transactionError;
-  }
-
-  return true;
 }
 
 /**
@@ -1080,22 +1180,31 @@ export async function cancelRecurringTransactionInSupabase(transactionId) {
  * @returns {Promise<object>} - The created budget from Supabase.
  */
 export async function createBudgetInSupabase(budgetData) {
-  let snakeCaseData = transformKeysToSnakeCase({ ...budgetData });
-  delete snakeCaseData.needs_upload;
-  delete snakeCaseData.sync_status;
-  delete snakeCaseData.last_sync_at;
-  delete snakeCaseData.created_on;
-  delete snakeCaseData.updated_on;
-  delete snakeCaseData.id;
+  try {
+    const payload = transformKeysToSnakeCase(budgetData);
 
-  const { data, error } = await supabase
-    .from('budgets')
-    .insert(snakeCaseData)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('budgets')
+      .insert(payload)
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      throw error;
+    }
+
+    const result = transformKeysToCamelCase(data);
+
+    // Ensure date fields are Date objects for Realm
+    if (result.startDate) result.startDate = new Date(result.startDate);
+    if (result.endDate) result.endDate = new Date(result.endDate);
+
+    return result;
+
+  } catch (error) {
+    console.error('Error in createBudgetInSupabase:', error);
+    throw error;
+  }
 }
 
 /**
@@ -1105,23 +1214,31 @@ export async function createBudgetInSupabase(budgetData) {
  * @returns {Promise<object>} - The updated budget from Supabase.
  */
 export async function updateBudgetInSupabase(budgetId, budgetData) {
-  let snakeCaseData = transformKeysToSnakeCase({ ...budgetData });
-  delete snakeCaseData.needs_upload;
-  delete snakeCaseData.sync_status;
-  delete snakeCaseData.last_sync_at;
-  delete snakeCaseData.created_on;
-  delete snakeCaseData.updated_on;
-  delete snakeCaseData.id;
+  try {
+    const payload = transformKeysToSnakeCase(budgetData);
 
-  const { data, error } = await supabase
-    .from('budgets')
-    .update(snakeCaseData)
-    .eq('id', budgetId)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('budgets')
+      .update(payload)
+      .eq('id', budgetId)
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      throw error;
+    }
+
+    const result = transformKeysToCamelCase(data);
+
+    // Ensure date fields are Date objects for Realm
+    if (result.startDate) result.startDate = new Date(result.startDate);
+    if (result.endDate) result.endDate = new Date(result.endDate);
+
+    return result;
+  } catch (error) {
+    console.error('Error in updateBudgetInSupabase:', error);
+    throw error;
+  }
 }
 
 /**
@@ -1130,13 +1247,21 @@ export async function updateBudgetInSupabase(budgetId, budgetData) {
  * @returns {Promise<boolean>} - True if deleted, throws error otherwise.
  */
 export async function deleteBudgetInSupabase(budgetId) {
-  const { error } = await supabase
-    .from('budgets')
-    .delete()
-    .eq('id', budgetId);
+  try {
+    const { data, error } = await supabase
+      .from('budgets')
+      .delete()
+      .eq('id', budgetId);
 
-  if (error) throw error;
-  return true;
+    if (error) {
+      console.error('Error deleting budget in Supabase:', error);
+      throw error;
+    }
+    return { data, error };
+  } catch (error) {
+    console.error('Error in deleteBudgetInSupabase:', error);
+    throw error;
+  }
 }
 
 /**
@@ -1144,17 +1269,17 @@ export async function deleteBudgetInSupabase(budgetId) {
  * @returns {Promise<Array<object>>}
  */
 export async function getBudgetsFromSupabase() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not found");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not found");
 
-    const { data, error } = await supabase
-        .from('budgets')
-        .select('*, category:categories(name, icon, color)')
-        .eq('user_id', user.id)
-        .eq('is_active', true);
+  const { data, error } = await supabase
+    .from('budgets')
+    .select('*, category:categories(name, icon, color)')
+    .eq('user_id', user.id)
+    .eq('is_active', true);
 
-    if (error) throw error;
-    return data;
+  if (error) throw error;
+  return data;
 }
 
 export const syncDownstreamChanges = async (supabaseUserId) => {
@@ -1191,7 +1316,7 @@ export const syncDownstreamChanges = async (supabaseUserId) => {
             .select('*, account:accounts(id, current_balance, updated_on)') // Also fetch related account data
             .eq('id', transactionId)
             .single();
-          
+
           if (transactionError) throw new Error(`Error fetching transaction ${transactionId}: ${transactionError.message}`);
           if (!transactionData) throw new Error(`Transaction ${transactionId} not found in Supabase.`);
 
@@ -1211,7 +1336,7 @@ export const syncDownstreamChanges = async (supabaseUserId) => {
             if (!localAccount) {
               throw new Error(`Account ${realmTransaction.accountId} not found locally for transaction.`);
             }
-            
+
             realmTransaction.type = getSpecificTransactionType(realmTransaction.type, localAccount.type);
 
             // 3. Create or update transaction in Realm
@@ -1235,7 +1360,7 @@ export const syncDownstreamChanges = async (supabaseUserId) => {
           const transactionToDelete = realm.objectForPrimaryKey('Transaction', transactionId);
           if (transactionToDelete) {
             const accountId = transactionToDelete.accountId;
-            
+
             realm.write(() => {
               realm.delete(transactionToDelete);
             });
@@ -1281,3 +1406,49 @@ export const syncDownstreamChanges = async (supabaseUserId) => {
     }
   }
 };
+
+export async function createCategoryInSupabase(categoryData) {
+  const snakeCaseData = transformKeysToSnakeCase(categoryData);
+  const { data, error } = await supabase
+    .from('categories')
+    .insert([snakeCaseData])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating category in Supabase:', error);
+    throw error;
+  }
+
+  return transformKeysToCamelCase(data);
+}
+
+export async function updateCategoryInSupabase(categoryId, categoryData) {
+  const snakeCaseData = transformKeysToSnakeCase(categoryData);
+  const { data, error } = await supabase
+    .from('categories')
+    .update(snakeCaseData)
+    .eq('id', categoryId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating category in Supabase:', error);
+    throw error;
+  }
+
+  return transformKeysToCamelCase(data);
+}
+
+export async function deleteCategoryInSupabase(categoryId) {
+  const { data, error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('id', categoryId);
+
+  if (error) {
+    console.error('Error deleting category in Supabase:', error);
+    throw error;
+  }
+  return { data, error };
+}

@@ -130,9 +130,10 @@ const CalendarScreen = ({ navigation, route }) => {
         const amount = parseFloat(tx.amount) || 0;
         const type = tx.type;
         if (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '') {
-            if (['credit', 'borrow', 'cash_in', 'receive'].includes(type)) {
+            // Handle both generic types (credit/debit) and specific types
+            if (['credit', 'cash_in', 'receive', 'borrow'].includes(type)) {
                 balanceChange = amount;
-            } else {
+            } else if (['debit', 'cash_out', 'send_out', 'lend'].includes(type)) {
                 balanceChange = -amount;
             }
             if (isRevert) balanceChange = -balanceChange;
@@ -379,6 +380,7 @@ const CalendarScreen = ({ navigation, route }) => {
         }
 
         try {
+            // Get all non-recurring transactions for calendar display
             const realmTransactions = getAllObjects('Transaction')
                 ?.filtered('accountId == $0 AND isRecurring != true', accountId)
                 ?.sorted('transactionDate', true) || [];
@@ -428,11 +430,13 @@ const CalendarScreen = ({ navigation, route }) => {
             });
 
             const latestAcc = accountMap[accountId] || selectedAccount;
+            
+            // Calculate stats which includes all-time totals from transactions
             setStats(calculateStats(transactionsByDate[selectedDate] || [], latestAcc));
         } catch (error) {
             console.error('Error loading transactions:', error);
         }
-    }, [selectedDate, accountMap, selectedAccount]);
+    }, [selectedDate, accountMap, selectedAccount, calculateStats]);
 
     const handleDayPress = useCallback((day) => {
         const newDate = day.dateString;
@@ -509,22 +513,32 @@ const CalendarScreen = ({ navigation, route }) => {
             return;
         }
 
-        const currentBalance = account.currentBalance || 0;
-        const endDate = moment(date).endOf('day').toDate();
-
-        const futureTransactions = realm.objects('Transaction')
-            .filtered('accountId == $0 AND transactionDate > $1 AND isRecurring != true', account.id, endDate);
+        try {
+            // Use the account's current balance as starting point
+            let balance = 0;
             
-        let futureBalanceChange = 0;
-        futureTransactions.forEach(tx => {
-            if (['cash_in', 'receive', 'borrow', 'credit'].includes(tx.type)) {
-                futureBalanceChange -= tx.amount;
-            } else {
-                futureBalanceChange += tx.amount;
-            }
-        });
-
-        setBalanceForDate(currentBalance + futureBalanceChange);
+            // Calculate balance by summing all non-recurring transactions
+            const allTransactions = realm.objects('Transaction')
+                .filtered('accountId == $0 AND isRecurring != true', account.id);
+                
+            allTransactions.forEach(tx => {
+                if (!tx.is_proxy_payment && (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '')) {
+                    if (['cash_in', 'credit', 'receive', 'borrow'].includes(tx.type)) {
+                        balance += parseFloat(tx.amount) || 0;
+                    } else {
+                        balance -= parseFloat(tx.amount) || 0;
+                    }
+                }
+            });
+            
+            // Add initial balance if any
+            balance += account.initial_amount || 0;
+            
+            setBalanceForDate(balance);
+        } catch (error) {
+            console.error('Error calculating balance for date:', error);
+            setBalanceForDate(account.currentBalance || 0);
+        }
     };
 
     const activeAccount = selectedAccount || accounts[0] || { id: null, name: 'Select Account' };
@@ -565,30 +579,70 @@ const CalendarScreen = ({ navigation, route }) => {
             (realm.objects('ProxyPayment') || []).map(p => p.debtAdjustmentTransactionId)
         );
 
-        const baseBalance = account?.currentBalance || 0;
-        const transactionStats = transArr
-            .filter(t => !debtAdjustmentTxIds.has(t.id))
-            .reduce((acc, transaction) => {
-            const amount = parseFloat(transaction.amount) || 0;
-            if (['cash_in', 'receive', 'borrow', 'credit'].includes(transaction.type)) {
-                acc.credit += amount;
-            } else if (['cash_out', 'send_out', 'lend', 'debit'].includes(transaction.type)) {
-                acc.debit += amount;
-            }
-            if (transaction.type === 'cash_in') acc.cash_in += amount;
-            else if (transaction.type === 'cash_out') acc.cash_out += amount;
-            else if (transaction.type === 'receive') acc.receive += amount;
-            else if (transaction.type === 'send_out') acc.send_out += amount;
-            else if (transaction.type === 'borrow') acc.borrow += amount;
-            else if (transaction.type === 'lend') acc.lend += amount;
-            else if (transaction.type === 'credit') acc.creditType += amount;
-            else if (transaction.type === 'debit') acc.debitType += amount;
-            return acc;
-        }, {
+        // Initialize stats for the day and account totals
+        const stats = {
             credit: 0, debit: 0, cash_in: 0, cash_out: 0, receive: 0,
             send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+        };
+        
+        // Skip if no account is selected
+        if (!account || !account.id) {
+            return { ...stats, balance: 0 };
+        }
+        
+        // Only process transactions for the selected date (transArr)
+        // Filter out debt adjustment transactions
+        const filteredTransactions = transArr.filter(tx => !debtAdjustmentTxIds.has(tx.id));
+        
+        // Process each transaction
+        filteredTransactions.forEach(tx => {
+            const amount = parseFloat(tx.amount) || 0;
+            const accountType = account.type || 'debit_credit';
+            
+            // First, handle the basic credit/debit categorization
+            if (['credit', 'cash_in', 'receive', 'borrow'].includes(tx.type)) {
+                stats.credit += amount;
+            } else if (['debit', 'cash_out', 'send_out', 'lend'].includes(tx.type)) {
+                stats.debit += amount;
+            }
+            
+            // Then, map transaction to specific type based on account type
+            if (accountType === 'cash_in_out') {
+                if (tx.type === 'credit' || tx.type === 'cash_in') {
+                    stats.cash_in += amount;
+                } else if (tx.type === 'debit' || tx.type === 'cash_out') {
+                    stats.cash_out += amount;
+                }
+            } else if (accountType === 'receive_send') {
+                if (tx.type === 'credit' || tx.type === 'receive') {
+                    stats.receive += amount;
+                } else if (tx.type === 'debit' || tx.type === 'send_out') {
+                    stats.send_out += amount;
+                }
+            } else if (accountType === 'borrow_lend') {
+                if (tx.type === 'credit' || tx.type === 'borrow') {
+                    stats.borrow += amount;
+                } else if (tx.type === 'debit' || tx.type === 'lend') {
+                    stats.lend += amount;
+                }
+            } else if (accountType === 'debit_credit') {
+                if (tx.type === 'credit') {
+                    stats.creditType += amount;
+                } else if (tx.type === 'debit') {
+                    stats.debitType += amount;
+                }
+            }
+            
+            // Also add specific type amounts if they exist
+            if (tx.type === 'cash_in') stats.cash_in += amount;
+            else if (tx.type === 'cash_out') stats.cash_out += amount;
+            else if (tx.type === 'receive') stats.receive += amount;
+            else if (tx.type === 'send_out') stats.send_out += amount;
+            else if (tx.type === 'borrow') stats.borrow += amount;
+            else if (tx.type === 'lend') stats.lend += amount;
         });
-        return { ...transactionStats, balance: baseBalance };
+            
+        return { ...stats, balance: account?.currentBalance || 0 };
     };
 
     const getStatLabel = (side, account) => {
@@ -702,14 +756,16 @@ const CalendarScreen = ({ navigation, route }) => {
                 >
                     <View style={[styles.colorIndicator, { backgroundColor: transactionColor }]} />
                     <View style={styles.transactionDetails}>
-                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                             <Icon name={iconName} size={RFValue(18)} color={transactionColor} style={{ marginRight: 8 }}/>
                             <Text style={styles.transactionName} numberOfLines={1}>{item?.name || t('accountDetailsScreen.noDescription')}</Text>
                             {isRecurringOrChild && <Icon name="autorenew" size={RFValue(16)} color={colors.primary} style={{ marginLeft: 8 }} />}
                         </View>
                         <Text style={styles.transactionDate}>{item?.date ? formatDate(item.date) : ''}</Text>
                     </View>
-                    <View style={styles.amountContainer}>
+                    
+                    {/* Amount and type as column */}
+                    <View style={styles.amountColumnContainer}>
                         <Text style={[styles.transactionAmountText, { color: transactionColor }]}>
                             {['cash_in', 'credit', 'receive', 'borrow'].includes(type) ? '+' : '-'}
                             {currency} {amount.toFixed(2)}
@@ -940,12 +996,18 @@ const CalendarScreen = ({ navigation, route }) => {
                                                 <Text style={styles.transactionName}>Proxy Payment</Text>
                                                 <Text style={styles.transactionType}>{safeGet(item.main, 'name', 'Tap to see details')}</Text>
                                             </View>
-                                            <View style={{alignItems: 'center'}}>
-                                                <Text style={[styles.transactionAmount, { color: item.main.color }]}>
-                                                    {['cash_in', 'receive', 'borrow', 'credit'].includes(item.main.type) ? '+' : '-'}
-                                                    {currency} {Number(item.main.amount).toFixed(2)}
-                                                </Text>
-                                                <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(24)} color={colors.primary} />
+                                            <View style={{alignItems: 'center', flexDirection: 'row'}}>
+                                                <View style={styles.amountColumnContainer}>
+                                                    <Text style={[styles.transactionAmountText, { color: item.main.color }]}>
+                                                        {['cash_in', 'receive', 'borrow', 'credit'].includes(item.main.type) ? '+' : '-'}
+                                                        {currency} {Number(item.main.amount).toFixed(2)}
+                                                    </Text>
+                                                    <Text style={styles.transactionType}>
+                                                        {item.main.type === 'credit' ? 'Credit' : 
+                                                         item.main.type === 'debit' ? 'Debit' : item.main.type}
+                                                    </Text>
+                                                </View>
+                                                <Icon name={expanded ? "expand-less" : "expand-more"} size={RFValue(24)} color={colors.primary} style={{marginLeft: wp(2)}} />
                                             </View>
                                         </TouchableOpacity>
                                         
@@ -962,10 +1024,14 @@ const CalendarScreen = ({ navigation, route }) => {
                                                             <Text style={styles.transactionName}>{item.main.name || 'Original Payment'}</Text>
                                                             <Text style={styles.transactionDate}>{item.main.contactName || 'N/A'}</Text>
                                                         </View>
-                                                        <View style={styles.amountContainer}>
+                                                        <View style={styles.amountColumnContainer}>
                                                             <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.main.type) }]}>
                                                                 {['cash_in', 'credit', 'receive', 'borrow'].includes(item.main.type) ? '+' : '-'}
                                                                 {currency} {Number(item.main.amount).toFixed(2)}
+                                                            </Text>
+                                                            <Text style={styles.transactionType}>
+                                                                {item.main.type === 'credit' ? 'Credit' : 
+                                                                item.main.type === 'debit' ? 'Debit' : item.main.type}
                                                             </Text>
                                                         </View>
                                                     </TouchableOpacity>
@@ -982,10 +1048,14 @@ const CalendarScreen = ({ navigation, route }) => {
                                                         <Text style={styles.transactionName}>{item.adjustment.name || 'Debt Adjustment'}</Text>
                                                         <Text style={styles.transactionDate}>{item.adjustment.contactName || 'N/A'}</Text>
                                                     </View>
-                                                    <View style={styles.amountContainer}>
+                                                    <View style={styles.amountColumnContainer}>
                                                         <Text style={[styles.transactionAmountText, { color: getTransactionColor(item.adjustment.type) }]}>
                                                             {['cash_in', 'credit', 'receive', 'borrow'].includes(item.adjustment.type) ? '+' : '-'}
                                                             {currency} {Number(item.adjustment.amount).toFixed(2)}
+                                                        </Text>
+                                                        <Text style={styles.transactionType}>
+                                                            {item.adjustment.type === 'credit' ? 'Credit' : 
+                                                            item.adjustment.type === 'debit' ? 'Debit' : item.adjustment.type}
                                                         </Text>
                                                     </View>
                                                 </View>
@@ -1165,6 +1235,13 @@ const styles = StyleSheet.create({
         color: colors.primary,
         textAlign: 'center',
     },
+    statDateNote: {
+        fontFamily: 'Sora-Regular',
+        fontSize: RFPercentage(1.2),
+        textAlign: 'center',
+        marginTop: hp(0.5),
+        opacity: 0.8,
+    },
     typeContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1179,6 +1256,12 @@ const styles = StyleSheet.create({
     amountContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+    },
+    amountColumnContainer: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
     },
     transactions: {
         padding: wp(4),

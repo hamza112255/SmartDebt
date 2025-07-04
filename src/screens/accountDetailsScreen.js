@@ -666,9 +666,10 @@ const AccountDetailScreen = ({ navigation, route }) => {
         let balanceChange = 0;
 
         if (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '') {
-            if (['credit', 'borrow', 'cash_in', 'receive'].includes(type)) {
+            // Handle both generic types (credit/debit) and specific types
+            if (['credit', 'cash_in', 'receive', 'borrow'].includes(type)) {
                 balanceChange = amount;
-            } else {
+            } else if (['debit', 'cash_out', 'send_out', 'lend'].includes(type)) {
                 balanceChange = -amount;
             }
 
@@ -843,31 +844,63 @@ const AccountDetailScreen = ({ navigation, route }) => {
         if (!accountId) return;
         const account = realm.objectForPrimaryKey('Account', accountId);
         if (account) {
-            const allTransactions = realm.objects('Transaction').filtered('accountId == $0 AND isRecurring != true', accountId);
+            const allTransactions = realm.objects('Transaction').filtered('accountId == $0', accountId);
             const debtAdjustmentTxIds = getDebtAdjustmentTxIds();
 
-            const stats = allTransactions
-                .filter(t => !debtAdjustmentTxIds.has(t.id))
-                .reduce((acc, tx) => {
-                    const amount = tx.amount || 0;
-                    if (['cash_in', 'receive', 'borrow', 'credit'].includes(tx.type)) {
-                        acc.credit += amount;
-                    } else if (['cash_out', 'send_out', 'lend', 'debit'].includes(tx.type)) {
-                        acc.debit += amount;
+            // Initialize stats object
+            const stats = {
+                credit: 0, debit: 0, cash_in: 0, cash_out: 0, receive: 0,
+                send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+            };
+            
+            // Calculate all transaction totals (excluding recurring and proxy payments)
+            allTransactions
+                .filter(t => !debtAdjustmentTxIds.has(t.id) && !t.isRecurring && !t.is_proxy_payment)
+                .forEach(tx => {
+                    const amount = parseFloat(tx.amount) || 0;
+                    const accountType = account.type || 'debit_credit';
+                    
+                    // First, handle the basic credit/debit categorization
+                    if (['credit', 'cash_in', 'receive', 'borrow'].includes(tx.type)) {
+                        stats.credit += amount;
+                    } else if (['debit', 'cash_out', 'send_out', 'lend'].includes(tx.type)) {
+                        stats.debit += amount;
                     }
-
-                    if (tx.type === 'cash_in') acc.cash_in += amount;
-                    else if (tx.type === 'cash_out') acc.cash_out += amount;
-                    else if (tx.type === 'receive') acc.receive += amount;
-                    else if (tx.type === 'send_out') acc.send_out += amount;
-                    else if (tx.type === 'borrow') acc.borrow += amount;
-                    else if (tx.type === 'lend') acc.lend += amount;
-                    else if (tx.type === 'credit') acc.creditType += amount;
-                    else if (tx.type === 'debit') acc.debitType += amount;
-                    return acc;
-                }, {
-                    credit: 0, debit: 0, cash_in: 0, cash_out: 0, receive: 0,
-                    send_out: 0, borrow: 0, lend: 0, creditType: 0, debitType: 0,
+                    
+                    // Then, map transaction to specific type based on account type
+                    if (accountType === 'cash_in_out') {
+                        if (tx.type === 'credit' || tx.type === 'cash_in') {
+                            stats.cash_in += amount;
+                        } else if (tx.type === 'debit' || tx.type === 'cash_out') {
+                            stats.cash_out += amount;
+                        }
+                    } else if (accountType === 'receive_send') {
+                        if (tx.type === 'credit' || tx.type === 'receive') {
+                            stats.receive += amount;
+                        } else if (tx.type === 'debit' || tx.type === 'send_out') {
+                            stats.send_out += amount;
+                        }
+                    } else if (accountType === 'borrow_lend') {
+                        if (tx.type === 'credit' || tx.type === 'borrow') {
+                            stats.borrow += amount;
+                        } else if (tx.type === 'debit' || tx.type === 'lend') {
+                            stats.lend += amount;
+                        }
+                    } else if (accountType === 'debit_credit') {
+                        if (tx.type === 'credit') {
+                            stats.creditType += amount;
+                        } else if (tx.type === 'debit') {
+                            stats.debitType += amount;
+                        }
+                    }
+                    
+                    // Also add specific type amounts if they exist
+                    if (tx.type === 'cash_in') stats.cash_in += amount;
+                    else if (tx.type === 'cash_out') stats.cash_out += amount;
+                    else if (tx.type === 'receive') stats.receive += amount;
+                    else if (tx.type === 'send_out') stats.send_out += amount;
+                    else if (tx.type === 'borrow') stats.borrow += amount;
+                    else if (tx.type === 'lend') stats.lend += amount;
                 });
 
             setAccountData({
@@ -909,15 +942,18 @@ const AccountDetailScreen = ({ navigation, route }) => {
             const realmAccount = realm.objectForPrimaryKey('Account', accountId);
             if (!realmAccount) return;
 
-            const transactions = realm.objects('Transaction').filtered('accountId == $0', accountId);
-            let newBalance = realmAccount.openingBalance || 0;
+            const transactions = realm.objects('Transaction').filtered('accountId == $0 AND isRecurring != true', accountId);
+            // Start with initial amount or 0
+            let newBalance = realmAccount.initial_amount || 0;
 
             transactions.forEach(tx => {
-                if (!tx.is_proxy_payment || !tx.on_behalf_of_contact_id) {
-                    if (['cash_in', 'credit', 'receive', 'borrow'].includes(tx.type)) {
-                        newBalance += tx.amount || 0;
-                    } else {
-                        newBalance -= tx.amount || 0;
+                if (!tx.is_proxy_payment && (tx.on_behalf_of_contact_id == null || tx.on_behalf_of_contact_id === '')) {
+                    const amount = parseFloat(tx.amount) || 0;
+                    // Handle both generic types (credit/debit) and specific types
+                    if (['credit', 'cash_in', 'receive', 'borrow'].includes(tx.type)) {
+                        newBalance += amount;
+                    } else if (['debit', 'cash_out', 'send_out', 'lend'].includes(tx.type)) {
+                        newBalance -= amount;
                     }
                 }
             });

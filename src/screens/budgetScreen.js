@@ -13,7 +13,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { heightPercentageToDP as hp, widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { RFPercentage } from 'react-native-responsive-fontsize';
-import { realm, getAllObjects } from '../realm';
+import { realm, getAllObjects, createSyncLog } from '../realm';
 import { deleteBudgetInSupabase } from '../supabase';
 import { useNetInfo } from '@react-native-community/netinfo';
 import * as Progress from 'react-native-progress';
@@ -128,6 +128,15 @@ const BudgetScreen = () => {
                                         budgetToDelete.isActive = false;
                                         budgetToDelete.needsUpload = true;
                                         budgetToDelete.syncStatus = 'pending';
+                                        
+                                        // Create a sync log for the deletion operation
+                                        createSyncLog({
+                                            userId: user.id,
+                                            tableName: 'budgets',
+                                            recordId: budgetId,
+                                            operation: 'delete',
+                                            status: 'pending'
+                                        });
                                     }
                                 }
                             });
@@ -178,9 +187,6 @@ const BudgetScreen = () => {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>{t('budgets.title')}</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('AddBudget')}>
-                    <Plus size={28} color={colors.primary} />
-                </TouchableOpacity>
             </View>
             <FlatList
                 data={budgets}
@@ -196,6 +202,14 @@ const BudgetScreen = () => {
                     </View>
                 }
             />
+            
+            {/* Floating Action Button */}
+            <TouchableOpacity 
+                style={styles.floatingActionButton}
+                onPress={() => navigation.navigate('AddBudget')}
+            >
+                <Plus size={24} color="#fff" />
+            </TouchableOpacity>
         </SafeAreaView>
     );
 };
@@ -205,7 +219,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         padding: 20,
         backgroundColor: colors.white,
         borderBottomWidth: 1,
@@ -237,6 +251,22 @@ const styles = StyleSheet.create({
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: hp(20) },
     emptyTitle: { fontSize: RFPercentage(2.5), fontWeight: '600', color: '#333', marginTop: 16, marginBottom: 8 },
     emptyText: { fontSize: RFPercentage(2), color: '#666', textAlign: 'center' },
+    floatingActionButton: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+    },
 });
 
 export default BudgetScreen;

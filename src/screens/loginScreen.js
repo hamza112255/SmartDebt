@@ -169,8 +169,9 @@ const LoginScreen = ({ navigation }) => {
     const handleSync = async (userId) => {
         console.log('[SYNC] Starting sync process for user:', userId);
         setIsSyncing(true);
-        setSyncMessage(t('loginScreen.sync.starting', 'Preparing to sync...'));
+        setSyncMessage(t('loginScreen.sync.starting', 'Preparing to sync... Please do not close the app.'));
         setSyncProgress(0);
+        const startTime = Date.now();
 
         try {
             const onProgress = ({ current, total, tableName }) => {
@@ -180,9 +181,11 @@ const LoginScreen = ({ navigation }) => {
             };
 
             const result = await syncPendingChanges(userId, onProgress);
+            const endTime = Date.now();
+            const duration = ((endTime - startTime) / 1000).toFixed(2);
 
             if (result.total > 0) {
-                setSyncMessage(t('loginScreen.sync.complete', 'Sync complete!'));
+                setSyncMessage(t('loginScreen.sync.complete', `Sync complete in ${duration} seconds!`));
                 setSyncProgress(100);
             } else {
                 setSyncMessage(t('loginScreen.sync.nothingToSync', 'Everything is up to date.'));

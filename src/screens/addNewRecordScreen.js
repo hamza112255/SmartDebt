@@ -43,6 +43,7 @@ import {
     getRecurringTransactionByTransactionId,
     updateRecurringTransactionInSupabase
 } from '../supabase';
+import CategoryBottomSheet from '../components/CategoryBottomSheet';
 
 const colors = {
     primary: '#667eea',
@@ -171,6 +172,9 @@ const NewRecordScreen = ({ navigation, route }) => {
     const [showRecurringModal, setShowRecurringModal] = useState(false);
     const [isOnline, setIsOnline] = useState(true);
     const [parentTransactionId, setParentTransactionId] = useState(null);
+    const [categoryId, setCategoryId] = useState(null);
+    const [categoryMap, setCategoryMap] = useState({});
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(hp(50))).current;
@@ -223,6 +227,8 @@ const NewRecordScreen = ({ navigation, route }) => {
         if (!account) return;
         
         const accountType = account.type;
+        setAccountType(accountType);
+        
         const relevantTypeValues = transactionTypeMapping[accountType] ? Object.values(transactionTypeMapping[accountType]) : [];
         const filteredTypes = allTransactionTypes.filter(t => relevantTypeValues.includes(t.value));
 
@@ -232,7 +238,20 @@ const NewRecordScreen = ({ navigation, route }) => {
         if (!transactionId) {
             setType(filteredTypes[0]?.value || allTransactionTypes[0]?.value || '');
         }
-    }, [accountId, transactionId]);
+    }, [accountId, transactionId, accountType]);
+
+    useEffect(() => {
+        const realmCategories = realm.objects('Category').filtered('isActive == true');
+        const catMap = realmCategories.reduce((map, cat) => {
+            map[cat.id] = cat;
+            return map;
+        }, {});
+        setCategoryMap(catMap);
+
+        if (route.params?.selectedCategoryId) {
+            setCategoryId(route.params.selectedCategoryId);
+        }
+    }, [route.params?.selectedCategoryId]);
 
     // Contact fetching
     useEffect(() => {
@@ -306,11 +325,21 @@ const NewRecordScreen = ({ navigation, route }) => {
 
             // Store original for potential revert on balance update
             setOriginalTransaction(transaction.toJSON());
+            setCategoryId(transaction.categoryId);
+            
+            // Get the account type to convert the transaction type correctly
+            const account = realm.objectForPrimaryKey('Account', accountId);
+            if (account) {
+                setAccountType(account.type);
+            }
+            
+            // Convert the generic storage type (credit/debit) to UI-specific type
+            const uiType = getUiTypeFromStorageType(transaction.type, account?.type);
 
             if (isDuplicating) {
                 // If duplicating, load data but don't set isEditing to true.
                 // Reset date to current and clear ID-specific fields.
-                setType(transaction.type);
+                setType(uiType);
                 setTransactionDate(new Date());
                 setPurpose(transaction.purpose);
                 setAmount(String(transaction.amount));
@@ -333,7 +362,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 }
             } else {
                 // If editing, load all data as is.
-                setType(transaction.type);
+                setType(uiType);
                 setTransactionDate(new Date(transaction.transactionDate));
                 setPurpose(transaction.purpose);
                 setAmount(String(transaction.amount));
@@ -373,7 +402,7 @@ const NewRecordScreen = ({ navigation, route }) => {
             console.error('Failed to load transaction data:', error);
             safeAlert('Error', 'Failed to load transaction data.');
         }
-    }, [transactionId, isDuplicating]);
+    }, [transactionId, isDuplicating, accountId]);
 
     const pickImage = useCallback(async () => {
         try {
@@ -395,7 +424,7 @@ const NewRecordScreen = ({ navigation, route }) => {
     // Fetch userType from Realm
     useEffect(() => {
         if (userId) {
-            const user = realm.objectForPrimaryKey('User', userId);
+            const user = realm.objects('User')[0];
             setUserType(user?.userType || 'free');
         }
     }, [userId]);
@@ -609,7 +638,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                     text: "Yes, Cancel",
                     style: "destructive",
                     onPress: async () => {
-                        const user = realm.objectForPrimaryKey('User', userId);
+                        const user = realm.objects('User')[0];
                         const isPaidUser = user?.userType === 'paid';
     
                         const performLocalUpdate = () => {
@@ -686,6 +715,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 accountId: accountId || '',
                 userId: userId || '',
                 contactId: contactPerson || '',
+                categoryId: categoryId || null,
                 transactionDate: transactionDate,
                 remarks: remarks || '',
                 photoUrl: imageUri || '',
@@ -711,7 +741,7 @@ const NewRecordScreen = ({ navigation, route }) => {
                 needsUpload: true
             };
 
-            const user = realm.objectForPrimaryKey('User', userId);
+            const user = realm.objects('User')[0];
             const supabaseUserId = user?.supabaseId;
             const netState = await NetInfo.fetch();
             const netOn = netState.isConnected && netState.isInternetReachable;
@@ -921,7 +951,7 @@ const NewRecordScreen = ({ navigation, route }) => {
         contactPerson, transactionDate, remarks, purpose, imageUri, navigation,
         isProxyPayment, onBehalfOfContactId, showProxySwitch, userType,
         route.params?.onTransactionSaved, route.params?.onSave, isDuplicating,
-        isRecurring, recurringPattern, recurringTransaction, parentTransactionId
+        isRecurring, recurringPattern, recurringTransaction, parentTransactionId, categoryId
     ]);
 
     const handleCancel = useCallback(() => {
@@ -1185,6 +1215,11 @@ const NewRecordScreen = ({ navigation, route }) => {
         });
     }, [navigation, handleSave]);
 
+    // Add this function to handle category selection
+    const handleSelectCategory = (selectedCategoryId) => {
+        setCategoryId(selectedCategoryId);
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
@@ -1347,6 +1382,18 @@ const NewRecordScreen = ({ navigation, route }) => {
                                     </TouchableOpacity>
                             )}
                             />
+                        </View>
+
+                        <View style={styles.cardContainer}>
+                            <TouchableOpacity onPress={() => setShowCategoryPicker(true)}>
+                                <StyledTextInput
+                                    label={t('newRecordScreen.categoryLabel', 'Category')}
+                                    value={categoryId && categoryMap[categoryId] ? `${categoryMap[categoryId].icon} ${categoryMap[categoryId].name}`: ''}
+                                    placeholder={t('newRecordScreen.selectCategoryPlaceholder', 'Select a category')}
+                                    editable={false}
+                                    iconName="chevron-down"
+                                />
+                            </TouchableOpacity>
                         </View>
 
                         <View style={styles.cardContainer}>
@@ -1641,6 +1688,13 @@ const NewRecordScreen = ({ navigation, route }) => {
                             </View>
                         </View>
                     </Modal>
+                    <CategoryBottomSheet
+                        visible={showCategoryPicker}
+                        onClose={() => setShowCategoryPicker(false)}
+                        onSelectCategory={handleSelectCategory}
+                        forTransaction={true}
+                        transactionType={type}
+                    />
                 </Animated.View>
             </KeyboardAvoidingView>
         </SafeAreaView>

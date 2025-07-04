@@ -439,22 +439,20 @@ function App({ currentLanguage }) {
     };
   }, []);
 
-  // Auto-sync when net is on, SyncLog exists, and user is paid
+  // Auto-sync when net is on, SyncLog exists, and user is logged in
   useEffect(() => {
     let syncing = false;
-    let unsubscribe;
+    
+    const checkConnectivityAndSync = async (netInfoState) => {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    const checkConnectivityAndSync = async () => {
-      const netInfoState = await NetInfo.fetch();
-      if (netInfoState.isConnected && !syncing) {
+      if (netInfoState.isConnected && !syncing && session) {
         try {
           const users = realm.objects('User');
           const syncLogs = realm.objects('SyncLog');
-          if (
-            users.length > 0 &&
-            users[0].userType === 'paid' &&
-            users[0].id
-          ) {
+          const user = users.length > 0 ? users[0] : null;
+
+          if (user && user.supabaseId) {
             syncing = true;
             if (syncLogs.length > 0) {
               setSyncMessage('Preparing to sync...');
@@ -466,7 +464,7 @@ function App({ currentLanguage }) {
                 setSyncMessage(message || `Syncing records (${current}/${total})`);
               };
 
-              const result = await syncPendingChanges(users[0].id, onProgress);
+              const result = await syncPendingChanges(user.id, onProgress);
 
               if (result.total > 0) {
                 setSyncMessage('Sync complete!');
@@ -479,7 +477,7 @@ function App({ currentLanguage }) {
                 setSyncMessage('');
               }, 1500);
             }
-            await syncDownstreamChanges(users[0].id);
+            await syncDownstreamChanges(user.supabaseId);
           }
         } catch (error) {
           console.error('Sync failed:', error);
@@ -494,7 +492,7 @@ function App({ currentLanguage }) {
       }
     };
 
-    unsubscribe = NetInfo.addEventListener(checkConnectivityAndSync);
+    const unsubscribe = NetInfo.addEventListener(checkConnectivityAndSync);
 
     return () => {
       if (unsubscribe) unsubscribe();

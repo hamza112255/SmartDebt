@@ -130,7 +130,7 @@ const NewContactScreen = ({ navigation, route }) => {
     // Helper to get user object from Realm
     const getUser = useCallback(() => {
         try {
-            return realm.objectForPrimaryKey('User', userId);
+            return realm.objects('User')[0];
         } catch {
             return null;
         }

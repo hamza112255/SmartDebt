@@ -33,6 +33,7 @@ export const AccountSchema = {
   primaryKey: "id",
   properties: {
     id: "string",
+    supabaseId: "string?",
     name: "string",
     currency: "string",
     type: "string",
@@ -58,6 +59,7 @@ export const ContactSchema = {
   primaryKey: "id",
   properties: {
     id: "string",
+    supabaseId: "string?",
     name: "string",
     phone: "string?",
     email: "string?",
@@ -80,7 +82,9 @@ export const CategorySchema = {
   primaryKey: "id",
   properties: {
     id: "string",
+    supabaseId: "string?",
     name: "string",
+    type: "string",
     description: "string?",
     color: "string?",
     icon: "string?",
@@ -100,6 +104,7 @@ export const TransactionSchema = {
   primaryKey: "id",
   properties: {
     id: "string",
+    supabaseId: "string?",
     type: "string",
     purpose: "string?",
     amount: "double",
@@ -239,6 +244,7 @@ export const BudgetSchema = {
   primaryKey: 'id',
   properties: {
     id: 'string',
+    supabaseId: 'string?',
     name: 'string',
     amount: 'double',
     period: 'string', // 'daily', 'weekly', 'monthly', 'yearly'
@@ -277,11 +283,31 @@ try {
   realm = new Realm({
     path: 'Settly.realm',
     schema: schemas,
-    schemaVersion: 2, // Increment schema version
+    schemaVersion: 3, // Increment schema version
     migration: (oldRealm, newRealm) => {
-      // Automatically apply migrations for new optional properties
       if (oldRealm.schemaVersion < 2) {
-        // Migration logic for future schema changes can be added here
+        // Migration for schema version 1 to 2
+      }
+      if (oldRealm.schemaVersion < 3) {
+        const oldCategories = oldRealm.objects("Category");
+        for (const oldCategory of oldCategories) {
+          const newCategory = newRealm.objectForPrimaryKey("Category", oldCategory.id);
+          if (newCategory) {
+            newCategory.type = "expense"; // Default value for existing categories
+            newCategory.supabaseId = null;
+          }
+        }
+
+        const otherSchemas = ["Account", "Contact", "Transaction", "Budget"];
+        otherSchemas.forEach(schemaName => {
+          const oldObjects = oldRealm.objects(schemaName);
+          for (const oldObject of oldObjects) {
+            const newObject = newRealm.objectForPrimaryKey(schemaName, oldObject.id);
+            if (newObject) {
+              newObject.supabaseId = null;
+            }
+          }
+        });
       }
     },
   });
@@ -294,7 +320,7 @@ try {
     realm = new Realm({
       path: 'Settly.realm',
       schema: schemas,
-      schemaVersion: 2,
+      schemaVersion: 3,
     });
     console.log('Realm opened successfully after destructive migration.');
   } catch (err) {
@@ -309,9 +335,32 @@ export const initializeRealm = async () => {
     if (!realm || realm.isClosed) {
       realm = await Realm.open({
         schema: schemas,
-        schemaVersion: 2,
+        schemaVersion: 3,
         migration: (oldRealm, newRealm) => {
-          // ... existing code ...
+          if (oldRealm.schemaVersion < 2) {
+            // Migration for schema version 1 to 2
+          }
+          if (oldRealm.schemaVersion < 3) {
+            const oldCategories = oldRealm.objects("Category");
+            for (const oldCategory of oldCategories) {
+              const newCategory = newRealm.objectForPrimaryKey("Category", oldCategory.id);
+              if (newCategory) {
+                newCategory.type = "expense"; // Default value for existing categories
+                newCategory.supabaseId = null;
+              }
+            }
+    
+            const otherSchemas = ["Account", "Contact", "Transaction", "Budget"];
+            otherSchemas.forEach(schemaName => {
+              const oldObjects = oldRealm.objects(schemaName);
+              for (const oldObject of oldObjects) {
+                const newObject = newRealm.objectForPrimaryKey(schemaName, oldObject.id);
+                if (newObject) {
+                  newObject.supabaseId = null;
+                }
+              }
+            });
+          }
         },
       });
       console.log('Realm initialized successfully');

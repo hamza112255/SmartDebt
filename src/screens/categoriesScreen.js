@@ -30,9 +30,86 @@ const CATEGORY_COLORS = [
   '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
 ];
 
+const DEFAULT_CATEGORIES = {
+  income: [
+    { name: 'Salary', description: 'Regular employment income', icon: '💼', type: 'income' },
+    { name: 'Business', description: 'Business income', icon: '🏢', type: 'income' },
+    { name: 'Investment', description: 'Investment returns', icon: '📈', type: 'income' },
+    { name: 'Freelance', description: 'Freelance work income', icon: '💻', type: 'income' },
+    { name: 'Other Income', description: 'Other sources of income', icon: '💰', type: 'income' },
+  ],
+  expense: [
+    { name: 'Food & Dining', description: 'Restaurants, groceries, etc.', icon: '🍽️', type: 'expense' },
+    { name: 'Transportation', description: 'Car, gas, public transport', icon: '🚗', type: 'expense' },
+    { name: 'Shopping', description: 'Clothing, electronics, etc.', icon: '🛍️', type: 'expense' },
+    { name: 'Entertainment', description: 'Movies, games, hobbies', icon: '🎬', type: 'expense' },
+    { name: 'Bills & Utilities', description: 'Electricity, water, internet', icon: '📄', type: 'expense' },
+    { name: 'Healthcare', description: 'Medical expenses', icon: '🏥', type: 'expense' },
+    { name: 'Education', description: 'Books, courses, tuition', icon: '📚', type: 'expense' },
+    { name: 'Travel', description: 'Vacation, business trips', icon: '✈️', type: 'expense' },
+    { name: 'Home & Garden', description: 'Rent, maintenance, furniture', icon: '🏠', type: 'expense' },
+    { name: 'Personal Care', description: 'Haircut, cosmetics, etc.', icon: '💄', type: 'expense' },
+  ],
+  debt: [
+    { name: 'Credit Card', description: 'Credit card debt', icon: '💳', type: 'debt' },
+    { name: 'Personal Loan', description: 'Personal loans', icon: '🏦', type: 'debt' },
+    { name: 'Mortgage', description: 'Home mortgage', icon: '🏡', type: 'debt' },
+    { name: 'Student Loan', description: 'Education loans', icon: '🎓', type: 'debt' },
+    { name: 'Car Loan', description: 'Vehicle financing', icon: '🚙', type: 'debt' },
+    { name: 'Business Loan', description: 'Business financing', icon: '🏢', type: 'debt' },
+  ]
+};
+
 const DEFAULT_ICONS = ['🍽️', '🚗', '🛍️', '🎬', '📄', '🏥', '📚', '✈️', '🏠', '💄', '💼', '🏢', '📈', '💻', '💰', '💳', '🏦', '🏡', '🎓', '🚙'];
 
-const CategoriesScreen = ({ navigation }) => {
+export const initializeDefaultCategories = (userId) => {
+  try {
+    const existingCategories = realm.objects('Category').filtered('userId == $0', userId);
+    if (existingCategories.length > 0) return;
+
+    realm.write(() => {
+      const allCategories = [
+        ...DEFAULT_CATEGORIES.income,
+        ...DEFAULT_CATEGORIES.expense,
+        ...DEFAULT_CATEGORIES.debt
+      ];
+
+      allCategories.forEach((cat, index) => {
+        const categoryId = uuid.v4();
+        realm.create('Category', {
+          id: categoryId,
+          name: cat.name,
+          description: cat.description || '',
+          color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+          icon: cat.icon,
+          userId: userId,
+          type: cat.type,
+          parentCategoryId: null,
+          isActive: true,
+          createdOn: new Date(),
+          updatedOn: new Date(),
+          syncStatus: 'pending',
+          lastSyncAt: null,
+          needsUpload: true,
+        });
+
+        realm.create('SyncLog', {
+          id: uuid.v4(),
+          userId: userId,
+          tableName: 'categories',
+          recordId: categoryId,
+          operation: 'create',
+          status: 'pending',
+          createdOn: new Date(),
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Error initializing default categories:', error);
+  }
+};
+
+const CategoriesScreen = ({ navigation, route, isBottomSheet = false }) => {
   const [categories, setCategories] = useState([]);
   const [selectedType, setSelectedType] = useState('expense');
   const [isLoading, setIsLoading] = useState(true);
@@ -47,18 +124,30 @@ const CategoriesScreen = ({ navigation }) => {
   const [selectedCategoryForMenu, setSelectedCategoryForMenu] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   
+  const { onSelectCategoryRoute, forBudget, forTransaction, transactionType, onSelectCategory } = route.params || {};
+
+  const getCategoryTypeForTransaction = () => {
+    if (['credit', 'receive', 'cash_in'].includes(transactionType)) return 'income';
+    if (['debit', 'send_out', 'cash_out'].includes(transactionType)) return 'expense';
+    if (['borrow', 'lend'].includes(transactionType)) return 'debt';
+    return 'expense'; // default
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     color: CATEGORY_COLORS[0],
     icon: '📊',
     parent_category_id: '',
+    type: 'expense',
   });
 
   useEffect(() => {
     fetchCategories();
-    initializeDefaultCategories();
-  }, []);
+    if (forTransaction) {
+      setSelectedType(getCategoryTypeForTransaction());
+    }
+  }, [transactionType]);
 
   const fetchCategories = async () => {
     try {
@@ -177,96 +266,6 @@ const CategoriesScreen = ({ navigation }) => {
     }
   };
 
-  const initializeDefaultCategories = async () => {
-    try {
-      // Get the current user from Realm
-      const users = getAllObjects('User');
-      if (!users.length) return;
-      
-      const currentUser = users[0];
-      const userId = currentUser.id;
-      
-      // Check if user already has categories
-      const existingCategories = realm.objects('Category').filtered('userId == $0', userId);
-      if (existingCategories.length > 0) return;
-
-      // Define default categories
-      const DEFAULT_CATEGORIES = {
-        income: [
-          { name: 'Salary', description: 'Regular employment income', icon: '💼' },
-          { name: 'Business', description: 'Business income', icon: '🏢' },
-          { name: 'Investment', description: 'Investment returns', icon: '📈' },
-          { name: 'Freelance', description: 'Freelance work income', icon: '💻' },
-          { name: 'Other Income', description: 'Other sources of income', icon: '💰' },
-        ],
-        expense: [
-          { name: 'Food & Dining', description: 'Restaurants, groceries, etc.', icon: '🍽️' },
-          { name: 'Transportation', description: 'Car, gas, public transport', icon: '🚗' },
-          { name: 'Shopping', description: 'Clothing, electronics, etc.', icon: '🛍️' },
-          { name: 'Entertainment', description: 'Movies, games, hobbies', icon: '🎬' },
-          { name: 'Bills & Utilities', description: 'Electricity, water, internet', icon: '📄' },
-          { name: 'Healthcare', description: 'Medical expenses', icon: '🏥' },
-          { name: 'Education', description: 'Books, courses, tuition', icon: '📚' },
-          { name: 'Travel', description: 'Vacation, business trips', icon: '✈️' },
-          { name: 'Home & Garden', description: 'Rent, maintenance, furniture', icon: '🏠' },
-          { name: 'Personal Care', description: 'Haircut, cosmetics, etc.', icon: '💄' },
-        ],
-        debt: [
-          { name: 'Credit Card', description: 'Credit card debt', icon: '💳' },
-          { name: 'Personal Loan', description: 'Personal loans', icon: '🏦' },
-          { name: 'Mortgage', description: 'Home mortgage', icon: '🏡' },
-          { name: 'Student Loan', description: 'Education loans', icon: '🎓' },
-          { name: 'Car Loan', description: 'Vehicle financing', icon: '🚙' },
-          { name: 'Business Loan', description: 'Business financing', icon: '🏢' },
-        ]
-      };
-
-      // Create all categories in Realm
-      realm.write(() => {
-        const allCategories = [
-          ...DEFAULT_CATEGORIES.income,
-          ...DEFAULT_CATEGORIES.expense,
-          ...DEFAULT_CATEGORIES.debt
-        ];
-
-        allCategories.forEach((cat, index) => {
-          const categoryId = uuid.v4();
-          realm.create('Category', {
-            id: categoryId,
-            name: cat.name,
-            description: cat.description || '',
-            color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
-            icon: cat.icon,
-            userId: userId,
-            parentCategoryId: null,
-            isActive: true,
-            createdOn: new Date(),
-            updatedOn: new Date(),
-            syncStatus: 'pending',
-            lastSyncAt: null,
-            needsUpload: true,
-          });
-
-          // Create SyncLog for new category
-          realm.create('SyncLog', {
-            id: uuid.v4(),
-            userId: userId,
-            tableName: 'categories',
-            recordId: categoryId,
-            operation: 'create',
-            status: 'pending',
-            createdOn: new Date(),
-          });
-        });
-      });
-
-      // Refresh categories
-      fetchCategories();
-    } catch (error) {
-      console.error('Error initializing default categories:', error);
-    }
-  };
-
   const onRefresh = () => {
     setRefreshing(true);
     fetchCategories();
@@ -300,6 +299,7 @@ const CategoriesScreen = ({ navigation }) => {
       color: CATEGORY_COLORS[0],
       icon: '📊',
       parent_category_id: '',
+      type: 'expense',
     });
     setShowModal(true);
   };
@@ -312,6 +312,7 @@ const CategoriesScreen = ({ navigation }) => {
       color: category.color || CATEGORY_COLORS[0],
       icon: category.icon || '📊',
       parent_category_id: category.parent_category_id || '',
+      type: category.type || 'expense',
     });
     setShowModal(true);
   };
@@ -342,6 +343,7 @@ const CategoriesScreen = ({ navigation }) => {
         color: formData.color,
         icon: formData.icon.trim() || '📊',
         parentCategoryId: formData.parent_category_id || null,
+        type: formData.type,
         userId: userId,
         isActive: true,
         updatedOn: new Date(),
@@ -355,6 +357,7 @@ const CategoriesScreen = ({ navigation }) => {
           color: categoryData.color,
           icon: categoryData.icon || null,
           parent_category_id: categoryData.parentCategoryId || null,
+          type: categoryData.type,
           user_id: supabaseUserId,
           is_active: true,
         };
@@ -466,6 +469,16 @@ const CategoriesScreen = ({ navigation }) => {
     }
   };
 
+  const handleSelectCategory = (category) => {
+    if (onSelectCategory) {
+      // If direct callback is provided (for bottom sheet)
+      onSelectCategory(category.id);
+    } else if (onSelectCategoryRoute) {
+      // Legacy navigation method
+      navigation.navigate(onSelectCategoryRoute, { selectedCategoryId: category.id });
+    }
+  };
+
   const handleDeleteCategory = async (category) => {
     Alert.alert(
       t('categoriesScreen.confirm.deleteTitle', 'Delete Category'),
@@ -547,82 +560,71 @@ const CategoriesScreen = ({ navigation }) => {
   };
 
   const getFilteredCategories = () => {
-    return categories.filter(category => {
-      const categoryName = category.name.toLowerCase();
-      switch (selectedType) {
-        case 'income':
-          return categoryName.includes('salary') || categoryName.includes('income') || 
-                 categoryName.includes('business') || categoryName.includes('investment') ||
-                 categoryName.includes('freelance');
-        case 'expense':
-          return !categoryName.includes('loan') && !categoryName.includes('debt') &&
-                 !categoryName.includes('mortgage') && !categoryName.includes('credit') &&
-                 !categoryName.includes('salary') && !categoryName.includes('income') &&
-                 !categoryName.includes('business') && !categoryName.includes('investment') &&
-                 !categoryName.includes('freelance');
-        case 'debt':
-          return categoryName.includes('loan') || categoryName.includes('debt') ||
-                 categoryName.includes('mortgage') || categoryName.includes('credit');
-        default:
-          return true;
-      }
-    });
+    if (forTransaction) {
+        const type = getCategoryTypeForTransaction();
+        return categories.filter(category => category.type === type);
+    }
+    return categories.filter(category => category.type === selectedType);
   };
 
   const renderCategory = ({ item }) => (
-    <View style={styles.categoryContainer}>
-      <View style={styles.categoryItem}>
-        <View style={styles.categoryLeft}>
-          <View style={[styles.colorIndicator, { backgroundColor: item.color }]} />
-          <View style={styles.categoryInfo}>
-            <View style={styles.categoryHeader}>
-              <Text style={styles.categoryIcon}>{item.icon}</Text>
-              <Text style={styles.categoryName}>{item.name}</Text>
+    <TouchableOpacity onPress={() => onSelectCategoryRoute || onSelectCategory ? handleSelectCategory(item) : {}}>
+      <View style={styles.categoryContainer}>
+        <View style={styles.categoryItem}>
+          <View style={styles.categoryLeft}>
+            <View style={[styles.colorIndicator, { backgroundColor: item.color }]} />
+            <View style={styles.categoryInfo}>
+              <View style={styles.categoryHeader}>
+                <Text style={styles.categoryIcon}>{item.icon}</Text>
+                <Text style={styles.categoryName}>{item.name}</Text>
+              </View>
+              {item.description && (
+                <Text style={styles.categoryDescription}>{item.description}</Text>
+              )}
             </View>
-            {item.description && (
-              <Text style={styles.categoryDescription}>{item.description}</Text>
-            )}
+          </View>
+          <View style={styles.categoryActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={(e) => openMenu(item, e)}
+            >
+              <MoreVertical size={20} color="#666" />
+            </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.categoryActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={(e) => openMenu(item, e)}
-          >
-            <MoreVertical size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
-      </View>
-      
-      {item.subcategories && item.subcategories.length > 0 && (
-        <View style={styles.subcategoriesContainer}>
-          {item.subcategories.map((subcat) => (
-            <View key={subcat.id} style={styles.subcategoryItem}>
-              <View style={styles.subcategoryLeft}>
-                <View style={[styles.colorIndicator, { backgroundColor: subcat.color }]} />
-                <View style={styles.categoryInfo}>
-                  <View style={styles.categoryHeader}>
-                    <Text style={styles.categoryIcon}>{subcat.icon}</Text>
-                    <Text style={styles.subcategoryName}>{subcat.name}</Text>
+        
+        {item.subcategories && item.subcategories.length > 0 && (
+          <View style={styles.subcategoriesContainer}>
+            {item.subcategories.map((subcat) => (
+              <TouchableOpacity key={subcat.id} onPress={() => onSelectCategoryRoute || onSelectCategory ? handleSelectCategory(subcat) : {}}>
+                <View style={styles.subcategoryItem}>
+                  <View style={styles.subcategoryLeft}>
+                    <View style={[styles.colorIndicator, { backgroundColor: subcat.color }]} />
+                    <View style={styles.categoryInfo}>
+                      <View style={styles.categoryHeader}>
+                        <Text style={styles.categoryIcon}>{subcat.icon}</Text>
+                        <Text style={styles.subcategoryName}>{subcat.name}</Text>
+                      </View>
+                      {subcat.description && (
+                        <Text style={styles.categoryDescription}>{subcat.description}</Text>
+                      )}
+                    </View>
                   </View>
-                  {subcat.description && (
-                    <Text style={styles.categoryDescription}>{subcat.description}</Text>
-                  )}
+                  <View style={styles.categoryActions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={(e) => openMenu(subcat, e)}
+                    >
+                      <MoreVertical size={20} color="#666" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.categoryActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={(e) => openMenu(subcat, e)}
-                >
-                  <MoreVertical size={20} color="#666" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 
   const selectParentCategory = (parentCategory) => {
@@ -671,7 +673,7 @@ const CategoriesScreen = ({ navigation }) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={isBottomSheet ? [] : ['bottom', 'left', 'right']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>
@@ -683,23 +685,25 @@ const CategoriesScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={isBottomSheet ? [] : ['bottom', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {renderMenu()}
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ArrowLeft size={24} color="#007AFF" />
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('categoriesScreen.title', 'Categories')}</Text>
-        <TouchableOpacity onPress={handleAddCategory}>
-          <Plus size={24} color="#007AFF" />
-        </TouchableOpacity>
-      </View>
+      {!isBottomSheet && (
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <ArrowLeft size={24} color="#007AFF" />
+          </TouchableOpacity>
+          <Text style={styles.title}>{t('categoriesScreen.title', 'Categories')}</Text>
+          <TouchableOpacity onPress={handleAddCategory}>
+            <Plus size={24} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Category Type Filter */}
       <View style={styles.filterContainer}>
-        {(['income', 'expense', 'debt']).map((type) => (
+        {(forBudget ? ['expense', 'debt'] : forTransaction ? [getCategoryTypeForTransaction()] : ['income', 'expense', 'debt']).map((type) => (
           <TouchableOpacity
             key={type}
             style={[
@@ -761,6 +765,29 @@ const CategoriesScreen = ({ navigation }) => {
           </View>
 
           <ScrollView style={styles.modalContent}>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>{t('categoriesScreen.labels.type', 'Type')}</Text>
+              <View style={styles.filterContainerModal}>
+                {(['income', 'expense', 'debt']).map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.filterButton,
+                      formData.type === type && styles.filterButtonActive
+                    ]}
+                    onPress={() => setFormData(prev => ({ ...prev, type: type }))}
+                  >
+                    <Text style={[
+                      styles.filterText,
+                      formData.type === type && styles.filterTextActive
+                    ]}>
+                      {t(`categoriesScreen.types.${type}`, type.charAt(0).toUpperCase() + type.slice(1))}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             <View style={styles.formGroup}>
               <Text style={styles.label}>{t('categoriesScreen.labels.name', 'Name')} *</Text>
               <TextInput
@@ -1175,6 +1202,10 @@ const styles = StyleSheet.create({
   menuText: {
       fontSize: RFPercentage(1.8),
       color: '#333',
+  },
+  filterContainerModal: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
   },
 });
 

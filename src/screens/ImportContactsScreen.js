@@ -72,7 +72,7 @@ const ImportContactsScreen = ({ navigation, route }) => {
     if (!selectedContacts.length || !userId) return;
 
     try {
-      const user = realm.objectForPrimaryKey('User', userId);
+      const user = realm.objects('User')[0];
       const paid = user && (user.isPaid || user.userType === 'paid');
       const netState = await NetInfo.fetch();
       const netOn = netState.isConnected && netState.isInternetReachable;

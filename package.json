@@ -54,6 +54,7 @@
     "react-native-switch-pro": "^1.0.5",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-uuid": "^2.0.3",
+    "react-native-vector-icons": "^10.0.3",
     "realm": "^12.14.2"
   },
   "devDependencies": {

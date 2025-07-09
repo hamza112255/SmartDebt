@@ -17,7 +17,6 @@ import { realm, getAllObjects, createSyncLog } from '../realm';
 import { deleteBudgetInSupabase } from '../supabase';
 import { useNetInfo } from '@react-native-community/netinfo';
 import * as Progress from 'react-native-progress';
-import moment from 'moment';
 
 import { Plus, Edit, Trash2, MoreVertical, Tag } from 'lucide-react-native';
 
@@ -153,7 +152,7 @@ const BudgetScreen = () => {
 
     const renderItem = ({ item }) => {
         const category = categoryMap[item.categoryId];
-        const daysLeft = moment(item.endDate).diff(moment(), 'days');
+        const daysLeft = Math.ceil((new Date(item.endDate) - new Date()) / (1000 * 60 * 60 * 24));
         const progressColor = item.progress > 0.8 ? colors.error : (item.progress > 0.5 ? '#f59e0b' : colors.success);
 
         return (

@@ -225,22 +225,7 @@ function App({ currentLanguage }) {
   const [isLoading, setIsLoading] = useState(true);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncMessage, setSyncMessage] = useState('');
-  console.log('sync logs', realm.objects('SyncLog'))
-  console.log('accounts', realm.objects('Account'))
-  console.log('transactions', realm.objects('Transaction'))
-  //clear Transaction from realm
-  // realm.write(() => {
-  //   realm.delete(realm.objects('Transaction'));
-  // });
-  // realm.write(() => {
-  //   realm.delete(realm.objects('SyncLog'));
-  // });
-  // realm.write(() => {
-  //   realm.delete(realm.objects('ProxyPayment'));
-  // });
-  // realm.write(() => {
-  //   realm.delete(realm.objects('Account'));
-  // });
+  // Data initialization completed
 
   const updateBiometricState = (enabled) => {
     setIsBiometricEnabled(enabled);
@@ -672,7 +657,7 @@ function AppWrapper() {
           }
         }
       } catch (error) {
-        console.log('Error initializing language:', error);
+        // Language initialization failed, using default
       } finally {
         setLanguageInitialized(true);
       }

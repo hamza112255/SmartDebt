@@ -20,7 +20,6 @@ import uuid from 'react-native-uuid';
 import { useNetInfo } from '@react-native-community/netinfo';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
-import moment from 'moment';
 
 import StyledTextInput from '../components/shared/StyledTextInput';
 import StyledPicker from '../components/shared/StyledPicker';
@@ -110,7 +109,12 @@ const AddBudgetScreen = () => {
     };
 
     const formatDate = (date) => {
-        return moment(date).format('ddd, MMM DD, YYYY');
+        return new Date(date).toLocaleDateString('en-US', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit'
+        });
     };
 
     const handleCancel = () => {
